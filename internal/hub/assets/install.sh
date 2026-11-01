@@ -40,11 +40,32 @@ if [ "$(id -u)" -ne 0 ]; then
   if [ -w "$PREFIX" ] || [ "$OS" = "darwin" ]; then SUDO=""; else SUDO="sudo"; fi
 fi
 BIN="$PREFIX/cupola"
-TMP="$(mktemp)"
-echo "downloading cupola for $OS/$ARCH from $HUB"
-curl -fsSL "$HUB/install/cupola?os=$OS&arch=$ARCH" -o "$TMP"
-$SUDO install -m 0755 "$TMP" "$BIN"
-rm -f "$TMP"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+RELEASES="https://github.com/abcdlsj/cupola/releases/latest/download"
+ASSET="cupola_${OS}_${ARCH}.tar.gz"
+
+verify() {
+  if command -v sha256sum >/dev/null 2>&1; then SUM="sha256sum -c"; else SUM="shasum -a 256 -c"; fi
+  if [ -f "$TMP/checksums.txt" ]; then
+    (cd "$TMP" && grep " $1\$" checksums.txt > "$1.sum" && $SUM "$1.sum" >/dev/null 2>&1) || {
+      echo "checksum mismatch for $1" >&2; exit 1;
+    }
+  fi
+}
+
+if curl -fsSL "$RELEASES/$ASSET" -o "$TMP/$ASSET"; then
+  echo "downloading cupola $OS/$ARCH from the latest release"
+  curl -fsSL "$RELEASES/checksums.txt" -o "$TMP/checksums.txt" 2>/dev/null || true
+  verify "$ASSET"
+  tar -C "$TMP" -xzf "$TMP/$ASSET" cupola
+  $SUDO install -m 0755 "$TMP/cupola" "$BIN"
+else
+  echo "no release asset for $OS/$ARCH; downloading from $HUB"
+  curl -fsSL "$HUB/install/cupola?os=$OS&arch=$ARCH" -o "$TMP/cupola"
+  $SUDO install -m 0755 "$TMP/cupola" "$BIN"
+fi
 
 if [ "$OS" = "darwin" ]; then
   CONF_DIR="$HOME/.config/cupola"

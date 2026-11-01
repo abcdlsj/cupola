@@ -151,14 +151,50 @@ systemctl daemon-reload && systemctl enable --now cupola-hub
 Put TLS in front (Caddy, nginx or Cloudflare). The hub sets CSP, HSTS when it
 sees HTTPS, `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`.
 
-## Docker
+## Releases and images
+
+Tag a commit to publish binaries, checksums and multi-arch images:
 
 ```bash
-# hub (builds the PWA in the image)
-docker build -f deploy/Dockerfile.hub -t cupola-hub .
-# agent
-docker build -f deploy/Dockerfile.agent -t cupola-agent .
+git tag v1.0.0 && git push origin v1.0.0
 ```
+
+`.github/workflows/release.yml` then uploads, for linux/darwin × amd64/arm64:
+
+- `cupola_<version>_<os>_<arch>.tar.gz` plus a version-less alias
+  `cupola_<os>_<arch>.tar.gz` under `releases/latest/download/`
+- `checksums.txt` (SHA-256)
+
+and pushes `ghcr.io/abcdlsj/cupola:<version>`/`:latest` and
+`ghcr.io/abcdlsj/cupola-agent:<version>`/`:latest` for linux/amd64 and
+linux/arm64. CI builds both images on every pull request (no push) so a broken
+Dockerfile fails before release.
+
+`install.sh` downloads the latest release asset for the target platform and
+verifies it against `checksums.txt`; when the platform has no release asset (or
+the host blocks GitHub) it falls back to the hub's `/install/cupola`, which
+serves the hub's own binary.
+
+Binaries are CGO-free; the NVML GPU collector needs a local cgo build.
+
+## Docker
+
+Published images (multi-arch):
+
+```bash
+docker run -d --name cupola -p 8080:8080 \
+  -v cupola-data:/data \
+  -e CUPOLA_ADMIN_PASSWORD='a long password' \
+  -e CUPOLA_PUBLIC_URL=https://cupola.example.com \
+  ghcr.io/abcdlsj/cupola:latest
+
+docker run -d --name cupola-agent --network host -v /etc/cupola:/etc/cupola:ro \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  ghcr.io/abcdlsj/cupola-agent:latest
+```
+
+Build locally with `docker build -f deploy/Dockerfile.hub -t cupola-hub .` and
+`docker build -f deploy/Dockerfile.agent -t cupola-agent .`.
 
 `deploy/docker-compose.yml` runs both. The agent container uses `pid: host` and
 read-only `/proc`, `/sys`, `/etc/os-release`, `/etc/passwd`, `/etc/group` and the
