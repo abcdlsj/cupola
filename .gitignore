@@ -1,0 +1,29 @@
+# Go
+/bin/
+/dist/
+*.test
+coverage.out
+*.prof
+
+# Frontend
+web/node_modules/
+web/dist/
+web/.vite/
+web/playwright-report/
+web/test-results/
+web/.lighthouseci/
+
+# Local state
+.env
+.env.*
+!.env.example
+*.db
+*.db-wal
+*.db-shm
+data/
+/var/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
