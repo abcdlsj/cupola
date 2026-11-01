@@ -530,8 +530,10 @@ docs/
 | M4 | Services/containers/ports/sensors/GPU/SMART, alerts + webhook event rules, action audit | 3 d |
 | M5 | Relay, Docker, systemd, GitHub Pages, docs, Linux/beelink verification | 2 d |
 
-M0 stops for visual approval. Each milestone ends with tests, a commit and a
-short report. Do not chain M1 after M0 without approval.
+M0 is approved. The user asked for continuous delivery: implement M1–M5 end to
+end without intermediate approval, then a single unified acceptance. Each
+milestone still ends with tests and a commit; do not stop for milestone review.
+Keep `/nodes` as the table (option A).
 
 ### Acceptance
 

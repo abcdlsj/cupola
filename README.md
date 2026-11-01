@@ -21,10 +21,10 @@ dense, fast PWA.
 - **Every view has a URL.** Copy and share a node, process, agent session,
   service, container, app, alert or event, with its time range intact.
 
-> **Status: M0, the design gate.** The shell, tokens and five screens render a
-> fixture snapshot; there is no agent or hub yet. The build plan is
-> [docs/PLAN.md](docs/PLAN.md), the visual direction is
-> [docs/DESIGN.md](docs/DESIGN.md), and the milestone report is
+> **Status: v1 implementation in progress (M1–M5).** The shell, tokens and
+> screens are approved; the agent, hub, collectors and deployment are being
+> built. The build plan is [docs/PLAN.md](docs/PLAN.md), the visual direction
+> is [docs/DESIGN.md](docs/DESIGN.md), and the M0 report is
 > [docs/reports/M0.md](docs/reports/M0.md).
 
 ## Shape

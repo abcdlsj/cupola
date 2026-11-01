@@ -11,13 +11,14 @@ expand or shrink scope; update the plan when a decision changes.
 - The repository is **public**. Never commit secrets, tokens, connection
   strings, Cloudflare account IDs, SSH hosts/users/keys, real IPs/hostnames,
   database files or screenshots with real data.
-- Work milestone by milestone (`M0`…`M5`). At the end of each:
-  1. run all tests and the production build;
-  2. commit with a conventional message;
-  3. report what changed, with screenshots for UI milestones;
-  4. stop for review. Do not chain M1 after M0 without approval.
-- M0 is a visual gate: scaffold, tokens, shell, three/four screens with fake
-  data, taste-skill inspect, screenshots. No backend before approval.
+- M0 is approved. The user asked for continuous delivery: implement `M1`–`M5`
+  end to end without intermediate approval, then a single unified acceptance.
+- After each milestone: run all tests and the production build, commit with a
+  conventional message, and continue. Do not stop for milestone review.
+- Final acceptance requires the complete v1: agent, hub, all collectors,
+  actions/WOL, alerts + event webhooks, scoped curl API, URL routes, PWA,
+  relay, Docker, systemd, docs and the Linux/beelink verification.
+- Keep `/nodes` as the table (option A). Do not redesign it in this pass.
 
 ## Language
 
