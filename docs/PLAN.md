@@ -1,100 +1,81 @@
 # Cupola — build plan
 
-Status: awaiting approval. This document is the source of truth for scope,
-architecture and UI direction.
+Status: approved for implementation. This document is the source of truth for
+scope, architecture and design. Work happens on `main`; do not create feature
+branches or worktrees.
 
-## 1. Positioning
+## 1. Product
 
-Cupola is a Linux fleet monitor for people who run 1–50 boxes and want to
-know, in one glance, whether anything is wrong.
+Cupola is a self-hosted monitor for Linux fleets: VPSes, homelab boxes, Raspberry
+Pis and the machine under the desk. One small agent per host, one hub, and a
+fast PWA.
 
-- **Simpler than a full observability stack.** No Prometheus, Grafana,
-  Kubernetes or external database.
-- **Deeper than a status page.** Processes, AI agent sessions, systemd units,
-  containers, ports, sensors, SMART, GPU, pressure stalls.
-- **Better on a phone than most dashboards.** Installable PWA, iOS-safe
-  layout, touch-first tables, offline last-known state.
-- **No public server required.** Bolthole relay mode is a first-class
-  deployment, not an afterthought.
-- **Read-only.** Monitoring must not become a remote shell.
+It must be:
 
-Non-goals: multi-tenant SaaS, RBAC, APM, log search, tracing, synthetic
+- **simpler than a full observability stack** — no Prometheus, Grafana,
+  Kubernetes or external database;
+- **deeper than a status page** — processes, AI agent sessions, systemd units,
+  containers, ports, sensors, SMART, GPU, pressure stalls;
+- **better on a phone than most dashboards** — installable PWA, iOS-safe
+  layout, touch-first tables, offline last-known state;
+- **usable without a public server** — Bolthole relay is a first-class
+  deployment, not an add-on;
+- **read-only by default** — the only write action is an explicitly configured
+  local script, never an arbitrary shell.
+
+Non-goals for v1: multi-tenant SaaS, RBAC, APM, log search, tracing, synthetic
 browser checks, Kubernetes operator, Windows/macOS agents (best effort for
-development only).
+development only), arbitrary remote command execution.
 
-## 2. Product principles
+## 2. Architecture
 
-1. One question per screen. Overview answers “is anything wrong?”; a node page
-   answers “what is wrong?”; a process/agent page answers “who is doing it?”.
-2. Dense, not cluttered. Every pixel earns its place; no decorative cards.
-3. Read-only by default. Destructive actions are opt-in and never in v1.
-4. Small agent. Static Go binary, no runtime deps, < 30 MB RSS, < 1% CPU.
-5. Works without the relay. The relay is an optional transport, not a
-   dependency.
-6. No accounts, no telemetry, no third-party scripts, no web fonts fetched at
-   runtime.
-7. Data stays yours. SQLite in a directory you choose.
+### 2.1 Roles
 
-## 3. Architecture
+| Command | Runs on | Responsibility | State |
+| --- | --- | --- | --- |
+| `cupola agent` | every monitored host | collect metrics, serve a read-only local API, run configured actions | none (in-memory) |
+| `cupola hub` | one box / VPS / homelab | poll agents, store history, evaluate alerts, serve API + PWA | SQLite + config |
+| `cupola serve` | one box | hub with an embedded local agent | SQLite + config |
 
-### 3.1 Roles
+One binary, three subcommands. Packages are split by role; Docker images use
+the same binary with different entrypoints.
 
-| Binary / command | Responsibility | State |
-| --- | --- | --- |
-| `cupola agent` | collect host metrics, serve read-only HTTP API | none (in-memory) |
-| `cupola hub` | poll agents, store history, evaluate alerts, serve API + PWA | SQLite + config |
-| `cupola serve` | hub with an embedded local agent | SQLite + config |
+### 2.2 Transport: pull, with two dialers
 
-A single binary, three subcommands. Code is split into packages, not into
-separate repositories. Docker images use the same binary with different
-entrypoints.
-
-### 3.2 Transport: pull, with two dialers
-
-The hub **pulls** each agent every 5 seconds. Agents do not need to know where
-the hub is, and a hub restart does not require agent restarts.
+The hub **pulls** each agent. Agents do not need to know where the hub is.
 
 ```
 hub ── direct HTTP ──────────────▶ agent   (LAN / VPN / public VPS)
 hub ── Bolthole client ──▶ relay ──▶ agent (NAT, CGNAT, homelab)
 ```
 
-- `internal/transport.Dialer` abstracts `HTTPClient()`; implementations:
-  `direct` (plain `*http.Client`) and `bolthole` (Bolthole Go client).
-- The hub stores each node’s transport descriptor (URL or connection string)
-  encrypted at rest.
-- The agent can serve both at once: loopback HTTP for the local hub, plus an
-  optional Bolthole exposure for a remote hub.
+- `internal/transport.Dialer` returns an HTTP client; implementations `direct`
+  and `bolthole` (Go client).
+- Node transports (URL or connection string, including tokens/codes) are
+  encrypted at rest with a hub key.
+- The agent serves loopback HTTP plus an optional Bolthole exposure.
 
-Pull wins over push because:
-- the agent stays stateless and independent;
-- the hub controls cadence, backoff and history;
-- the same agent API can later be used by a browser in “lite” mode;
-- onboarding is “paste a connection string into the hub”, not “edit every
-  agent’s config”.
+Pull wins because the agent stays stateless, the hub controls cadence/backoff,
+and onboarding is “paste a connection string into the hub”.
 
-### 3.3 Dashboard transport
+### 2.3 Dashboard transport
 
-The PWA has two API clients behind one interface:
+One PWA, two API clients behind one interface:
 
-- `HttpApiClient`: same-origin fetch when the hub serves the UI, or any hub
-  base URL over HTTPS.
-- `BoltholeApiClient`: uses the `bolthole` npm package to reach a hub that
-  only exposes itself through a relay. The connection string lives in the URL
-  fragment and never reaches the relay.
+- `HttpApiClient` — same-origin when the hub serves the UI, or any HTTPS hub.
+- `BoltholeApiClient` — the `bolthole` npm package, for a hub that only exposes
+  itself through a relay. The connection string lives in the URL fragment.
 
-Two deployment paths follow:
+Deployment follows:
 
-1. **Self-hosted:** hub on a VPS/homelab with HTTPS. PWA served by the hub at
-   `https://hub.example.com`.
-2. **Relay:** hub runs anywhere, exposes itself via Bolthole, prints a
-   dashboard connection string. PWA is hosted statically (GitHub Pages) and
-   connects with that string. No inbound port, no public server.
+1. **Self-hosted:** hub on a VPS/homelab with HTTPS; PWA served by the hub.
+2. **Relay:** hub anywhere, exposed via Bolthole; static PWA on GitHub Pages
+   connects with the dashboard connection string. No inbound port, no public
+   server.
 
-The same PWA build is used in both cases. The static build is the canonical
-one; the hub embeds it for convenience.
+The same PWA build is used in both cases.
 
-### 3.4 Deployment matrix
+### 2.4 Deployment matrix
 
 | Mode | Hub | Agents | Dashboard | Public server? |
 | --- | --- | --- | --- | --- |
@@ -103,95 +84,72 @@ one; the hub embeds it for convenience.
 | All-in-one | `cupola serve` | embedded | localhost or relay | optional |
 | LAN only | `cupola hub` | direct HTTP | `http://hub:8080` | no |
 
-## 4. Data model and storage
+## 3. Metric collection: use libraries
 
-SQLite (pure-Go `modernc.org/sqlite`), WAL mode, one writer goroutine, batched
-inserts. No ORM; hand-written SQL and migrations embedded in the binary.
+Do not hand-roll `/proc` parsing except where a library does not cover the
+need. The dependency budget is deliberate; these are the chosen libraries.
 
-### 4.1 Tables
-
-- `nodes`: id, name, labels, transport (encrypted), agent version, os, kernel,
-  arch, created_at, last_seen, status.
-- `samples`: node_id, ts, cpu, cpu_user, cpu_system, cpu_iowait, cpu_steal,
-  mem_total, mem_used, mem_available, mem_cached, swap_used, load1/5/15,
-  net_rx_bps, net_tx_bps, disk_read_bps, disk_write_bps, procs, uptime,
-  pressure_cpu/mem/io.
-- `disk_samples`: node_id, ts, mount, used, total, inodes_used, inodes_total,
-  read_bps, write_bps, iops, latency_ms.
-- `net_samples`: node_id, ts, iface, rx_bps, tx_bps, errors, drops.
-- `process_samples` (optional, top N): node_id, ts, pid, name, cpu, rss.
-- `events`: node_id, ts, kind, severity, message, meta (JSON).
-- `alerts`: id, rule_id, node_id, state, first_seen, last_seen, resolved_at,
-  value, message.
-- `alert_rules`: id, name, kind, target, condition (JSON), duration, cooldown,
-  channels (JSON), enabled.
-- `sessions`: opaque bearer tokens for the UI (hashed), expires_at.
-- `settings`: admin hash, secret key metadata, retention.
-
-### 4.2 Rollups and retention
-
-- raw: 5s samples, 48 h.
-- 1m: min/avg/max, 30 d.
-- 1h: min/avg/max, 13 months.
-- Background aggregator runs every minute; retention prunes in batches.
-- Query API chooses a step from range and pixel width; returns min/avg/max for
-  long ranges, raw for short ones.
-
-### 4.3 Events
-
-Recorded, not just derived:
-- node online/offline, first seen;
-- reboot / uptime reset;
-- collector errors;
-- systemd unit entered failed state;
-- container restarted / died;
-- new listening port (diff against previous scan);
-- disk usage crossed 80/90/95%;
-- alert fired/resolved;
-- agent version changed.
-
-The UI shows “what changed”, which is usually more useful than another chart.
-
-## 5. Agent collectors
-
-Linux-first. macOS builds for local development, with reduced collectors.
-
-| Group | Source | Cadence |
+| Area | Library | Use |
 | --- | --- | --- |
-| host | `/etc/os-release`, uname, DMI, virt, boot time | 6 h |
-| cpu | gopsutil + `/proc/stat`, per-core, freq, steal/iowait | 5 s |
-| memory | gopsutil + `/proc/meminfo`, swap, available/cached | 5 s |
-| pressure | `/proc/pressure/{cpu,memory,io}` | 5 s |
-| disk | `/proc/diskstats`, `/proc/mounts`, statfs | 5 s |
-| network | `/proc/net/dev`, `/proc/net/tcp*`, retransmits | 5 s |
-| processes | `/proc/*/{stat,status,cmdline,cwd,io,fd}`, cgroup | 5 s |
-| AI agents | process scan + registry | 5 s |
-| ports | `/proc/net/tcp*` inode → pid | 15 s |
-| systemd | D-Bus, fallback `systemctl show --output=json` | 15 s |
-| containers | Docker/Podman HTTP API over unix socket | 15 s |
-| sensors | gopsutil sensors, `/sys/class/hwmon` | 30 s |
-| GPU | `nvidia-smi --query-*`, amdgpu hwmon | 15 s |
-| SMART | `smartctl --json` (optional) | 5 min |
-| updates | apt/dnf check, cached (optional) | 6 h |
-| users | utmp / gopsutil | 30 s |
+| CPU, memory, disks, network, host, users, sensors | `github.com/shirou/gopsutil/v4` | the base collector; cross-platform, widely used |
+| Linux detail: PSI, netdev, diskstats, conntrack, fd, mounts | `github.com/prometheus/procfs` | pressure stalls, counters, kernel detail |
+| Hardware inventory | `github.com/jaypipes/ghw` | CPU model, memory modules, block/NIC/PCI/GPU inventory; optional, cached |
+| NIC link speed/duplex/driver | `github.com/safchain/ethtool` | link state and speed |
+| systemd units + journal | `github.com/coreos/go-systemd/v22` | D-Bus unit state, failed units, journal events (failed SSH logins) |
+| Docker / Podman | `github.com/docker/docker/client` + `api/types` | official client over the unix socket; Podman via its Docker-compatible socket |
+| NVIDIA GPU | `github.com/NVIDIA/go-nvml` | utilization, VRAM, temperature, per-process GPU memory |
+| AMD GPU | sysfs `/sys/class/drm`, hwmon | best effort; no stable Go library |
+| SMART / NVMe health | `github.com/anatol/smart.go` | ATA/NVMe health, temperature, wear; fallback to `smartctl --json` for USB/SAS |
+| SQLite | `modernc.org/sqlite` | pure Go, no CGO |
+| Password hashing | `golang.org/x/crypto/argon2` | admin password |
+| Relay | `github.com/abcdlsj/bolthole` | agent exposure and hub dialer |
+| Process enumeration | `gopsutil/process` + `procfs` | process list; `procfs` only for cgroup/port mapping |
+| AI agent detection | small in-repo registry | no library exists; parse `cmdline`/`exe` basename |
+| Pending updates | `apt`/`dnf` exec, cached | no reliable cross-distro library; opt-in |
+| Wake-on-LAN | tiny in-repo packet builder | 102-byte magic packet; no dependency needed |
 
-Feature highlights:
-- **Pressure stalls (PSI)** alongside CPU/iowait/steal.
-- **Disk fill prediction** from a linear fit over 7 days.
-- **Port → process → cgroup → service/container** mapping.
-- **GPU per process** (NVIDIA first; AMD sysfs best effort).
-- **SMART** health, temperature, reallocated sectors, NVMe wear.
-- **Systemd restart counts** and failed units.
-- **Container CPU/RAM/restarts** without the Docker SDK (minimal API client).
-- **Pending updates** (apt/dnf) with a cached, opt-in check.
-- **Failed SSH logins** (journal) as an optional security signal, v1.1.
+Rules:
 
-### 5.1 AI agent detection
+- Wrap each library behind a `collector` interface with a fixture-backed test.
+- If a library is slow, cache its result at a slower cadence; do not fork it.
+- Build tags for optional collectors (`docker`, `nvml`, `smart`) if binary size
+  or CGO becomes a problem; default build includes Docker and NVIDIA on Linux.
+- Do not add the Docker SDK to the hub; only the agent uses it.
+- No `node_exporter` vendoring; it is not a library.
 
-A small registry (YAML embedded, later user-extensible) maps process patterns
-to a display name and category:
+## 4. Collectors and features
 
-| Display | Match (basename / argv) | Category |
+Linux-first. macOS builds for local development with reduced collectors.
+
+| Group | Cadence | Detail |
+| --- | --- | --- |
+| host | 6 h | distro, kernel, arch, virt, boot time, uptime, CPU model |
+| cpu | 5 s | total/per-core, user/system/iowait/steal, frequency, load 1/5/15 |
+| memory | 5 s | used/available/cached/buffers, swap, OOM kills |
+| pressure | 5 s | PSI cpu/memory/io some/full |
+| disk | 5 s | per mount usage/inodes; read/write Bps, IOPS, latency |
+| network | 5 s | per interface rx/tx, errors/drops; retransmits, conntrack |
+| processes | 5 s | top by CPU/RAM/IO, full list on demand, cgroups |
+| AI agents | 5 s | detection registry below |
+| ports | 15 s | listening sockets → inode → pid → cgroup → service/container |
+| systemd | 15 s | state, enabled, restarts, failed units |
+| containers | 15 s | state, image, uptime, CPU/RAM, restarts |
+| sensors | 30 s | temperatures, fans, voltages |
+| GPU | 15 s | NVIDIA via NVML; AMD sysfs; per-process VRAM |
+| SMART | 5 min | health, temperature, wear, reallocated sectors |
+| updates | 6 h | apt/dnf pending count, opt-in |
+| users | 30 s | logged-in sessions |
+
+Also: file descriptor count, inode usage, TCP retransmits, listen backlog,
+disk fill prediction (linear fit over 7 days), and a **changes timeline**
+(reboots, failed units, container restarts, new listening ports, threshold
+crossings).
+
+### 4.1 AI agent roster
+
+Embedded registry maps process patterns to a display name and category:
+
+| Display | Match | Category |
 | --- | --- | --- |
 | Codex | `codex` | coding agent |
 | Claude Code | `claude`, `claude-code` | coding agent |
@@ -199,433 +157,399 @@ to a display name and category:
 | Aider | `aider` | coding agent |
 | OpenCode | `opencode` | coding agent |
 | Gemini CLI | `gemini` | coding agent |
-| Pi | `pi` (with agent-specific args only) | coding agent |
+| Pi | `pi` with agent args | coding agent |
 | Goose | `goose` | coding agent |
-| Cline / Roo / Continue | known binary names | coding agent |
-| Ollama | `ollama`, `ollama runner` | model server |
+| Cline / Roo / Continue | known binaries | coding agent |
+| Ollama | `ollama`, runner | model server |
 | llama.cpp | `llama-server`, `llama-cli` | model server |
 | vLLM | `vllm` | model server |
-| ComfyUI | `comfyui`, `main.py` with ComfyUI cwd | model server |
+| ComfyUI | `comfyui`, ComfyUI `main.py` cwd | model server |
 
-Per session: type, pid, CPU%, RSS, start time, runtime, cwd basename, tty,
-parent chain, container/service. Arguments after a safe prefix are redacted by
-default. Never read environment variables, file contents or prompts.
+Per session: type, pid, CPU%, RSS, start time, runtime, project directory
+basename, tty, parent chain, container/service. Command arguments after a safe
+prefix are redacted by default. Never read env, prompts or file contents.
 
-Aggregated view: sessions per type, total CPU/RAM, longest running, “agent
-started/stopped” events.
+**Icons:** use the preset agent marks from Warren, copied to
+`web/public/agents/` and rendered as monochrome CSS masks at 16 px. Source:
+`warren/Packages/WarrenIOS/Sources/WarrenIOS/Resources/PresetIcons.xcassets`
+(Codex, Claude, Pi, OpenCode, Qoder, Antigravity, Trae, shell, zsh). Missing
+marks get a neutral terminal glyph and the type name; do not invent brand
+logos. Record provenance and trademark attribution in `docs/ASSETS.md`.
 
-### 5.2 Agent API
+## 5. Remote actions / apps
 
-Bound to `127.0.0.1:45876` by default, bearer token required (except
-`/healthz`).
+A node can expose **actions**: small, preconfigured local scripts or built-in
+Wake-on-LAN, presented as a grid of clickable app tiles. The primary use is
+waking another LAN machine from a phone.
 
-```
-GET /healthz
-GET /v1/snapshot          # host, cpu, mem, disks, nets, psi, sensors, gpu,
-                          # top processes, agents, services/containers summary
-GET /v1/processes?sort=cpu|mem|io&limit=&q=
-GET /v1/agents
-GET /v1/services
-GET /v1/containers
-GET /v1/ports
-GET /v1/events?since=
-GET /v1/stream            # SSE, 1 Hz live values (optional)
-```
+### 5.1 Definition (agent-side only)
 
-Expensive collectors are separated so the hub can poll them less often. The
-snapshot is always cheap enough for 5 s cadence on a 1-core VPS.
+```yaml
+actions:
+  - id: wake-desk
+    name: Wake desk
+    description: Wake the Windows PC in the study
+    icon: wake                  # built-in slug, or an uploaded raster on the hub
+    type: wol
+    mac: "AA:BB:CC:DD:EE:FF"
+    broadcast: 192.168.1.255
+    allow_api: true
 
-## 6. Hub
-
-### 6.1 Poller
-
-- Per-node goroutine with jitter, exponential backoff (1s → 5m), timeout 10s.
-- Fast poll (snapshot + top processes) every 5 s.
-- Medium poll (services, containers, ports) every 15 s.
-- Slow poll (SMART, sensors, GPU, inventory) every 1–5 min.
-- On failure: mark degraded after 2 misses, offline after 6; emit events.
-- Coalesce writes; never block the UI on disk.
-
-### 6.2 Alert engine
-
-- Evaluate every 10 s.
-- Rule kinds: metric threshold, node offline, process missing, systemd unit
-  not active, container not running, SMART unhealthy, disk fill prediction.
-- Duration + cooldown; resolve notifications; maintenance windows (v1.1).
-- Channels v1: generic webhook, ntfy, Discord, Slack, Telegram.
-- Test button in UI; last delivery status stored.
-- No email in v1 (SMTP is a v1.1 candidate).
-
-### 6.3 API
-
-```
-POST /api/v1/auth/login          -> {token}
-GET  /api/v1/auth/me
-GET  /api/v1/fleet/summary
-GET  /api/v1/nodes
-POST /api/v1/nodes               {name, transport}
-PATCH/DELETE /api/v1/nodes/{id}
-POST /api/v1/nodes/{id}/test
-GET  /api/v1/nodes/{id}/snapshot
-GET  /api/v1/nodes/{id}/series?metrics=cpu,mem&from=&to=&step=
-GET  /api/v1/nodes/{id}/processes
-GET  /api/v1/nodes/{id}/agents
-GET  /api/v1/nodes/{id}/services
-GET  /api/v1/nodes/{id}/containers
-GET  /api/v1/nodes/{id}/ports
-GET  /api/v1/nodes/{id}/events
-GET  /api/v1/events
-GET  /api/v1/alerts
-GET/POST/PATCH/DELETE /api/v1/alerts/rules
-POST /api/v1/alerts/test
-GET  /api/v1/stream              # SSE fleet updates
+  - id: backup-now
+    name: Backup now
+    description: Run the nightly restic job
+    icon: backup
+    type: script
+    script: /usr/local/lib/cupola/backup.sh
+    timeout: 60s
+    danger: false
+    allow_api: false
 ```
 
-- JSON, Unix milliseconds, binary units labeled (`bytes`, `bps`, `°C`).
-- Bearer token auth; opaque tokens hashed at rest; 30-day expiry, revocable.
-- CORS allowlist for the static PWA origin; no cookies, so no CSRF surface.
-- Rate limit login and node creation.
+- Actions are defined **only** in the agent config (root-owned, mode 0600) or
+  via a local agent admin command. The hub cannot create or edit scripts.
+- `type: script` executes the file directly with `exec.CommandContext`, no
+  shell, no user-supplied arguments, a fixed working directory and a scrubbed
+  environment. `type: wol` builds a magic packet; no script required.
+- The agent advertises only id, name, description, icon, danger, `allow_api`,
+  last run and never the script path, MAC or secrets.
+- Concurrency: one run per action per node. Timeout capped at 60 s. Output
+  captured up to 8 KiB; the rest discarded and marked truncated.
+- Results are events: actor, token name, source, exit code, duration, output
+  (optional, truncated), never in application logs.
 
-### 6.4 Auth and secrets
+### 5.2 UI
 
-- First run: generate admin password, print once to the console, force change
-  in the UI. Argon2id hash.
-- Agent tokens: generated by the agent, stored `0600`; included in the
-  connection string.
-- Node transports (including agent tokens and Bolthole codes) encrypted with
-  a hub secret key stored `0600` (`/var/lib/cupola/secret.key`), or supplied
-  via `CUPOLA_SECRET`.
-- Never log tokens, codes or full command lines.
+- **Apps** tab on each node and a compact app strip on the overview.
+- Tile: icon, name, one-line description, last run/status. Click → confirmation
+  sheet naming node + action → run → result sheet with exit code, duration and
+  output. `danger: true` requires typing the action name.
+- Built-in icon set (wake, power, restart, backup, docker, update, terminal,
+  shield, disk, network) plus custom icons: PNG/WebP only, max 256×256 and
+  256 KiB, stored under the hub data dir. No SVG upload (XSS); sanitize and
+  re-encode.
+- URL route: `/nodes/:nodeId/apps/:actionId`.
 
-## 7. UI / UX
+### 5.3 Curl API
 
-### 7.1 Direction: precision instrument, paper and ink
+Only a small, explicit write surface is token-callable.
 
-References: Beszel’s restraint, Linear’s typography and keyboard feel,
-Stripe’s data tables, btop’s information density, Braun/Teenage Engineering
-instrument panels. Not a landing page. Not a generic admin template.
+- API tokens have scopes: `read`, `actions:run`; optional node and action
+  allowlists; expiry; revocable; hashed at rest; shown once.
+- `POST /api/v1/nodes/{id}/actions/{action}/run` requires `actions:run`, the
+  action’s `allow_api: true`, and a matching allowlist. No other writes are
+  exposed in v1 (no config, delete, kill, or shell).
+- Synchronous result by default (timeout ≤ 60 s), JSON with `ok`, `exit_code`,
+  `stdout`, `stderr`, `duration_ms`, `run_id`. Rate limit per token/action.
+- Every call writes an audit event with token name, source IP, node, action,
+  result. Never log the token.
+- Example:
 
-Hard rules (also in `AGENTS.md`):
-- No gradients, glassmorphism, neon glow, emoji icons, stock illustrations.
-- No default shadcn look, no purple, no giant rounded cards.
-- One accent color; status colors only for status.
-- 1 px hairlines, 4–6 px radii, almost no shadow.
-- Tabular numerals everywhere; values never shift layout.
-- Charts are line/step, not smoothed marketing curves; no gradient fills.
-- Motion 120–160 ms, ease-out; no chart animation on live ticks.
-- Every empty state says what to do next; every loading state is a skeleton.
-- Dark mode is designed, not inverted.
+```bash
+curl -fsS -X POST \
+  -H "Authorization: Bearer $CUPOLA_TOKEN" \
+  https://hub.example.com/api/v1/nodes/homelab/actions/wake-desk/run
+```
 
-### 7.2 Tokens
+## 6. URL router
 
-Light:
+Every object and view is addressable, copyable and shareable. No state that
+matters lives only in component memory.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| `--bg` | `#F5F2EC` | page |
-| `--surface` | `#FBFAF7` | cards, tables |
-| `--ink` | `#161616` | primary text |
-| `--muted` | `#6F6A61` | secondary text |
-| `--line` | `#DED8CC` | borders, grid |
-| `--accent` | `#D9480F` | selection, links, primary action |
-| `--ok` | `#2F7D4F` | healthy |
-| `--warn` | `#B7791F` | warning |
-| `--crit` | `#C0392B` | critical |
-| `--info` | `#2563A8` | informational |
+```
+/                                   overview
+/nodes                              fleet list
+/nodes/:nodeId                      node overview
+/nodes/:nodeId/cpu|memory|storage|network
+/nodes/:nodeId/processes[/:pid]
+/nodes/:nodeId/agents[/:sessionId]
+/nodes/:nodeId/services[/:unit]
+/nodes/:nodeId/containers[/:containerId]
+/nodes/:nodeId/apps[/:actionId]
+/nodes/:nodeId/events
+/alerts                             active + history
+/alerts/rules/:ruleId
+/events[/:eventId]
+/settings/nodes|alerts|tokens|retention|appearance|about
+```
 
-Dark:
+- Query state: `?range=1h&from=&to=&q=&sort=&filter=`.
+- Tabs are links, not local state; detail views are routes, not unaddressable
+  modals. Browser back/forward must work, including iOS edge-swipe.
+- A copy-link action on every detail header and table row; links preserve the
+  time range and filters.
+- Node IDs are stable short IDs; names are a display slug only. Encoded IDs
+  (`unit`, `containerId`) must round-trip through `encodeURIComponent`.
+- Deep links to a missing/renamed object show a “not found” state with a link
+  back to the fleet, not a blank page.
 
-| Token | Value |
-| --- | --- |
-| `--bg` | `#0F100F` |
-| `--surface` | `#171817` |
-| `--ink` | `#ECE9E2` |
-| `--muted` | `#928C81` |
-| `--line` | `#2A2B28` |
-| `--accent` | `#FF6B3D` |
-| `--ok` | `#5DBB84` |
-| `--warn` | `#E0A44A` |
-| `--crit` | `#F06A5E` |
-| `--info` | `#6FA8DC` |
+## 7. Alerts and events
 
-Type: IBM Plex Sans (UI) + IBM Plex Mono (numbers, IDs, commands), self-hosted
-and subset. 13 px UI base, 12 px tables, 28–32 px metric values, 11 px labels
-with 0.04em tracking. `font-variant-numeric: tabular-nums`.
+### 7.1 Rules
 
-Grid: 8 px base; page padding 20/24/32 px at mobile/tablet/desktop; max content
-width 1440 px.
+- Metric threshold: CPU, memory, disk %, inode %, load, temperature, PSI.
+- Node offline; process missing; systemd unit not active; container not
+  running; SMART unhealthy; disk fill prediction.
+- **Event rule (new):** match event kind(s), severity and optional node; notify
+  a webhook. Users can add their own alert from the Events page or Alerts page.
+- Duration, cooldown, resolve notification, maintenance window (v1.1).
 
-Icons: Phosphor, 1.5 px stroke, 16/18 px. Logo: a simple dome/cupola mark
-(semicircle + slit), monochrome SVG; wordmark in Plex Mono.
+### 7.2 Channels
 
-### 7.3 Layout
+- Generic webhook (URL, optional HMAC secret, custom headers limited to safe
+  names), ntfy, Discord, Slack, Telegram.
+- **User-added webhook links:** create from Events → “Alert me about this” or
+  Alerts → New rule → Event. Choose event kinds/severity/node, paste the
+  webhook URL, optional signing secret, test delivery.
+- Webhook payload is stable JSON: event id/kind/severity/node/message/time and
+  a hub link. Signature header `X-Cupola-Signature: sha256=…` over the raw
+  body when a secret is set. 5 s timeout; 3 retries with backoff; delivery
+  status stored.
+- SSRF guard: block loopback/link-local/private IP targets unless the hub
+  operator explicitly sets `CUPOLA_ALLOW_PRIVATE_WEBHOOKS=1`; resolve DNS and
+  check all addresses; no redirects followed.
+- Secrets encrypted at rest; webhook URLs are secrets (they can contain keys);
+  never log the full URL.
 
-Desktop (≥ 1200 px): 232 px left rail with fleet, nodes, alerts, settings;
-sticky top bar (breadcrumb, time range, live toggle, command palette); content
-grid 12 columns.
+## 8. Data model and storage
 
-Tablet (768–1199): rail collapses to icons + labels on hover.
+SQLite (pure Go), WAL, one writer, batched inserts, embedded migrations.
 
-Mobile (< 768): top app bar (node name, status, overflow) + bottom nav
-(Overview, Nodes, Alerts, More); node tabs horizontally scrollable with a
-sticky header; tables become stacked cards; safe-area insets; 44 px targets;
-no hover-only controls; charts full width.
+- `nodes`: id, name, labels, transport (encrypted), agent version, os, kernel,
+  arch, created_at, last_seen, status.
+- `samples`: node_id, ts, cpu fields, memory fields, load, net/disk rates,
+  procs, uptime, pressure.
+- `disk_samples`, `net_samples`; `process_samples` (top N).
+- `events`: node_id, ts, kind, severity, message, meta JSON.
+- `alerts`, `alert_rules` (including event rules), `alert_deliveries`.
+- `actions`, `action_runs` (metadata + truncated output).
+- `sessions`, `api_tokens` (hashed, scopes, allowlists), `settings`.
 
-### 7.4 Screens
+Retention: raw 5 s for 48 h; 1 m rollups for 30 d; 1 h rollups for 13 months.
+Events and action runs keep 90 d. Query step chosen from range and pixel width;
+long ranges return min/avg/max.
 
-1. **Overview**
-   - Fleet strip: nodes online, active alerts, average CPU, total network.
-   - Node cards: name, status dot, OS/kernel, uptime, four sparklines
-     (CPU, memory, disk, network), top alert badge.
-   - “Needs attention” list: failed units, disks > 85%, offline nodes,
-     restarts, new ports.
-   - Recent events.
+## 9. API sketch
 
-2. **Node detail**
-   - Header: name, status, IP, OS, kernel, uptime, labels, actions
-     (pause, edit, delete).
-   - Tabs: Overview, CPU, Memory, Storage, Network, Processes, Agents,
-     Services, Containers, Events.
-   - Overview: six metric tiles, four charts, top processes, agent roster,
-     services summary.
-   - Charts: shared crosshair, threshold lines, min/max band for long ranges,
-     annotations for events.
+Agent (bearer): `/healthz`, `/v1/snapshot`, `/v1/processes`, `/v1/agents`,
+`/v1/services`, `/v1/containers`, `/v1/ports`, `/v1/actions`,
+`POST /v1/actions/{id}/run`, `/v1/events?since=`, `/v1/stream`.
 
-3. **Processes**
-   - Search, sort, filter (all / AI agents / services / containers / listening).
-   - Columns: PID, PPID, user, CPU%, RSS, I/O, threads, started, command.
-   - Expand row: cwd, cgroup, container, service, open port count, parent.
-   - “Redact arguments” toggle, on by default.
-   - Read-only in v1. No kill button.
+Hub (bearer): `/api/v1/auth/login|me`, `/fleet/summary`, `/nodes` CRUD + test,
+`/nodes/{id}/snapshot|series|processes|agents|services|containers|ports|events|actions`,
+`/nodes/{id}/actions/{action}/run`, `/events`, `/alerts`, `/alerts/rules`,
+`/alerts/deliveries`, `/alerts/test`, `/tokens`, `/stream` (SSE).
 
-4. **Agents**
-   - Cards per type: sessions, total CPU/RAM, longest runtime.
-   - Session table: pid, project, runtime, CPU, RAM, tty, parent.
-   - Empty state explains what is detected and how to add patterns (v1.1).
+JSON, Unix milliseconds, units labeled, errors `{error:{code,message}}`.
 
-5. **Services / Containers**
-   - systemd units: state, enabled, restarts, memory.
-   - Containers: state, image, uptime, CPU, RAM, restarts.
-   - Filter: failed / running / all.
+## 10. UI / UX
 
-6. **Events**
-   - Timeline with severity and node filter; jump to node/metric.
+### 10.1 Direction: data terminal
 
-7. **Alerts**
-   - Active alerts, history, rule editor, channels, test delivery.
+Chosen from the taste-skill app drawer (seed `956138436`, style
+`data-terminal`, theme dark, kind `markets`). It is a monitoring screen read in
+long sessions: dense, monochrome numbers, colour only on data and status, and
+every selection marked by the same 1 px accent line. This replaces the earlier
+cream-paper/ink direction, which is explicitly rejected as AI slop.
 
-8. **Settings**
-   - Nodes (add/test/remove), retention, auth, appearance, API tokens,
-     export, about.
+Full sheet and tokens: `docs/DESIGN.md` and `docs/design/direction.json`.
 
-### 7.5 Interaction
+- Ground `#171719`, surface `#131217`, raised `#212023`, border `#222224`,
+  rule `#1b1a1f`, text `#fff`, muted `#8a8c92`, accent `#4a8ad6`.
+- Status: positive `#44a282`, negative `#e5566f`, warning `#d9a441`; pale
+  tint/dark text pills.
+- Radius: cards 6 px, controls pill (999 px); one shadow only for floating
+  menus/dialogs. No card shadow.
+- Type: Public Sans for UI, IBM Plex Mono for **all figures, timestamps and
+  IDs**; tabular, right-aligned in tables. Sizes 26/20/20/13/12. This is the
+  style’s deliberate mono decision; the taste-skill inspector will flag mono —
+  defend it in the report.
+- Shell: 50–60 px icon rail on desktop with the Cupola mark, 48 px top bar,
+  dense 42 px table rows, 24 px gap, 32 px page padding. Phone: bottom bar of
+  four destinations + labels; the rail disappears.
+- Selection: 1 px accent line exactly as wide as the label, on the nearest
+  edge; no filled pill tabs, no coloured segmented controls.
+- Charts: one hue per chart; chart-1 white/ink, chart-2 negative red, chart-3
+  accent blue; 3–5 faint gridlines, no y-axis line, no legend for one series,
+  straight 2 px lines, no gradients, no point markers, no chart animation.
+- No emoji, no gradients, no glass, no glow, no icons in tinted squares, no
+  sparklines on KPIs, no rainbow charts, no uppercase tracked headers, no
+  zebra rows.
+- KPI values 20 px at 400–500, not 48 px; the biggest figure answers the
+  screen’s question.
 
-- Command palette `⌘K` / `Ctrl+K`: jump to node, tab, range, theme.
-- Shortcuts: `g o` overview, `g n` nodes, `/` search, `r` refresh, `?` help.
-- URL state for node, tab, range, filters.
-- Live/pause toggle; “last updated 2s ago”; offline badge.
-- Optimistic UI for settings; error toasts with retry.
-- No spinners for sub-300 ms loads; skeletons with hairline blocks.
-- Accessibility: WCAG AA, visible focus, semantic tables, `prefers-reduced-motion`,
-  no live-region spam for charts.
+**Signature element (only Cupola): the fleet horizon.** On the overview, one
+full-width band with one vertical mark per node on a common baseline; height is
+live CPU/load pressure, a 1 px accent line marks the selected node, status
+colour only for degraded/offline, labels on hover/tap, click routes to the
+node. It is the first thing read and answers “is anything wrong?”. The node
+count, the finding sentence and the app action sit beside it.
 
-### 7.6 PWA / iOS
+**Agent roster** is the second signature: Warren’s monochrome marks at 16 px,
+grouped by type, with session counts, aggregate CPU/RAM and runtime. No tinted
+icon squares.
 
-- `manifest.webmanifest`: standalone, `start_url=/`, scope `/`, theme/background
-  matching paper/ink, 192/512/1024 icons + maskable.
-- Service worker: precache app shell; runtime cache static assets; network-first
-  API with last-known snapshot fallback in IndexedDB; explicit offline banner
-  with last-updated time.
-- iOS: `apple-mobile-web-app-capable`, `viewport-fit=cover`, `dvh` not `vh`,
-  safe-area padding, `apple-touch-icon`, status bar style, no 100vh traps,
-  bottom nav above the home indicator, install instructions sheet
-  (Share → Add to Home Screen), standalone detection.
-- Test matrix: Safari iOS (WebKit) 390×844, Chrome Android 393×873, iPad
-  820×1180, desktop 1440×900.
-- Web Push: not v1. In-app alert badge + ntfy integration first.
+### 10.2 Screens
 
-## 8. Frontend stack
+1. **Overview:** fleet horizon; finding line; attention list (failed units,
+   disks > 85%, offline nodes, recent restarts, new ports); node table with
+   CPU/mem/disk/net; recent events; app strip.
+2. **Nodes:** filterable table; status, OS, uptime, load, memory, disk,
+   last seen; row links.
+3. **Node detail:** header (name, status, IP, OS, kernel, uptime, labels,
+   actions); tabs Overview / CPU / Memory / Storage / Network / Processes /
+   Agents / Services / Containers / Apps / Events; URL-addressable tabs.
+4. **Processes:** search, sort, filter; PID, PPID, user, CPU, RSS, IO,
+   threads, started, command; expand for cwd/cgroup/container/ports; redact
+   args by default; read-only.
+5. **Agents:** type cards + session table; pid, project, runtime, CPU, RAM,
+   tty, parent; empty state explains detection.
+6. **Services / Containers:** state, restarts, memory; failed filter.
+7. **Apps:** action tiles; run/confirm/result; custom icon upload.
+8. **Events:** timeline, filters; “Alert me about this” → webhook rule.
+9. **Alerts:** active/history, rule editor (metric/event), channels, test.
+10. **Settings:** nodes, tokens (scopes/allowlists), retention, appearance,
+    about, export.
 
-- React 19 + TypeScript + Vite.
-- Tailwind CSS v4 with CSS variables; no component library defaults. Radix
-  primitives (unstyled) for dialog, popover, tabs, tooltip, switch.
-- uPlot for time series; custom SVG sparklines.
-- TanStack Query for REST; SSE for live values; IndexedDB for offline cache.
-- React Router; Zod for API boundaries.
-- `vite-plugin-pwa` for manifest/service worker.
-- Phosphor icons; IBM Plex fonts self-hosted.
-- Tests: Vitest + Testing Library; Playwright (Chromium + WebKit) for flows and
-  screenshots at the three breakpoints; axe for accessibility.
+### 10.3 Phone / PWA
 
-Budget: initial JS < 220 KB gzip, fonts < 120 KB, LCP < 1.5 s on LAN,
-CLS < 0.02, no runtime font/CDN requests.
+- 390×844 first; bottom bar, 16–20 px margins, 44 px targets, no hover-only
+  controls, no horizontal page scroll; tables become two-line rows, fields
+  move to line 2 and are never dropped.
+- One row of controls above a chart; tabs scroll in their own row.
+- `dvh`, `viewport-fit=cover`, safe-area padding; iOS install sheet (Share →
+  Add to Home Screen); standalone detection.
+- PWA: manifest, shell precache, network-first API, last-known snapshot in
+  IndexedDB, explicit offline banner with last-updated time. No Web Push in v1.
+- Test WebKit iPhone, Chromium Pixel, iPad, desktop; screenshot each.
 
-## 9. Backend stack
+### 10.4 Design gate
 
-- Go 1.25+, single static binary. `net/http` with Go 1.22 route patterns;
-  `slog`; `embed` for the PWA.
-- `gopsutil/v4` for cross-platform basics; `prometheus/procfs` and sysfs for
-  Linux detail.
-- Minimal Docker/Podman API client over unix socket (no Docker SDK).
-- systemd via `coreos/go-systemd/v22` D-Bus, fallback to `systemctl`.
-- SQLite via `modernc.org/sqlite`; hand-written SQL; embedded migrations.
-- Bolthole Go client/agent for relay transport.
-- Argon2id for the admin password; opaque session tokens.
-- Tests: collector fixtures under `testdata/proc`, store tests, API tests with
-  `httptest`, an optional Linux integration test.
+The implementing agent must read `docs/DESIGN.md`, then run:
 
-## 10. Repository layout
+```bash
+node /tmp/taste-skill/skills/taste-skill/scripts/lint.mjs --app web/src
+node /tmp/taste-skill/skills/taste-skill/scripts/inspect.mjs --app http://localhost:5173
+```
+
+(Clone the skill to `/tmp/taste-skill` with the codeload tarball if it is not
+there.) 0 FAIL at 1440, 768 and 390 on the **production build**; fix WARNs or
+defend each in the report. Look at every screenshot; do not report without
+looking.
+
+## 11. Stack
+
+- Go 1.25+; `net/http`; `slog`; `embed`; SQLite `modernc.org/sqlite`.
+- React 19 + TypeScript + Vite + Tailwind v4 + uPlot (custom theme, no
+  defaults) + Radix primitives + Phosphor icons + TanStack Query + React Router
+  + Zod; `vite-plugin-pwa`.
+- Fonts self-hosted: Public Sans + IBM Plex Mono.
+- Tests: Go fixtures, `httptest`, Vitest, Playwright (Chromium + WebKit),
+  axe; taste-skill inspect gate.
+
+## 12. Repository layout
 
 ```
 cmd/cupola/                 main, subcommands
 internal/
-  agent/                    agent lifecycle, API, auth
+  agent/                    lifecycle, API, auth, actions
     collect/                one file per collector
-    linux/                  /proc, /sys parsers
-  hub/                      poller, API, auth, alerts, store
+    linux/                  only where libraries do not cover
+  hub/                      poller, API, auth, alerts, actions proxy, store
     store/                  schema, migrations, rollups
   model/                    shared types
   transport/                direct + bolthole dialers
   version/
 web/
-  src/
-    app/                    routes, shell, providers
-    features/               overview, node, processes, agents, alerts, settings
-    components/             custom primitives, charts, tables
-    lib/                    api clients, format, hooks
-    styles/                 tokens, base, utilities
-  public/                   icons, manifest, offline page
-deploy/
-  Dockerfile.hub
-  Dockerfile.agent
-  docker-compose.yml
-  systemd/
+  src/{app,features,components,lib,styles}
+  public/agents/            Warren preset marks + attribution
+deploy/                     Dockerfiles, compose, systemd
 docs/
-  PLAN.md
-  API.md
-  DEPLOY.md
-  DESIGN.md
+  PLAN.md  DESIGN.md  API.md  DEPLOY.md  ASSETS.md
+  design/direction.json
 .github/workflows/          ci, release, pages
 ```
 
-## 11. Deployment
+## 13. Deployment
 
-### 11.1 Docker (hub + agent)
+- Docker multi-arch (`amd64`, `arm64`): hub distroless non-root; agent slim
+  Debian with smartmontools, host mounts (`/proc`, `/sys`, `/etc/os-release`,
+  `/etc/passwd`, `/etc/group`, optional Docker socket), `pid: host`.
+- systemd units for hub and agent; agent needs read access to `/proc` and
+  optional capabilities for SMART/NVML.
+- GitHub Releases static binaries; install script with checksum.
+- Relay quick start: `cupola agent --relay …` prints a connection string;
+  `cupola hub --relay …` prints a dashboard link; static PWA connects with the
+  code in the fragment.
+- PWA static build deployed to GitHub Pages; hub embeds the same build.
 
-- Multi-arch images `linux/amd64`, `linux/arm64`.
-- Hub: distroless/static, non-root, volume `/var/lib/cupola`, port 8080.
-- Agent: slim Debian with `smartmontools` and `ca-certificates`; host mounts:
-  `/proc`, `/sys`, `/etc/os-release`, `/etc/passwd`, `/etc/group`,
-  optional `/var/run/docker.sock:ro`; `pid: host` for host process view;
-  `CUPOLA_PROC_ROOT=/host/proc`, `CUPOLA_SYS_ROOT=/host/sys`.
-- Compose example starts hub + local agent; remote agents use the same image.
-- Document that systemd binary mode gives the best fidelity; container mode is
-  convenient but needs host mounts and root.
+## 14. Security and repository hygiene
 
-### 11.2 Binary / systemd
+- Agent loopback-only by default; bearer token; constant-time compare.
+- Hub bearer tokens, hashed; Argon2id admin password; rate limits; CSP; HSTS;
+  CORS allowlist.
+- Actions: no shell, no user input, fixed scripts, confirmation for dangerous
+  actions, one run at a time, audit events.
+- Webhooks: SSRF guard, HMAC, retries, secrets encrypted, full URL never
+  logged.
+- No remote process kill or service restart in v1.
+- Never commit: tokens, connection strings, Cloudflare credentials/account IDs,
+  SSH hosts/users/keys, real hostnames/IPs, database files, `.env`, screenshots
+  with real data.
+- Use fake data in tests/screenshots (`atlas`, `beelink`, `studio`) unless a
+  real hostname is essential; then redact before committing.
+- `.env.example` only; secrets via environment or files with mode 0600.
+- Before every push: `git status`, `git diff --cached`, search for secrets,
+  confirm no `node_modules`, no `*.db`, no `.wrangler/`.
 
-- GitHub Releases: static `cupola` for amd64/arm64.
-- `cupola agent` and `cupola hub` systemd units with hardening
-  (`ProtectSystem=strict`, `ReadOnlyPaths`, `NoNewPrivileges` where possible;
-  agent needs `/proc` read).
-- Install script optional; checksum + signature.
+## 15. Verification
 
-### 11.3 Relay quick start
+1. `go test ./...`, `go vet ./...`; frontend lint/test/build.
+2. Local: hub + agent on macOS with reduced collectors; UI at 390/768/1440.
+3. **Linux host `beelink`** over SSH: build `linux/amd64`, install agent, run a
+   hub locally or on the host; verify CPU/mem/disk/net/PSI/processes/AI roster/
+   systemd/containers/sensors/SMART/GPU as available; install the PWA on a
+   phone and test over relay.
+4. Relay: local Bolthole relay first; then optionally Cloudflare Worker.
+5. **Cloudflare Worker:** allowed, but the route constraint is ambiguous
+   (“2 个纯数字域名”). Ask the user for the exact zone and two-digit
+   subdomain before creating a route. Prefer `wrangler dev`; if deployed,
+   delete the Worker, route and DNS record afterwards. Never commit
+   `wrangler.toml` account IDs, API tokens or `.dev.vars`.
+6. WOL: if the target LAN and MAC are available, verify wake end-to-end; do not
+   commit the MAC/broadcast.
 
-```
-# on a monitored box
-cupola agent --relay wss://relay.example --code-file /var/lib/cupola/agent.code
-# prints a cupola:// connection string
-
-# on the hub box (homelab, no public port)
-cupola hub --relay wss://relay.example --code-file /var/lib/cupola/hub.code
-# prints a dashboard link: https://app.example/#c=...
-```
-
-Paste agent connection strings into the hub UI. The relay only sees ciphertext
-and timing/size metadata.
-
-## 12. Security
-
-- Threat model: relay untrusted; agent host trusted; hub is the trust boundary.
-- Agent API loopback-only by default; bearer token; constant-time compare.
-- Hub over HTTPS in public mode; HSTS; CSP with no inline scripts; CORS
-  allowlist.
-- No remote command execution in v1. Process kill / service restart is a
-  separate opt-in feature with explicit confirmation and audit events.
-- Command-line redaction by default; never collect environment variables.
-- Node secrets encrypted at rest; never logged.
-- Docker socket access is opt-in and documented as root-equivalent.
-- Dependency hygiene: pinned versions, `go vet`, `govulncheck`, `npm audit`,
-  no postinstall scripts.
-- Rate limit login, node creation and agent auth failures.
-
-## 13. Testing and quality gates
-
-- `go test ./...` on Linux; `go vet`; `staticcheck` (optional).
-- Collector tests use fixture `/proc` and `/sys` trees; no root required.
-- API tests with `httptest`; store tests with temp SQLite.
-- Frontend: `npm run lint`, `npm test`, `npm run build`.
-- Playwright: overview, node, agents, alerts; iPhone 13 (WebKit), Pixel 7
-  (Chromium), iPad, desktop; screenshot diff for visual review.
-- Lighthouse PWA: installable, offline shell, performance ≥ 95 on desktop,
-  ≥ 90 on mobile.
-- Manual: install on a real Debian/Ubuntu VM and a Docker host.
-
-## 14. Milestones
+## 16. Milestones
 
 | Milestone | Deliverable | Estimate |
 | --- | --- | --- |
-| M0 | Scaffold, design tokens, three static screens with fake data; screenshots for approval | 1–2 d |
-| M1 | Agent: host/cpu/mem/disk/net/psi/processes/agents + API + tests | 2–3 d |
-| M2 | Hub: SQLite, poller, history API, events, auth | 2–3 d |
-| M3 | UI: overview, node, charts, processes, agents, mobile/PWA | 3–4 d |
-| M4 | Services, containers, ports, sensors, GPU, SMART, alerts/channels | 2–3 d |
-| M5 | Relay transport, Docker, systemd, docs, release | 2 d |
+| M0 | Scaffold, design tokens, shell, fleet horizon, Overview/Node/Agents/Apps screens with fake data; taste-skill inspect; screenshots for approval | 2 d |
+| M1 | Agent: gopsutil/procfs/ghw collectors, processes, agents, actions, API, tests | 3 d |
+| M2 | Hub: SQLite, poller, history API, events, auth/tokens, URL routes | 3 d |
+| M3 | UI: all screens, charts, processes, agents, apps, mobile/PWA | 4 d |
+| M4 | Services/containers/ports/sensors/GPU/SMART, alerts + webhook event rules, action audit | 3 d |
+| M5 | Relay, Docker, systemd, GitHub Pages, docs, Linux/beelink verification | 2 d |
 
-MVP is M0–M3 (~8 working days). Full v1 is ~12–17 days for one focused agent.
-Each milestone ends with a reviewable build, tests and a screenshot; do not
-build all milestones in one pass.
+M0 stops for visual approval. Each milestone ends with tests, a commit and a
+short report. Do not chain M1 after M0 without approval.
 
-### M0 acceptance
-
-- Three screens (Overview, Node, Agents) at 390×844, 768×1024 and 1440×900.
-- Light and dark tokens.
-- No placeholder lorem, no gradients, no default component-library look.
-- User approves the visual direction before backend work starts.
-
-### v1 acceptance
+### Acceptance
 
 - One command starts a hub; one binary starts an agent.
-- Metrics and history for at least 3 nodes; 24 h of data.
-- Processes + AI agents + services + containers visible.
-- Alerts fire to webhook/ntfy and resolve.
+- 3 nodes, 24 h history, processes, AI agents, services, containers, ports.
+- Remote action tile runs a configured script/WOL; curl token can trigger only
+  allowed actions; audit event exists.
+- Event webhook rule fires and can be tested.
+- Every object/view has a URL; copy link works; back/forward works on iOS.
 - PWA installs on iOS Safari and Android Chrome; offline shows last state.
 - Relay mode works with no inbound ports.
 - Docker compose and systemd units documented and tested.
-- `go test ./...` and frontend tests pass.
+- Taste-skill `inspect --app`: 0 FAIL at 390/768/1440.
+- `go test ./...`, frontend tests and build pass.
 
-## 15. Open decisions
+## 17. Open items
 
-1. **Name:** Cupola (repo created). Confirm or rename before first release.
-2. **Visibility:** repository is private for now; make public at M3/M5.
-3. **Frontend:** React + Vite + Tailwind + uPlot (chosen for handoff
-   reliability). Confirm if Svelte is preferred.
-4. **v1 scope:** include services/containers/GPU/SMART in v1 (M4) or ship MVP
-   without them.
-5. **Relay dashboard:** static PWA on GitHub Pages + Bolthole connection
-   string. Confirm.
-6. **Alert channels:** webhook, ntfy, Discord, Slack, Telegram in v1; email
-   later.
-7. **Process actions:** read-only in v1. Confirm.
-
-## 16. Handoff protocol
-
-The implementing agent must:
-
-1. Read `AGENTS.md` and this document before writing code.
-2. Start with M0 only; produce screenshots and stop for visual approval.
-3. Work milestone by milestone, committing after each green test run.
-4. Keep the agent dependency-light and the UI free of AI-slop patterns.
-5. Update this document when a decision changes; do not silently expand scope.
-6. Never commit secrets, database files or generated screenshots.
+1. Cloudflare exact zone and two-digit subdomain (ask before deploy).
+2. Whether to add light theme after M0; v1 is dark data-terminal.
+3. Additional agent brand marks beyond Warren’s preset set (only with a
+   licensed/sourceable mark; otherwise neutral fallback).

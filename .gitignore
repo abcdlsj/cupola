@@ -12,6 +12,14 @@ web/.vite/
 web/playwright-report/
 web/test-results/
 web/.lighthouseci/
+.taste-skill/
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Logs
+*.log
 
 # Local state
 .env

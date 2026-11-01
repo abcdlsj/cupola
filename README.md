@@ -2,24 +2,28 @@
 
 **A clear view of every machine you run.**
 
-Cupola is self-hosted monitoring for Linux fleets: VPSes, homelab boxes,
-Raspberry Pis and the occasional 2014 ThinkPad. One small agent per host, one
-hub, and a fast PWA that feels at home on a phone.
+Cupola is self-hosted monitoring for Linux fleets: VPSes, homelab boxes, Raspberry
+Pis and the machine under the desk. One small agent per host, one hub, and a
+dense, fast PWA.
 
 - **Fleet, node, process, service.** CPU, memory, disk, network, pressure,
   sensors, SMART, GPU, systemd units, containers, listening ports and
   processes in one place.
 - **AI agent roster.** See which Codex, Claude Code, Cursor, Aider, OpenCode
   or model servers are running, for how long, and what they cost in CPU/RAM.
+- **Clickable apps.** Wake a LAN machine with Wake-on-LAN or run a fixed local
+  script from a phone.
+- **Alerts that fit your stack.** Metric rules and event rules that POST to
+  your own webhook; ntfy, Discord, Slack and Telegram too.
 - **No public server required.** Run the hub at home and reach it through a
   [Bolthole](https://github.com/abcdlsj/bolthole) relay: end-to-end encrypted,
   no ports opened, no accounts.
-- **Or just Docker.** A hub and an agent, a volume for SQLite, done.
-- **Read-only by default.** No remote shell, no command execution, no
-  telemetry.
+- **Every view has a URL.** Copy and share a node, process, agent session,
+  service, container, app, alert or event, with its time range intact.
 
-> **Status: design phase.** No application code yet. The build plan lives in
-> [docs/PLAN.md](docs/PLAN.md).
+> **Status: implementation starting at M0.** The build plan is
+> [docs/PLAN.md](docs/PLAN.md); the visual direction is
+> [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Shape
 
@@ -32,13 +36,25 @@ hub, and a fast PWA that feels at home on a phone.
                     └──────────── direct HTTPS (self-hosted) ─────────┘
 ```
 
-Three roles:
-
 | Role | Runs on | Does |
 | --- | --- | --- |
-| `cupola agent` | every monitored host | collects metrics, serves a read-only local API |
+| `cupola agent` | every monitored host | collects metrics, serves a read-only local API, runs configured actions |
 | `cupola hub` | one box / VPS / homelab | polls agents, stores history, evaluates alerts, serves the PWA |
 | `cupola serve` | one box | hub + embedded agent, for the single-server case |
+
+## Design
+
+Data terminal: dark, dense, monochrome figures, colour only on data and status,
+one 1 px accent line for selection. No cream-paper dashboards, gradients, glass,
+emoji or icon chips. Agent marks come from Warren’s preset set. See
+[docs/DESIGN.md](docs/DESIGN.md).
+
+## Security
+
+Read-only by default. Remote actions are fixed scripts or Wake-on-LAN packets
+configured on the agent, never arbitrary shell. API tokens for automation are
+scoped to read or a specific action allowlist. Webhooks are signed and guarded
+against SSRF. No telemetry.
 
 ## License
 
