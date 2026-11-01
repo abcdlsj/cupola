@@ -1,9 +1,10 @@
+import { useEffect } from 'react';
 import { Link, NavLink, Outlet, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '../../components/Panel';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { StatusPill } from '../../components/StatusPill';
 import { ErrorPanel, PageSkeleton } from '../../components/States';
-import { useNode } from '../../data/queries';
+import { prefetchSeries, TAB_SERIES, useNode } from '../../data/queries';
 import { eventTime, uptime } from '../../lib/format';
 
 const TABS = [
@@ -23,6 +24,14 @@ const TABS = [
 export function NodeLayout() {
   const { nodeId = '' } = useParams();
   const query = useNode(nodeId);
+  const client = useQueryClient();
+
+  // The samples are already on the hub. Pull the overview window as soon as the
+  // node resolves so the first chart paints without a second round trip.
+  useEffect(() => {
+    if (!nodeId) return;
+    prefetchSeries(client, nodeId, [...TAB_SERIES[''], ...TAB_SERIES['/cpu']]);
+  }, [client, nodeId]);
 
   if (query.isPending) return <PageSkeleton title="Node" />;
   if (query.isError || !query.data) {
@@ -49,13 +58,6 @@ export function NodeLayout() {
   return (
     <>
       <PageHeader
-        crumbs={
-          <>
-            <Link to="/nodes">Nodes</Link>
-            <span aria-hidden="true">/</span>
-            <span className="quiet">{node.name}</span>
-          </>
-        }
         title={node.name}
         titleExtra={
           <>
@@ -69,17 +71,21 @@ export function NodeLayout() {
         }
         finding={meta || 'Waiting for the first snapshot.'}
         actions={
-          <>
-            <Link className="btn btn-ghost" to={`/nodes/${node.id}/apps`}>
-              Apps
-            </Link>
-            <CopyLinkButton />
-          </>
+          <Link className="btn btn-ghost" to={`/nodes/${node.id}/apps`}>
+            Apps
+          </Link>
         }
       />
       <nav className="tabs" aria-label="Node views">
         {TABS.map((tab) => (
-          <NavLink key={tab.label} to={`/nodes/${node.id}${tab.to}`} end={tab.to === ''} className="tab">
+          <NavLink
+            key={tab.label}
+            to={`/nodes/${node.id}${tab.to}`}
+            end={tab.to === ''}
+            className="tab"
+            onMouseEnter={() => prefetchSeries(client, node.id, TAB_SERIES[tab.to] ?? [])}
+            onFocus={() => prefetchSeries(client, node.id, TAB_SERIES[tab.to] ?? [])}
+          >
             {tab.label}
           </NavLink>
         ))}

@@ -15,12 +15,11 @@ import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { AgentMark } from '../../components/AgentMark';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { RunActionDialog } from '../apps/RunActionDialog';
 import { useActions, useNode, useRuns } from '../../data/queries';
 import { agentTypeInfo } from '../../data/registry';
 import type { Action, AgentSession, NodeView, ProcessInfo } from '../../data/types';
-import { eventTime, percent, relative, size } from '../../lib/format';
+import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 
 const ACTION_ICONS: Record<string, typeof Power> = {
@@ -130,11 +129,7 @@ export function ProcessDetailPage() {
   const proc: ProcessInfo | undefined = view.snapshot?.processes.find((entry) => String(entry.pid) === pid);
   if (!proc) return <NotFound what={`Process ${pid}`} to={`/nodes/${nodeId}/processes`} />;
   return (
-    <Panel
-      title={proc.name}
-      meta={<CopyLinkButton />}
-      flush
-    >
+    <Panel title={proc.name} flush>
       <div className="panel-body">
         <Kv
           rows={[
@@ -227,7 +222,7 @@ export function AgentsTab() {
                       {session.pid}
                     </Td>
                     <Td num cell="field" label="Runtime">
-                      {relative(session.started_at, Date.now()).replace(' ago', '')}
+                      {duration((Date.now() - session.started_at) / 1000)}
                     </Td>
                     <Td num cell="key">
                       {percent(session.cpu_percent, 1)}
@@ -258,7 +253,7 @@ export function AgentDetailPage() {
   const session = view.snapshot?.agents.find((entry) => entry.id === sessionId);
   if (!session) return <NotFound what="This session" to={`/nodes/${nodeId}/agents`} />;
   return (
-    <Panel title={session.label} meta={<CopyLinkButton />} flush>
+    <Panel title={session.label} flush>
       <div className="panel-body">
         <Kv
           rows={[
@@ -266,7 +261,7 @@ export function AgentDetailPage() {
             { label: 'Project', value: session.project || '—' },
             { label: 'PID', value: <Link className="link" to={`/nodes/${nodeId}/processes/${session.pid}`}>{session.pid}</Link> },
             { label: 'Parent', value: session.parent || '—' },
-            { label: 'Runtime', value: relative(session.started_at, Date.now()).replace(' ago', '') },
+            { label: 'Runtime', value: duration((Date.now() - session.started_at) / 1000) },
             { label: 'CPU', value: percent(session.cpu_percent, 1) },
             { label: 'Memory', value: size(session.rss_bytes) },
             { label: 'TTY', value: session.tty || '—' },
@@ -351,7 +346,7 @@ export function ServiceDetailPage() {
   const service = view.snapshot?.services.find((entry) => entry.name === name);
   if (!service) return <NotFound what={name} to={`/nodes/${nodeId}/services`} />;
   return (
-    <Panel title={service.name} meta={<CopyLinkButton />} flush>
+    <Panel title={service.name} flush>
       <div className="panel-body">
         <Kv
           rows={[
@@ -413,7 +408,7 @@ export function ContainersPage() {
                   {container.restarts}
                 </Td>
                 <Td num cell="field" label="Up">
-                  {container.uptime_sec ? relative(Date.now() - container.uptime_sec * 1000, Date.now()).replace(' ago', '') : '—'}
+                  {container.uptime_sec ? duration(container.uptime_sec) : '—'}
                 </Td>
               </tr>
             ))}
@@ -430,7 +425,7 @@ export function ContainerDetailPage() {
   const container = view.snapshot?.containers.find((entry) => entry.id === containerId);
   if (!container) return <NotFound what="This container" to={`/nodes/${nodeId}/containers`} />;
   return (
-    <Panel title={container.name} meta={<CopyLinkButton />} flush>
+    <Panel title={container.name} flush>
       <div className="panel-body">
         <Kv
           rows={[
@@ -441,7 +436,7 @@ export function ContainerDetailPage() {
             { label: 'CPU', value: percent(container.cpu_percent, 1) },
             { label: 'Memory', value: `${size(container.mem_bytes)} of ${size(container.mem_limit)}` },
             { label: 'Restarts', value: container.restarts },
-            { label: 'Uptime', value: container.uptime_sec ? relative(Date.now() - container.uptime_sec * 1000, Date.now()).replace(' ago', '') : '—' },
+            { label: 'Uptime', value: container.uptime_sec ? duration(container.uptime_sec) : '—' },
             { label: 'Ports', value: container.ports.join(', ') || '—' },
           ]}
         />
@@ -563,7 +558,7 @@ export function AppDetailPage() {
   const Icon = ACTION_ICONS[action.icon] ?? Terminal;
   return (
     <>
-      <Panel title={action.name} meta={<CopyLinkButton />} flush>
+      <Panel title={action.name} flush>
         <div className="panel-body">
           <div className="app-detail-head">
             <Icon size={22} aria-hidden="true" />

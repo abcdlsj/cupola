@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { StatusPill } from '../../components/StatusPill';
 import { Empty } from '../../components/States';
 import {
@@ -205,7 +204,6 @@ export function NodesSettingsPage() {
       <PageHeader
         title="Settings"
         finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-        actions={<CopyLinkButton />}
       />
       <SettingsNav />
       {admin ? <JoinPanel /> : null}
@@ -447,7 +445,6 @@ export function AlertsSettingsPage() {
       <PageHeader
         title="Settings"
         finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-        actions={<CopyLinkButton />}
       />
       <SettingsNav />
       <Panel title="Channels" meta={`${channels.data?.length ?? 0} configured`} flush>
@@ -610,7 +607,6 @@ export function TokensSettingsPage() {
       <PageHeader
         title="Settings"
         finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-        actions={<CopyLinkButton />}
       />
       <SettingsNav />
       <Panel title="API tokens" meta={`${tokens.data?.length ?? 0} issued`} flush>

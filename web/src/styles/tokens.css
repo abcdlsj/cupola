@@ -65,6 +65,13 @@
   --chart-2: #e5566f;
   --chart-3: #4a8ad6;
 
+  /* Data hues for chart series: thin lines only, never chrome. A chart uses at
+     most four, usually two (in/out, read/write). */
+  --series-1: #5b9ed6;
+  --series-2: #4fae94;
+  --series-3: #d9a441;
+  --series-4: #e5566f;
+
   --pill-positive-bg: #1b2828;
   --pill-positive-ink: #5fc39c;
   --pill-negative-bg: #2c1a20;

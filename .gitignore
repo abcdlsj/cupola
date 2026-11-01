@@ -33,7 +33,7 @@ docs/screenshots/**/report.json
 *.db
 *.db-wal
 *.db-shm
-data/
+/data/
 /var/
 
 # Editor / OS

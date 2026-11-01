@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Power } from '@phosphor-icons/react';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { FleetHorizon } from '../../components/FleetHorizon';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
+import { FleetProfile } from '../../components/FleetProfile';
 import { StatusPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from '../apps/RunActionDialog';
@@ -107,22 +106,23 @@ export function OverviewPage() {
                 {stripActions[0].name}
               </button>
             ) : null}
-            <CopyLinkButton />
           </>
         }
       />
 
       <Panel
-        title="Fleet horizon"
+        title="Fleet profile"
         meta={
           <>
-            <span>CPU now</span>
-            <span className="quiet">accent line marks {nodes.find((view) => view.node.id === selectedId)?.node.name ?? 'the selected node'}</span>
+            <span>CPU · memory · disk · network</span>
+            <span className="quiet">
+              {nodes.length} lines · accent marks {nodes.find((view) => view.node.id === selectedId)?.node.name ?? 'the selected node'}
+            </span>
           </>
         }
         flush
       >
-        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetHorizon nodes={nodes} selectedId={selectedId} />}
+        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetProfile nodes={nodes} selectedId={selectedId} />}
       </Panel>
 
       <div className="kpi-row" data-count="4">

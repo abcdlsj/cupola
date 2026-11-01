@@ -104,7 +104,8 @@ Every object and view has a route; nothing important lives only in memory.
 
 - Tabs are links; detail views are routes, not unaddressable modals.
 - URL search params carry range/from/to/q/sort/filter.
-- Copy-link on every detail header/row; back/forward and iOS edge-swipe work.
+- Back/forward and iOS edge-swipe work; there is no copy-link button (removed:
+  the URL is already in the address bar).
 - Missing/renamed objects show a not-found state with a link back.
 
 ## Actions / apps
