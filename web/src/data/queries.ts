@@ -86,6 +86,13 @@ export function useLogin() {
   });
 }
 
+export function useChangePassword() {
+  return useMutation({
+    mutationFn: (input: { current_password: string; new_password: string }) =>
+      api<{ ok: boolean }>('/api/v1/auth/password', { method: 'POST', body: input }),
+  });
+}
+
 export function useLogout() {
   const client = useQueryClient();
   return useMutation({

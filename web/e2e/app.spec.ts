@@ -1,12 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('fleet overview', () => {
-  test('shows the fleet profile and routes to a node', async ({ page }) => {
+  test('shows the fleet grid and routes to a node', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-    const lines = page.locator('.fleet-node');
-    await expect(lines).toHaveCount(3);
-    await page.locator('.fleet-key-link', { hasText: 'beelink' }).click();
+    await expect(page.locator('.fleet-row')).toHaveCount(3);
+    await page.getByLabel(/^beelink: (healthy|degraded)/).click();
     await expect(page).toHaveURL(/\/nodes\/beelink$/);
     await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
     await page.goBack();
@@ -147,6 +146,16 @@ test.describe('settings and tokens', () => {
     await expect(page.locator('tbody tr').filter({ hasText: 'atlas' }).first()).toBeVisible();
   });
 
+  test('the password form refuses a wrong current password', async ({ page }) => {
+    await page.goto('/settings/account');
+    const form = page.getByTestId('password-form');
+    await form.getByLabel('Current password').fill('not-the-password');
+    await form.getByLabel('New password (at least 10 characters)').fill('e2e-password-456');
+    await form.getByLabel('Repeat the new password').fill('e2e-password-456');
+    await form.getByRole('button', { name: 'Change password' }).click();
+    await expect(page.locator('.form-error')).toContainText('current password is wrong');
+  });
+
   test('channels can be added and tested', async ({ page }, testInfo) => {
     await page.goto('/settings/alerts');
     await page.getByLabel('Name').fill(`e2e hook ${testInfo.project.name}`);
@@ -171,7 +180,7 @@ test.describe('keyboard and shell', () => {
 
   test('phone shows the bottom bar, desktop shows the rail', async ({ page, viewport }) => {
     await page.goto('/');
-    await expect(page.locator('.fleet-node')).toHaveCount(3);
+    await expect(page.locator('.fleet-row')).toHaveCount(3);
     if ((viewport?.width ?? 1440) < 641) {
       await expect(page.locator('.bottom-bar')).toBeVisible();
       await expect(page.locator('.rail')).toBeHidden();

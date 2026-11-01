@@ -30,6 +30,7 @@ import { AlertsPage } from './features/alerts/AlertsPage';
 import { RuleEditorPage } from './features/alerts/RuleEditor';
 import {
   AboutSettingsPage,
+  AccountSettingsPage,
   AlertsSettingsPage,
   AppearanceSettingsPage,
   NodesSettingsPage,
@@ -109,6 +110,7 @@ export function App() {
             <Route path="settings/tokens" element={<TokensSettingsPage />} />
             <Route path="settings/retention" element={<RetentionSettingsPage />} />
             <Route path="settings/appearance" element={<AppearanceSettingsPage />} />
+            <Route path="settings/account" element={<AccountSettingsPage />} />
             <Route path="settings/about" element={<AboutSettingsPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Route>

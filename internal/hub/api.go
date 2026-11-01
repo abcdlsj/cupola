@@ -1141,7 +1141,8 @@ func (h *Hub) routesHandler() http.Handler {
 	mux.HandleFunc("POST /api/v1/join", h.handleJoin)
 	mux.Handle("POST /api/v1/join/codes", h.requireAdmin(http.HandlerFunc(h.handleCreateJoinCode)))
 	mux.Handle("GET /api/v1/join/{id}/status", h.requireRead(http.HandlerFunc(h.handleJoinStatus)))
-mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
+mux.Handle("POST /api/v1/auth/password", h.requireAdmin(http.HandlerFunc(h.handleChangePassword)))
+	mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.handleLogout)
 	mux.Handle("GET /api/v1/auth/me", h.requireRead(http.HandlerFunc(h.handleMe)))
 
@@ -1302,4 +1303,44 @@ func (h *Hub) handleFleetActions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleChangePassword lets the signed-in admin rotate the hub password. The
+// current password is required; the session stays valid.
+func (h *Hub) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	if !h.limiter.allow("password:" + ip) {
+		apiError(w, http.StatusTooManyRequests, "rate_limit", "too many attempts; wait a minute")
+		return
+	}
+	var body struct {
+		Current string `json:"current_password"`
+		New     string `json:"new_password"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		apiError(w, http.StatusBadRequest, "json", "invalid body")
+		return
+	}
+	if !verifyPassword(body.Current, h.keys.adminHash) {
+		apiError(w, http.StatusUnauthorized, "password", "the current password is wrong")
+		return
+	}
+	if len(body.New) < 10 {
+		apiError(w, http.StatusBadRequest, "password", "the new password needs at least 10 characters")
+		return
+	}
+	hash, err := hashPassword(body.New)
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, "password", err.Error())
+		return
+	}
+	if err := h.store.SetSetting(r.Context(), "admin_hash", hash); err != nil {
+		apiError(w, http.StatusInternalServerError, "store", err.Error())
+		return
+	}
+	h.mu.Lock()
+	h.keys.adminHash = hash
+	h.mu.Unlock()
+	h.log.Info("admin password changed")
+	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }

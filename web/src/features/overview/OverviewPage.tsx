@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Power } from '@phosphor-icons/react';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { FleetProfile } from '../../components/FleetProfile';
+import { FleetGrid } from '../../components/FleetGrid';
 import { StatusPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from '../apps/RunActionDialog';
@@ -83,7 +83,8 @@ export function OverviewPage() {
     if (full?.disk) parts.push(`${full.view.node.name}'s root disk is ${percent(full.disk.used_pct)} full`);
     const otherFinding = attention.find((item) => item.nodeId !== offline?.node.id);
     if (otherFinding) parts.push(otherFinding.title.toLowerCase());
-    return `${nodes.length} boxes, ${needAttention} need attention${parts.length ? `: ${parts.join('; ')}` : '.'}`;
+    const verb = needAttention === 1 ? 'needs' : 'need';
+    return `${nodes.length} boxes, ${needAttention} ${verb} attention${parts.length ? `: ${parts.join('; ')}` : '.'}`;
   })();
 
   return (
@@ -111,25 +112,23 @@ export function OverviewPage() {
       />
 
       <Panel
-        title="Fleet profile"
+        title="Fleet at a glance"
         meta={
           <>
-            <span>CPU · memory · disk · network</span>
-            <span className="quiet">
-              {nodes.length} lines · accent marks {nodes.find((view) => view.node.id === selectedId)?.node.name ?? 'the selected node'}
-            </span>
+            <span>{nodes.length} boxes</span>
+            <span className="quiet">current reading per dimension</span>
           </>
         }
         flush
       >
-        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetProfile nodes={nodes} selectedId={selectedId} />}
+        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetGrid nodes={nodes} selectedId={selectedId} />}
       </Panel>
 
       <div className="kpi-row" data-count="4">
         <div className="kpi-cell">
           <div className="kpi-label">Boxes</div>
           <div className="kpi-value">{nodes.length}</div>
-          <div className="kpi-sub">{needAttention} need attention</div>
+          <div className="kpi-sub">{needAttention} {needAttention === 1 ? 'needs' : 'need'} attention</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Agent sessions</div>

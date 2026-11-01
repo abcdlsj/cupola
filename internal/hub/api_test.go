@@ -201,6 +201,41 @@ func TestEndToEnd(t *testing.T) {
 	}
 }
 
+func TestChangePassword(t *testing.T) {
+	_, server := newTestHub(t)
+	c := testClient(t)
+	if status, _ := doJSON(t, c, http.MethodPost, server.URL+"/api/v1/auth/login", map[string]string{"password": "test-password-123"}, ""); status != http.StatusOK {
+		t.Fatalf("login = %d", status)
+	}
+	status, _ := doJSON(t, c, http.MethodPost, server.URL+"/api/v1/auth/password", map[string]string{
+		"current_password": "wrong", "new_password": "a-new-password-1",
+	}, "")
+	if status != http.StatusUnauthorized {
+		t.Fatalf("wrong current = %d, want 401", status)
+	}
+	status, _ = doJSON(t, c, http.MethodPost, server.URL+"/api/v1/auth/password", map[string]string{
+		"current_password": "test-password-123", "new_password": "short",
+	}, "")
+	if status != http.StatusBadRequest {
+		t.Fatalf("short new = %d, want 400", status)
+	}
+	status, _ = doJSON(t, c, http.MethodPost, server.URL+"/api/v1/auth/password", map[string]string{
+		"current_password": "test-password-123", "new_password": "a-new-password-1",
+	}, "")
+	if status != http.StatusOK {
+		t.Fatalf("change = %d", status)
+	}
+	anon := testClient(t)
+	status, _ = doJSON(t, anon, http.MethodPost, server.URL+"/api/v1/auth/login", map[string]string{"password": "test-password-123"}, "")
+	if status != http.StatusUnauthorized {
+		t.Fatalf("old password after change = %d, want 401", status)
+	}
+	status, _ = doJSON(t, anon, http.MethodPost, server.URL+"/api/v1/auth/login", map[string]string{"password": "a-new-password-1"}, "")
+	if status != http.StatusOK {
+		t.Fatalf("new password = %d", status)
+	}
+}
+
 func TestJoinFlow(t *testing.T) {
 	agentServer := fakeAgent(t)
 	hub, server := newTestHub(t)

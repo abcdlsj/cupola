@@ -22,6 +22,7 @@ import {
   useTestNode,
   useTokens,
   useSaveChannel,
+  useChangePassword,
   useUpdateNode,
 } from '../../data/queries';
 import { clock, relative } from '../../lib/format';
@@ -32,6 +33,7 @@ const SECTIONS = [
   { to: '/settings/tokens', label: 'Tokens' },
   { to: '/settings/retention', label: 'Retention' },
   { to: '/settings/appearance', label: 'Appearance' },
+  { to: '/settings/account', label: 'Account' },
   { to: '/settings/about', label: 'About' },
 ];
 
@@ -128,9 +130,6 @@ function JoinPanel() {
 
       {issued ? (
         <div className="panel-body">
-          <p className="note">
-            Paste this on the new machine. The code is single use and expires in 30 minutes; the agent registers itself and the hub starts polling it.
-          </p>
           <pre className="output" data-testid="join-command">
             {command}
           </pre>
@@ -411,10 +410,6 @@ export function NodesSettingsPage() {
       ) : (
         <AdminOnly />
       )}
-      <p className="note">
-        The agent token is stored encrypted with the hub key. With <span className="fig">cupola serve</span> the local agent is already registered; its config
-        and actions live in <span className="fig">&lt;data-dir&gt;/local-agent.json</span>.
-      </p>
     </>
   );
 }
@@ -556,10 +551,6 @@ export function AlertsSettingsPage() {
                 {save.isPending ? 'Saving…' : 'Add channel'}
               </button>
             </div>
-            <p className="note">
-              Private, loopback and link-local targets are blocked unless the hub starts with <span className="fig">CUPOLA_ALLOW_PRIVATE_WEBHOOKS=1</span>. URLs
-              and secrets are encrypted at rest and never logged.
-            </p>
           </form>
         </Panel>
       ) : (
@@ -696,7 +687,6 @@ export function TokensSettingsPage() {
             {message ? <p className={message.kind === 'ok' ? 'form-ok' : 'form-error'}>{message.text}</p> : null}
             {issued ? (
               <div className="token-reveal">
-                <p className="note">Copy this token now. It is stored hashed and cannot be shown again.</p>
                 <pre className="output">{issued}</pre>
               </div>
             ) : null}
@@ -705,10 +695,6 @@ export function TokensSettingsPage() {
                 {create.isPending ? 'Creating…' : 'Create token'}
               </button>
             </div>
-            <p className="note">
-              <span className="fig">actions:run</span> only works for actions whose agent config sets <span className="fig">allow_api: true</span> and that match the
-              allowlists. Every run is audited.
-            </p>
           </form>
         </Panel>
       ) : (
@@ -735,10 +721,6 @@ export function RetentionSettingsPage() {
               <div className="kv-row"><dt>Poll interval</dt><dd>{settings.data.poll_interval_sec} s</dd></div>
               <div className="kv-row"><dt>Data directory</dt><dd className="fig">{settings.data.data_dir}</dd></div>
             </dl>
-            <p className="note" style={{ marginTop: 12 }}>
-              Rollups run every ten minutes: raw samples older than 48 h become 1-minute buckets, and those older than 30 days become hourly
-              buckets. Values are min/avg/max.
-            </p>
           </div>
         ) : (
           <Empty>Loading…</Empty>
@@ -799,19 +781,73 @@ export function AboutSettingsPage() {
           </Panel>
         </div>
         <div className="span-6">
-          <Panel title="Cupola">
-            <p className="empty">
-              Self-hosted monitoring for the Linux boxes you run: one agent per host, one hub, one PWA. Read-only by default; the only write
-              action is a fixed script or a Wake-on-LAN packet configured on the agent.
-            </p>
-            <p className="note">
-              Data terminal: dark, dense, monochrome figures, colour only on data and status, one 1px accent line for selection. Agent marks are
-              Warren's preset set; see docs/ASSETS.md.
-            </p>
-          </Panel>
+          
         </div>
       </div>
-      <p className="note">Source and documentation: docs/PLAN.md, docs/API.md and docs/DEPLOY.md in the repository.</p>
+    </>
+  );
+}
+
+export function AccountSettingsPage() {
+  const me = useMe();
+  const change = useChangePassword();
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' });
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+
+  return (
+    <>
+      <PageHeader
+        title="Settings"
+        finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
+      />
+      <SettingsNav />
+      <Panel title="Password" flush>
+        {me.data?.mode === 'token' ? (
+          <p className="empty">Sign in with the admin password to change it.</p>
+        ) : (
+          <form
+            className="form"
+            data-testid="password-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setMessage(null);
+              if (form.next !== form.confirm) {
+                setMessage({ kind: 'error', text: 'The new passwords do not match.' });
+                return;
+              }
+              try {
+                await change.mutateAsync({ current_password: form.current, new_password: form.next });
+                setMessage({ kind: 'ok', text: 'Password changed.' });
+                setForm({ current: '', next: '', confirm: '' });
+              } catch (caught) {
+                setMessage({ kind: 'error', text: caught instanceof ApiError ? caught.message : 'The password could not be changed.' });
+              }
+            }}
+          >
+            <div className="form-grid">
+              <label className="form-field">
+                <span>Current password</span>
+                <input className="input input-ui" type="password" autoComplete="current-password" value={form.current} onChange={(event) => setForm({ ...form, current: event.target.value })} required />
+              </label>
+              <span />
+              <label className="form-field">
+                <span>New password (at least 10 characters)</span>
+                <input className="input input-ui" type="password" autoComplete="new-password" minLength={10} value={form.next} onChange={(event) => setForm({ ...form, next: event.target.value })} required />
+              </label>
+              <label className="form-field">
+                <span>Repeat the new password</span>
+                <input className="input input-ui" type="password" autoComplete="new-password" minLength={10} value={form.confirm} onChange={(event) => setForm({ ...form, confirm: event.target.value })} required />
+              </label>
+            </div>
+            {message ? <p className={message.kind === 'ok' ? 'form-ok' : 'form-error'}>{message.text}</p> : null}
+            <div className="form-actions">
+              <button type="submit" className="btn btn-primary" disabled={change.isPending}>
+                {change.isPending ? 'Saving…' : 'Change password'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Panel>
     </>
   );
 }

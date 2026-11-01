@@ -79,7 +79,7 @@ export function NodesPage() {
               <Th num>CPU</Th>
               <Th num>Memory</Th>
               <Th num>Root disk</Th>
-              <Th>Last seen</Th>
+              <Th num>Last seen</Th>
             </THead>
             <TBody>
               {nodes.map((view) => {
@@ -95,7 +95,6 @@ export function NodesPage() {
                     </Td>
                     <Td cell="field" label="OS">
                       {node.os || view.snapshot?.node.platform || '—'}
-                      <span className="cell-sub">{node.kernel}</span>
                     </Td>
                     <Td num cell="field" label="Uptime">
                       {uptime(view.health.uptime_sec)}
@@ -111,7 +110,7 @@ export function NodesPage() {
                         {view.health.root_disk_total ? `${size(view.health.root_disk_used)} of ${size(view.health.root_disk_total)}` : 'no disk'}
                       </span>
                     </Td>
-                    <Td cell="field" label="Seen">
+                    <Td num cell="field" label="Seen">
                       {relative(node.last_seen, now)}
                     </Td>
                   </tr>
