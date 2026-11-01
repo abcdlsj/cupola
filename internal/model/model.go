@@ -322,10 +322,15 @@ type NodeHealth struct {
 	CPUPct       float64  `json:"cpu_pct"`
 	Load1        float64  `json:"load1"`
 	UptimeSec    int64    `json:"uptime_sec"`
-	Agents       int      `json:"agents"`
-	FailedUnits  int      `json:"failed_units"`
-	Containers   int      `json:"containers"`
-	Apps         int      `json:"apps"`
+	Agents        int     `json:"agents"`
+	FailedUnits   int     `json:"failed_units"`
+	Containers    int     `json:"containers"`
+	Apps          int     `json:"apps"`
+	MemUsed       uint64  `json:"mem_used"`
+	MemTotal      uint64  `json:"mem_total"`
+	RootDiskUsed  uint64  `json:"root_disk_used"`
+	RootDiskTotal uint64  `json:"root_disk_total"`
+	NetRxBps      float64 `json:"net_rx_bps"`
 	Warnings     []string `json:"warnings,omitempty"`
 }
 

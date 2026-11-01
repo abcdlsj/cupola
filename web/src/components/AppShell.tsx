@@ -1,31 +1,36 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowClockwise, HardDrives, Info, MagnifyingGlass, PlayCircle, Robot, SquaresFour } from '@phosphor-icons/react';
+import {
+  ArrowClockwise,
+  Bell,
+  HardDrives,
+  ListBullets,
+  MagnifyingGlass,
+  PlayCircle,
+  Robot,
+  SlidersHorizontal,
+  SquaresFour,
+} from '@phosphor-icons/react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { CupolaMark } from './CupolaMark';
 import { CommandPalette } from './CommandPalette';
 import { OfflineBanner } from './OfflineBanner';
-import { useFleet } from '../data/queries';
-import { clock } from '../lib/format';
+import { useFleet, useMe } from '../data/queries';
+import { useStream } from '../data/stream';
+import { clockSeconds } from '../lib/format';
 
 const NAV = [
   { to: '/', label: 'Overview', icon: SquaresFour, match: (path: string) => path === '/' },
   { to: '/nodes', label: 'Nodes', icon: HardDrives, match: (path: string) => path.startsWith('/nodes') },
-  { to: '/agents', label: 'Agents', icon: Robot, match: (path: string) => path.includes('/agents') },
-  { to: '/apps', label: 'Apps', icon: PlayCircle, match: (path: string) => path.includes('/apps') },
+  { to: '/agents', label: 'Agents', icon: Robot, match: (path: string) => path.startsWith('/agents') },
+  { to: '/apps', label: 'Apps', icon: PlayCircle, match: (path: string) => path.startsWith('/apps') },
+  { to: '/alerts', label: 'Alerts', icon: Bell, match: (path: string) => path.startsWith('/alerts') },
+  { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-function RailLink({
-  to,
-  label,
-  icon: Icon,
-  active,
-}: {
-  to: string;
-  label: string;
-  icon: typeof SquaresFour;
-  active: boolean;
-}) {
+const BOTTOM = ['/', '/nodes', '/agents', '/alerts'];
+
+function RailLink({ to, label, icon: Icon, active }: { to: string; label: string; icon: typeof SquaresFour; active: boolean }) {
   return (
     <Tooltip.Root delayDuration={220}>
       <Tooltip.Trigger asChild>
@@ -48,7 +53,9 @@ function pageLabel(path: string, nodeName?: string): string {
   if (path === '/nodes') return 'Nodes';
   if (path === '/agents') return 'Agents';
   if (path === '/apps') return 'Apps';
-  if (path.startsWith('/settings/about')) return 'About';
+  if (path === '/alerts' || path.startsWith('/alerts/')) return 'Alerts';
+  if (path === '/events' || path.startsWith('/events/')) return 'Events';
+  if (path.startsWith('/settings')) return 'Settings';
   if (nodeName) return nodeName;
   return 'Node';
 }
@@ -57,17 +64,17 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
   const fleet = useFleet();
   const location = useLocation();
   const nodeId = location.pathname.split('/')[2];
-  const node = fleet.data?.nodes.find((entry) => entry.id === nodeId);
-  const updated = fleet.data?.generatedAt;
+  const node = fleet.data?.nodes.find((view) => view.node.id === nodeId);
+  const updated = fleet.data?.updated;
 
   return (
     <header className="topbar">
       <div className="topbar-context">
-        <span className="topbar-scope">homelab</span>
+        <span className="topbar-scope">hub</span>
         <span className="topbar-sep" aria-hidden="true">
           /
         </span>
-        <span className="topbar-title">{pageLabel(location.pathname, node?.name)}</span>
+        <span className="topbar-title">{pageLabel(location.pathname, node?.node.name)}</span>
       </div>
       <div className="topbar-right">
         <button type="button" className="search-btn" onClick={onSearch} aria-label="Search nodes and screens">
@@ -75,13 +82,13 @@ function TopBar({ onSearch }: { onSearch: () => void }) {
           <span>Search</span>
           <kbd className="kbd">⌘K</kbd>
         </button>
-        <span className="freshness">{updated ? `Updated ${clock(updated)} UTC` : 'Loading'}</span>
+        <span className="freshness">{updated ? `Updated ${clockSeconds(updated)} UTC` : 'Waiting for data'}</span>
         <button
           type="button"
           className="icon-btn"
           onClick={() => void fleet.refetch()}
-          aria-label="Refresh snapshot"
-          title="Refresh snapshot"
+          aria-label="Refresh"
+          title="Refresh"
         >
           <ArrowClockwise size={16} aria-hidden="true" />
         </button>
@@ -94,16 +101,11 @@ function BottomBar() {
   const location = useLocation();
   return (
     <nav className="bottom-bar" aria-label="Primary">
-      {NAV.map((item) => {
+      {NAV.filter((item) => BOTTOM.includes(item.to)).map((item) => {
         const Icon = item.icon;
         const active = item.match(location.pathname);
         return (
-          <Link
-            key={item.to}
-            to={item.to}
-            className="bottom-link"
-            aria-current={active ? 'page' : undefined}
-          >
+          <Link key={item.to} to={item.to} className="bottom-link" aria-current={active ? 'page' : undefined}>
             <Icon size={18} aria-hidden="true" />
             <span>{item.label}</span>
           </Link>
@@ -116,8 +118,10 @@ function BottomBar() {
 export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
+  const me = useMe();
   const fleet = useFleet();
   const mainRef = useRef<HTMLDivElement>(null);
+  useStream(Boolean(me.data?.authenticated));
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -131,8 +135,6 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    // desktop scrolls the window, the phone scrolls the main column inside the
-    // 100dvh shell; both start a new route at the top.
     window.scrollTo({ top: 0 });
     mainRef.current?.scrollTo({ top: 0 });
   }, [location.pathname]);
@@ -146,34 +148,26 @@ export function AppShell() {
           </Link>
           <div className="rail-nav">
             {NAV.map((item) => (
-              <RailLink
-                key={item.to}
-                to={item.to}
-                label={item.label}
-                icon={item.icon}
-                active={item.match(location.pathname)}
-              />
+              <RailLink key={item.to} to={item.to} label={item.label} icon={item.icon} active={item.match(location.pathname)} />
             ))}
           </div>
           <div className="rail-sep" aria-hidden="true" />
           <div className="rail-bottom">
             <RailLink
-              to="/settings/about"
-              label="About"
-              icon={Info}
+              to="/settings/nodes"
+              label="Settings"
+              icon={SlidersHorizontal}
               active={location.pathname.startsWith('/settings')}
             />
             <span className="rail-stamp" aria-hidden="true">
-              M0
+              v1
             </span>
           </div>
         </nav>
         <div className="main" ref={mainRef}>
           <TopBar onSearch={() => setPaletteOpen(true)} />
           <main className="content">
-            {fleet.data ? (
-              <OfflineBanner lastUpdated={fleet.data.generatedAt} now={Date.now()} />
-            ) : null}
+            {fleet.data ? <OfflineBanner lastUpdated={fleet.data.updated} stale={Boolean(fleet.data.stale)} /> : null}
             <Outlet />
           </main>
         </div>

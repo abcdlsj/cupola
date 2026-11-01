@@ -1,23 +1,32 @@
+import { fileURLToPath } from 'node:url';
+import { dirname } from 'node:path';
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+const PORT = 4180;
+const here = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   testDir: './e2e',
+  globalSetup: './e2e/global-setup.ts',
   timeout: 30_000,
-  fullyParallel: true,
+  fullyParallel: false,
+  workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: 0,
   reporter: [['list']],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'off',
+    storageState: '.e2e-data/auth.json',
   },
   webServer: {
-    command: 'npm run build && npm run preview',
-    url: `http://127.0.0.1:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
+    command: 'bash ../scripts/e2e-hub.sh',
+    url: `http://127.0.0.1:${PORT}/healthz`,
+    cwd: here,
+    reuseExistingServer: false,
+    timeout: 300_000,
+    stdout: 'ignore',
+    stderr: 'pipe',
   },
   projects: [
     {

@@ -20,6 +20,9 @@ docs/screenshots/**/report.json
 .wrangler/
 .dev.vars
 
+# Local test fixtures
+.e2e-data/
+
 # Logs
 *.log
 

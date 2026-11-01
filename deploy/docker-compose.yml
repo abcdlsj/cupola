@@ -1,0 +1,42 @@
+# Example only. Create the agent config and token on the host (0600) and never
+# put secrets in this file. The Docker socket is root-equivalent; drop the mount
+# if you do not need container metrics.
+services:
+  hub:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.hub
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      CUPOLA_LISTEN: 0.0.0.0:8080
+      CUPOLA_DATA_DIR: /data
+      CUPOLA_WEB_DIR: /app/web
+      # CUPOLA_ADMIN_PASSWORD: set on first start, then remove it
+      # CUPOLA_PUBLIC_URL: https://hub.example.com
+      # CUPOLA_ALLOW_PRIVATE_WEBHOOKS: "0"
+      # CUPOLA_CORS_ORIGINS: https://user.github.io
+    volumes:
+      - cupola-data:/data
+
+  agent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.agent
+    restart: unless-stopped
+    pid: host
+    network_mode: host
+    privileged: false
+    volumes:
+      - /etc/cupola:/etc/cupola:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/os-release:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      HOST_PROC: /host/proc
+      HOST_SYS: /host/sys
+
+volumes:
+  cupola-data:

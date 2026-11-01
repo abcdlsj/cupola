@@ -18,6 +18,13 @@ func nodeHealth(node model.NodeRecord, snap *model.Snapshot, daysToFull float64,
 	health.UptimeSec = snap.Node.UptimeSec
 	health.Agents = len(snap.Agents)
 	health.Containers = len(snap.Containers)
+	health.MemUsed = snap.Memory.Used
+	health.MemTotal = snap.Memory.Total
+	for _, iface := range snap.Network {
+		if iface.Iface != "lo" {
+			health.NetRxBps += iface.RxBps
+		}
+	}
 	for _, service := range snap.Services {
 		if service.ActiveState == "failed" {
 			health.FailedUnits++
@@ -26,6 +33,8 @@ func nodeHealth(node model.NodeRecord, snap *model.Snapshot, daysToFull float64,
 	for _, disk := range snap.Disks {
 		if disk.Mount == "/" {
 			health.RootDiskPct = disk.UsedPct
+			health.RootDiskUsed = disk.Used
+			health.RootDiskTotal = disk.Total
 		}
 	}
 	if health.RootDiskPct == 0 {

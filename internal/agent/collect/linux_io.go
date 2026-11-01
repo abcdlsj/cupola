@@ -11,18 +11,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/procfs"
+	"github.com/prometheus/procfs/blockdevice"
 	"github.com/safchain/ethtool"
 )
 
 // diskIORates reads /proc/diskstats through procfs and turns the counters
 // into per-second rates for the interval since the previous call.
 func (c *Collector) diskIORates() map[string]ioRate {
-	fs, err := procfs.NewDefaultFS()
+	fs, err := blockdevice.NewFS("/proc", "/sys")
 	if err != nil {
 		return nil
 	}
-	stats, err := fs.Diskstats()
+	stats, err := fs.ProcDiskstats()
 	if err != nil {
 		return nil
 	}
@@ -30,11 +30,17 @@ func (c *Collector) diskIORates() map[string]ioRate {
 	out := make(map[string]ioRate, len(stats))
 	next := make(map[string]diskDelta, len(stats))
 	for _, stat := range stats {
-		next[stat.Name] = diskDelta{read: stat.ReadBytes, write: stat.WriteBytes, at: now}
-		prev, ok := c.prevDisk[stat.Name]
+		name := stat.DeviceName
+		next[name] = diskDelta{
+			read: stat.ReadSectors * 512, write: stat.WriteSectors * 512,
+			readIOs: stat.ReadIOs, writeIOs: stat.WriteIOs,
+			readTicks: stat.ReadTicks, writeTicks: stat.WriteTicks,
+			at: now,
+		}
+		prev, ok := c.prevDisk[name]
 		if !ok {
 			// Seed the first sample: the next interval has a delta.
-			out[stat.Name] = ioRate{}
+			out[name] = ioRate{}
 			continue
 		}
 		elapsed := now.Sub(prev.at).Seconds()
@@ -42,13 +48,16 @@ func (c *Collector) diskIORates() map[string]ioRate {
 			continue
 		}
 		rate := ioRate{
-			read:  float64(stat.ReadBytes-prev.read) / elapsed,
-			write: float64(stat.WriteBytes-prev.write) / elapsed,
+			read:      float64(stat.ReadSectors*512-prev.read) / elapsed,
+			write:     float64(stat.WriteSectors*512-prev.write) / elapsed,
+			readIOPS:  float64(stat.ReadIOs-prev.readIOs) / elapsed,
+			writeIOPS: float64(stat.WriteIOs-prev.writeIOs) / elapsed,
 		}
-		// procfs Diskstats does not expose per-interval IOPS counters directly;
-		// reads/writes completed are cumulative.
-		rate.latency = 0
-		out[stat.Name] = rate
+		// Average service time over the interval, in milliseconds.
+		if d := float64(stat.ReadIOs - prev.readIOs); d > 0 {
+			rate.latency = float64(stat.ReadTicks-prev.readTicks) / d
+		}
+		out[name] = rate
 	}
 	c.prevDisk = next
 	return out
@@ -75,11 +84,18 @@ func (c *Collector) linkInfo() map[string]linkDetail {
 			detail.up = strings.TrimSpace(string(body)) == "up"
 		}
 		if eth != nil {
-			if speed, err := eth.LinkSpeed(name); err == nil {
-				detail.speed = int(speed.Speed)
+			if settings, err := eth.GetLinkSettings(name); err == nil && settings != nil {
+				if settings.Speed != 4294967295 {
+					detail.speed = int(settings.Speed)
+				}
+				if settings.Duplex == 1 {
+					detail.duplex = "full"
+				} else if settings.Duplex == 0 {
+					detail.duplex = "half"
+				}
 			}
-			if info, err := eth.DriverInfo(name); err == nil {
-				detail.driver = info.Driver
+			if driver, err := eth.DriverName(name); err == nil {
+				detail.driver = driver
 			}
 		}
 		out[name] = detail

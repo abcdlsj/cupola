@@ -1,189 +1,109 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import {
-  ArrowsClockwise,
-  Database,
-  DownloadSimple,
-  HardDrive,
-  Power,
-  ShieldCheck,
-  Terminal,
-  WifiHigh,
-} from '@phosphor-icons/react';
+import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
-import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { CopyLinkButton } from '../../components/CopyLinkButton';
-import { RunPill } from '../../components/StatusPill';
-import { ErrorPanel, PageSkeleton } from '../../components/States';
+import { Empty, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from './RunActionDialog';
-import { useFleet } from '../../data/queries';
-import { nodeById } from '../../data/derive';
-import type { Action } from '../../data/schema';
+import { useFleetActions, useRuns } from '../../data/queries';
+import type { ActionRun, FleetAction } from '../../data/types';
 import { clock, relative } from '../../lib/format';
 
-const ICONS = {
-  wake: Power,
-  backup: Database,
-  restart: ArrowsClockwise,
-  update: DownloadSimple,
-  terminal: Terminal,
-  shield: ShieldCheck,
-  disk: HardDrive,
-  network: WifiHigh,
-};
-
 export function AppsPage() {
-  const fleet = useFleet();
-  const { nodeId } = useParams();
-  const [selected, setSelected] = useState<Action | null>(null);
+  const actions = useFleetActions();
+  const runs = useRuns();
+  const [selected, setSelected] = useState<FleetAction | null>(null);
   const [open, setOpen] = useState(false);
+  const now = Date.now();
+  const all = actions.data ?? [];
+  const failed = all.filter((action) => action.last_ok === false);
+  const nodeCount = new Set(all.map((action) => action.node_id)).size;
 
-  if (fleet.isPending) return <PageSkeleton title="Apps" />;
-  if (fleet.isError || !fleet.data) {
-    return (
-      <>
-        <PageHeader title="Apps" finding="The action list did not load." />
-        <ErrorPanel what="Couldn't load the fleet snapshot." onRetry={() => void fleet.refetch()} />
-      </>
-    );
-  }
-
-  const snapshot = fleet.data;
-  const now = snapshot.generatedAt;
-  const scopeNode = nodeId ? nodeById(snapshot, nodeId) : undefined;
-  const actions = snapshot.actions.filter((action) => (nodeId ? action.nodeId === nodeId : true));
-  const failed = actions.filter(
-    (action) => action.lastRun && !action.lastRun.ok && now - action.lastRun.at <= 24 * 60 * 60 * 1000,
-  );
-  const lastRun = actions
-    .filter((action) => action.lastRun)
-    .sort((a, b) => (b.lastRun?.at ?? 0) - (a.lastRun?.at ?? 0))[0];
-  const nodeCount = new Set(actions.map((action) => action.nodeId)).size;
-  const runs = [...actions]
-    .filter((action) => action.lastRun)
-    .sort((a, b) => (b.lastRun?.at ?? 0) - (a.lastRun?.at ?? 0));
-
-  const finding =
-    failed.length > 0
-      ? `${failed.length} of ${actions.length} actions failed in the last 24 h: ${failed
-          .map((action) => `${action.name} exited ${action.lastRun?.exitCode} at ${clock(action.lastRun?.at ?? now)} UTC`)
-          .join('; ')}.`
-      : `${actions.length} actions on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${lastRun ? `${lastRun.name} finished ${relative(lastRun.lastRun?.at ?? now, now)}` : 'nothing has run yet'}.`;
-
-  const openRun = (action: Action) => {
-    setSelected(action);
-    setOpen(true);
-  };
-
-  const nodeName = selected ? nodeById(snapshot, selected.nodeId)?.name ?? selected.nodeId : '';
+  if (actions.isPending) return <PageSkeleton title="Apps" />;
 
   return (
     <>
-      {scopeNode ? (
-        <div className="scoped-head">
-          <p className="page-finding">{finding}</p>
-          <CopyLinkButton />
-        </div>
-      ) : (
-        <PageHeader title="Apps" finding={finding} actions={<CopyLinkButton />} />
-      )}
-
-      <div className="app-grid" data-columns={actions.length % 3 === 0 ? '3' : '2'}>
-        {actions.map((action) => {
-          const Icon = ICONS[action.icon];
-          const node = nodeById(snapshot, action.nodeId);
-          return (
-            <button type="button" className="app-tile" key={action.id} onClick={() => openRun(action)}>
-              <span className="app-tile-top">
-                <Icon size={18} className="app-tile-icon" aria-hidden="true" />
-                <span className="app-tile-name">{action.name}</span>
-                <span className="app-tile-pill">
-                  {action.lastRun ? (
-                    <RunPill ok={action.lastRun.ok} />
-                  ) : (
-                    <span className="pill" data-tone="neutral">
-                      Never run
-                    </span>
-                  )}
-                </span>
+      <PageHeader
+        title="Apps"
+        finding={
+          failed.length > 0
+            ? `${failed.length} of ${all.length} actions failed recently: ${failed
+                .map((action) => `${action.name} (${action.node_name})`)
+                .join('; ')}.`
+            : `${all.length} actions on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${runs.data?.length ?? 0} runs recorded.`
+        }
+        actions={<CopyLinkButton />}
+      />
+      <div className="app-grid" data-columns={all.length % 3 === 0 ? '3' : '2'}>
+        {all.map((action) => (
+          <button
+            type="button"
+            className="app-tile"
+            key={`${action.node_id}-${action.id}`}
+            onClick={() => {
+              setSelected(action);
+              setOpen(true);
+            }}
+          >
+            <span className="app-cell-top">
+              <span className="app-cell-name">{action.name}</span>
+              <span className="app-tile-pill">
+                {action.last_ok == null ? (
+                  <span className="pill" data-tone="neutral">Never run</span>
+                ) : (
+                  <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>{action.last_ok ? 'OK' : 'Failed'}</span>
+                )}
               </span>
-              <span className="app-tile-desc">{action.description}</span>
-              <span className="app-tile-foot">
-                <span className="app-tile-where">
-                  {node?.name ?? action.nodeId} ·{' '}
-                  {action.lastRun ? relative(action.lastRun.at, now) : 'never run'}
-                </span>
-                <span className="app-tile-status">
-                  {action.danger ? 'Type to confirm' : action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
-                </span>
-              </span>
-            </button>
-          );
-        })}
+            </span>
+            <span className="app-cell-desc">{action.description}</span>
+            <span className="app-cell-meta">
+              {action.node_name} · {action.last_run_at ? relative(action.last_run_at, now) : 'never run'} ·{' '}
+              {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
+            </span>
+          </button>
+        ))}
       </div>
-
-      {actions.length === 0 ? (
+      {all.length === 0 ? (
         <div className="panel">
-          <p className="empty">
-            No action is configured{scopeNode ? ` on ${scopeNode.name}` : ''}. Actions are defined in the
-            agent config on each host.
-          </p>
+          <Empty>
+            No action is configured. Actions live in the agent config (0600) on each host; the hub cannot create them.{' '}
+            <Link className="link" to="/settings/nodes">See the nodes</Link>.
+          </Empty>
         </div>
       ) : null}
-
-      <Panel title="Recent runs" meta={`${runs.length} recorded`} flush>
-        <Table label="Recent action runs">
-          <THead>
-            <Th>Action</Th>
-            <Th>Node</Th>
-            <Th num>Started</Th>
-            <Th num>Duration</Th>
-            <Th>Actor</Th>
-            <Th>Result</Th>
-          </THead>
-          <TBody>
-            {runs.map((action) => (
-              <tr key={`run-${action.id}`}>
-                <Td cell="primary">
-                  <button type="button" className="row-link" onClick={() => openRun(action)}>
-                    {action.name}
-                  </button>
-                </Td>
-                <Td cell="field" label="Node">
-                  {nodeById(snapshot, action.nodeId)?.name ?? action.nodeId}
-                </Td>
-                <Td num cell="field" label="Started">
-                  {relative(action.lastRun?.at ?? now, now)}
-                </Td>
-                <Td num cell="field" label="Duration">
-                  {((action.lastRun?.durationMs ?? 0) / 1000).toFixed(1)} s
-                </Td>
-                <Td cell="field" label="Actor">
-                  {action.lastRun?.actor ?? '—'}
-                </Td>
-                <Td cell="key">
-                  {action.lastRun ? (
-                    <RunPill ok={action.lastRun.ok} />
-                  ) : (
-                    <span className="pill" data-tone="neutral">
-                      Never run
-                    </span>
-                  )}
-                </Td>
-              </tr>
+      <Panel title="Recent runs" meta={`${runs.data?.length ?? 0} recorded`} flush>
+        {!runs.data || runs.data.length === 0 ? (
+          <Empty>No run recorded yet.</Empty>
+        ) : (
+          <ul className="run-list">
+            {runs.data.slice(0, 12).map((run: ActionRun) => (
+              <li className="run-row" key={run.id}>
+                <span className="fig">{clock(run.ts)}</span>
+                <span>
+                  <Link className="link" to={`/nodes/${run.node_id}/apps/${run.action_id}`}>
+                    {run.action_name || run.action_id}
+                  </Link>
+                  <span className="cell-sub">{run.node_id} · {run.actor} · {run.source}</span>
+                </span>
+                <span className="quiet">{(run.duration_ms / 1000).toFixed(1)} s</span>
+                <span className="pill" data-tone={run.ok ? 'positive' : 'negative'}>
+                  {run.ok ? 'Exited 0' : `Exited ${run.exit_code}`}
+                </span>
+              </li>
             ))}
-          </TBody>
-        </Table>
-        <div className="panel-foot">
-          <span className="note">
-            Actions run on the agent from its own config: a fixed script with no shell and no arguments,
-            or a Wake-on-LAN packet. One run per action, 60 s timeout, output truncated to 8 KiB. The hub
-            cannot create or edit them.
-          </span>
-        </div>
+          </ul>
+        )}
       </Panel>
-
-      <RunActionDialog action={selected} nodeName={nodeName} open={open} onOpenChange={setOpen} />
+      <p className="note">
+        Actions run on the agent from its own config: a fixed script with no shell and no arguments, or a Wake-on-LAN packet. One run per action, 60 s
+        timeout, output truncated to 8 KiB. The hub cannot create or edit them.
+      </p>
+      <RunActionDialog
+        action={selected}
+        nodeId={selected?.node_id ?? ''}
+        nodeName={selected?.node_name ?? ''}
+        open={open}
+        onOpenChange={setOpen}
+      />
     </>
   );
 }

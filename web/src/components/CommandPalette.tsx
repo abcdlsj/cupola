@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { useNavigate } from 'react-router-dom';
 import { useFleet } from '../data/queries';
 import { StatusPill } from './StatusPill';
+import type { NodeStatus } from '../data/types';
 
 interface Item {
   id: string;
@@ -10,7 +11,7 @@ interface Item {
   group: 'Go to' | 'Nodes';
   to: string;
   hint?: string;
-  status?: 'healthy' | 'degraded' | 'offline';
+  status?: NodeStatus;
 }
 
 const SCREENS: Item[] = [
@@ -18,13 +19,11 @@ const SCREENS: Item[] = [
   { id: 'screen-nodes', label: 'Nodes', group: 'Go to', to: '/nodes' },
   { id: 'screen-agents', label: 'Agents', group: 'Go to', to: '/agents' },
   { id: 'screen-apps', label: 'Apps', group: 'Go to', to: '/apps' },
-  { id: 'screen-about', label: 'About', group: 'Go to', to: '/settings/about' },
+  { id: 'screen-events', label: 'Events', group: 'Go to', to: '/events' },
+  { id: 'screen-alerts', label: 'Alerts', group: 'Go to', to: '/alerts' },
+  { id: 'screen-settings', label: 'Settings', group: 'Go to', to: '/settings/nodes' },
 ];
 
-/**
- * ⌘K / Ctrl-K palette. Every entry is a route, so the keyboard path and the
- * links land on the same URL.
- */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
   const fleet = useFleet();
@@ -33,13 +32,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const listRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo<Item[]>(() => {
-    const nodes: Item[] = (fleet.data?.nodes ?? []).map((node) => ({
-      id: `node-${node.id}`,
-      label: node.name,
+    const nodes: Item[] = (fleet.data?.nodes ?? []).map((view) => ({
+      id: `node-${view.node.id}`,
+      label: view.node.name,
       group: 'Nodes',
-      to: `/nodes/${node.id}`,
-      hint: node.status === 'offline' ? 'offline' : `${Math.round(node.cpuPct)}% CPU`,
-      status: node.status,
+      to: `/nodes/${view.node.id}`,
+      hint: view.health.status === 'offline' ? 'offline' : `${Math.round(view.health.cpu_pct)}% CPU`,
+      status: view.health.status,
     }));
     const all = [...SCREENS, ...nodes];
     const needle = query.trim().toLowerCase();
@@ -54,9 +53,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     }
   }, [open]);
 
-  useEffect(() => {
-    setActive(0);
-  }, [query]);
+  useEffect(() => setActive(0), [query]);
 
   const go = (item: Item | undefined) => {
     if (!item) return;
@@ -78,8 +75,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   };
 
   useEffect(() => {
-    const node = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
-    node?.scrollIntoView({ block: 'nearest' });
+    listRef.current?.querySelector<HTMLElement>('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [active]);
 
   let lastGroup: string | null = null;

@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1
+FROM golang:1.26-bookworm AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY cmd/ cmd/
+COPY internal/ internal/
+COPY scripts/ scripts/
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+# CGO_ENABLED=0 keeps the image portable and reports no NVIDIA GPU. Build with
+# CGO_ENABLED=1 and the NVML headers for per-GPU metrics (docs/DEPLOY.md).
+ENV CGO_ENABLED=0
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags "-s -w" -o /out/cupola-agent ./cmd/cupola
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates smartmontools \
+ && rm -rf /var/lib/apt/lists/*
+COPY --from=build /out/cupola-agent /usr/local/bin/cupola
+RUN mkdir -p /etc/cupola && chmod 0700 /etc/cupola
+ENTRYPOINT ["/usr/local/bin/cupola"]
+CMD ["agent", "--config", "/etc/cupola/agent.json"]

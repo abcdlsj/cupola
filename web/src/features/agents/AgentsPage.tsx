@@ -1,65 +1,43 @@
-import { Link, useParams } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { AgentMark } from '../../components/AgentMark';
 import { CopyLinkButton } from '../../components/CopyLinkButton';
-import { ErrorPanel, PageSkeleton } from '../../components/States';
-import { useFleet } from '../../data/queries';
-import { agentGroups, nodeById, sessionRuntimeSec } from '../../data/derive';
-import { AGENT_TYPES } from '../../data/registry';
-import type { Session } from '../../data/schema';
+import { Empty, PageSkeleton } from '../../components/States';
+import { useFleetAgents } from '../../data/queries';
+import { agentTypeInfo } from '../../data/registry';
 import { duration, percent, size } from '../../lib/format';
 
 export function AgentsPage() {
-  const fleet = useFleet();
-  const { nodeId } = useParams();
-
-  if (fleet.isPending) return <PageSkeleton title="Agents" />;
-  if (fleet.isError || !fleet.data) {
-    return (
-      <>
-        <PageHeader title="Agents" finding="The agent roster did not load." />
-        <ErrorPanel what="Couldn't load the fleet snapshot." onRetry={() => void fleet.refetch()} />
-      </>
-    );
-  }
-
-  const snapshot = fleet.data;
-  const now = snapshot.generatedAt;
-  const scopeNode = nodeId ? nodeById(snapshot, nodeId) : undefined;
-  const sessions = snapshot.sessions
-    .filter((session) => (nodeId ? session.nodeId === nodeId : true))
-    .slice()
-    .sort((a, b) => sessionRuntimeSec(b, now) - sessionRuntimeSec(a, now));
-  const groups = agentGroups(sessions, now);
-  const nodeCount = new Set(sessions.map((session) => session.nodeId)).size;
+  const query = useFleetAgents();
+  const sessions = useMemo(() => query.data ?? [], [query.data]);
+  const groups = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const session of sessions) map.set(session.type, (map.get(session.type) ?? 0) + 1);
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [sessions]);
+  const totalCpu = sessions.reduce((sum, session) => sum + session.cpu_percent, 0);
+  const totalRam = sessions.reduce((sum, session) => sum + session.rss_bytes, 0);
+  const longest = sessions.reduce((max, session) => Math.max(max, session.runtime_sec), 0);
+  const nodeCount = new Set(sessions.map((session) => session.node_id)).size;
   const leader = groups[0];
-  const totalCpu = sessions.reduce((sum, session) => sum + session.cpuPct, 0);
-  const totalRam = sessions.reduce((sum, session) => sum + session.rssMb, 0) / 1024;
-  const longest = sessions.reduce((max, session) => Math.max(max, sessionRuntimeSec(session, now)), 0);
-  const findingText =
-    sessions.length === 0
-      ? `No AI agent session is running${scopeNode ? ` on ${scopeNode.name}` : ''}.`
-      : `${sessions.length} sessions across ${groups.length} tools on ${nodeCount} ${
-          nodeCount === 1 ? 'box' : 'boxes'
-        }; ${leader ? `${AGENT_TYPES[leader.type].label} holds ${leader.count}` : 'no leader'}.`;
-  const showNode = !scopeNode;
+
+  if (query.isPending) return <PageSkeleton title="Agents" />;
 
   return (
     <>
-      {scopeNode ? (
-        <div className="scoped-head">
-          <p className="page-finding">{findingText}</p>
-          <CopyLinkButton />
-        </div>
-      ) : (
-        <PageHeader
-          title="Agents"
-          finding={findingText}
-          actions={<CopyLinkButton />}
-        />
-      )}
-
+      <PageHeader
+        title="Agents"
+        finding={
+          sessions.length === 0
+            ? 'No AI agent session is running on any node.'
+            : `${sessions.length} sessions across ${groups.length} tools on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${
+                leader ? `${agentTypeInfo(leader[0]).label} holds ${leader[1]}` : 'no leader'
+              }.`
+        }
+        actions={<CopyLinkButton />}
+      />
       <div className="kpi-row" data-count="4">
         <div className="kpi-cell">
           <div className="kpi-label">Sessions</div>
@@ -82,134 +60,60 @@ export function AgentsPage() {
           <div className="kpi-sub">still running</div>
         </div>
       </div>
-
       <Panel title="Roster" meta={`${sessions.length} sessions · ${groups.length} tools`} flush>
         {sessions.length === 0 ? (
-          <p className="empty">
-            Cupola matches process names and their working directory against a small registry of coding
-            agents and model servers. Nothing matched in the last snapshot.
-          </p>
+          <Empty>Cupola matches process names and their working directory against a small registry of coding agents and model servers.</Empty>
         ) : (
           <Table label="AI agent sessions">
             <THead>
               <Th>Project</Th>
-              {showNode ? <Th>Node</Th> : null}
-              <Th num>PID</Th>
+              <Th>Type</Th>
+              <Th>Node</Th>
               <Th num>Runtime</Th>
               <Th num>CPU</Th>
               <Th num>Memory</Th>
               <Th>TTY</Th>
             </THead>
             <TBody>
-              {groups.map((group) => {
-                const info = AGENT_TYPES[group.type];
-                return (
-                  <GroupRows
-                    key={group.type}
-                    label={info.label}
-                    category={info.category}
-                    type={group.type}
-                    count={group.count}
-                    cpuPct={group.cpuPct}
-                    rssMb={group.rssMb}
-                    longestSec={group.longestSec}
-                    sessions={group.sessions}
-                    now={now}
-                    showNode={showNode}
-                  />
-                );
-              })}
+              {sessions.map((session) => (
+                <tr key={`${session.node_id}-${session.id}`}>
+                  <Td cell="primary">
+                    <Link className="row-name" to={`/nodes/${session.node_id}/agents/${session.id}`}>
+                      {session.project || session.label}
+                    </Link>
+                  </Td>
+                  <Td cell="field" label="Type">
+                    <span className="agent-cell">
+                      <AgentMark type={session.type} />
+                      {session.label}
+                    </span>
+                  </Td>
+                  <Td cell="field" label="Node">
+                    <Link className="link" to={`/nodes/${session.node_id}/agents`}>
+                      {session.node_name}
+                    </Link>
+                  </Td>
+                  <Td num cell="field" label="Runtime">
+                    {duration(session.runtime_sec)}
+                  </Td>
+                  <Td num cell="key">{percent(session.cpu_percent, 1)}</Td>
+                  <Td num cell="field" label="Memory">
+                    {size(session.rss_bytes)}
+                  </Td>
+                  <Td cell="field" label="TTY">
+                    {session.tty || '—'}
+                  </Td>
+                </tr>
+              ))}
             </TBody>
           </Table>
         )}
         <div className="panel-foot">
           <span className="note">
-            Arguments are redacted. Cupola reads the process name, working directory and tty; it never
-            reads prompts, files or environment variables.
+            Arguments are redacted. Cupola reads the process name, working directory and tty; it never reads prompts, files or environment variables.
           </span>
         </div>
       </Panel>
-    </>
-  );
-}
-
-function GroupRows({
-  label,
-  category,
-  type,
-  count,
-  cpuPct,
-  rssMb,
-  longestSec,
-  sessions,
-  now,
-  showNode,
-}: {
-  label: string;
-  category: string;
-  type: Session['type'];
-  count: number;
-  cpuPct: number;
-  rssMb: number;
-  longestSec: number;
-  sessions: Session[];
-  now: number;
-  showNode: boolean;
-}) {
-  return (
-    <>
-      <tr className="roster-group-row">
-        <td colSpan={showNode ? 7 : 6} data-cell="figures">
-          <div className="roster-group">
-            <AgentMark type={type} strong />
-            <span className="roster-group-name">{label}</span>
-            <span className="roster-group-cat">{category}</span>
-            <span className="roster-group-figures">
-              <span>
-                <b>{count}</b> {count === 1 ? 'session' : 'sessions'}
-              </span>
-              <span>
-                <b>{percent(cpuPct, 1)}</b> CPU
-              </span>
-              <span>
-                <b>{size(rssMb / 1024)}</b> RAM
-              </span>
-              <span>
-                longest <b>{duration(longestSec)}</b>
-              </span>
-            </span>
-          </div>
-        </td>
-      </tr>
-      {sessions.map((session) => (
-        <tr key={session.id}>
-          <Td cell="primary">
-            <span className="row-name">{session.project}</span>
-          </Td>
-          {showNode ? (
-            <Td cell="field" label="Node">
-              <Link className="link" to={`/nodes/${session.nodeId}`}>
-                {session.nodeId}
-              </Link>
-            </Td>
-          ) : null}
-          <Td num cell="field" label="PID">
-            {session.pid}
-          </Td>
-          <Td num cell="field" label="Runtime">
-            {duration(sessionRuntimeSec(session, now))}
-          </Td>
-          <Td num cell="key">
-            {percent(session.cpuPct, 1)}
-          </Td>
-          <Td num cell="field" label="Memory">
-            {size(session.rssMb / 1024)}
-          </Td>
-          <Td cell="field" label="TTY">
-            {session.tty}
-          </Td>
-        </tr>
-      ))}
     </>
   );
 }

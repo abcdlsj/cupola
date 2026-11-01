@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
-  capacity,
   clock,
   day,
   duration,
   eventTime,
+  netRate,
   percent,
   rate,
   relative,
   size,
+  sizeSmall,
   uptime,
   usedPct,
 } from '../format';
@@ -32,21 +33,20 @@ describe('relative', () => {
   });
 });
 
-describe('size and capacity', () => {
-  it('switches to terabytes above 1024 GiB', () => {
-    expect(size(48.4)).toBe('48.4 GB');
-    expect(size(1863)).toBe('1.82 TB');
-    expect(capacity(64)).toBe('64 GB');
-    expect(capacity(4000)).toBe('3.91 TB');
+describe('byte figures', () => {
+  it('formats bytes, small bytes and rates', () => {
+    expect(size(52 * 1024 ** 3)).toBe('52.0 GB');
+    expect(size(2 * 1024 ** 4)).toBe('2.00 TB');
+    expect(sizeSmall(1536)).toBe('2 kB');
+    expect(rate(1024 * 1024)).toBe('1 MB/s');
+    expect(netRate(1_000_000)).toBe('8.0 Mbit/s');
   });
 });
 
 describe('figures', () => {
-  it('formats percentages and rates with units', () => {
+  it('formats percentages and guard rails', () => {
     expect(percent(71.26)).toBe('71%');
     expect(percent(71.26, 1)).toBe('71.3%');
-    expect(rate(62400)).toBe('62.4 Mbit/s');
-    expect(rate(412)).toBe('412 kbit/s');
     expect(usedPct(58.1, 64).toFixed(2)).toBe('90.78');
     expect(usedPct(1, 0)).toBe(0);
   });

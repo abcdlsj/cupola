@@ -95,9 +95,10 @@ type netDelta struct {
 }
 
 type diskDelta struct {
-	read  uint64
-	write uint64
-	at    time.Time
+	read, write           uint64
+	readIOs, writeIOs     uint64
+	readTicks, writeTicks uint64
+	at                    time.Time
 }
 
 func New(opts Options) (*Collector, error) {

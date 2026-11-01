@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: '/',
+  base: process.env.VITE_BASE || '/',
   plugins: [
     react(),
     tailwindcss(),

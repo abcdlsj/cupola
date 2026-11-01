@@ -21,11 +21,10 @@ dense, fast PWA.
 - **Every view has a URL.** Copy and share a node, process, agent session,
   service, container, app, alert or event, with its time range intact.
 
-> **Status: v1 implementation in progress (M1–M5).** The shell, tokens and
-> screens are approved; the agent, hub, collectors and deployment are being
-> built. The build plan is [docs/PLAN.md](docs/PLAN.md), the visual direction
-> is [docs/DESIGN.md](docs/DESIGN.md), and the M0 report is
-> [docs/reports/M0.md](docs/reports/M0.md).
+> **Status: v1 shipped.** Agent, hub, PWA and deployment assets are in the tree.
+> Start with [docs/DEPLOY.md](docs/DEPLOY.md); the API is in
+> [docs/API.md](docs/API.md). Acceptance and known limits are in
+> [docs/reports/ACCEPTANCE.md](docs/reports/ACCEPTANCE.md).
 
 ## Shape
 
@@ -61,16 +60,30 @@ against SSRF. No telemetry.
 ## Development
 
 ```bash
+# all-in-one: hub + embedded agent on http://127.0.0.1:8080
+CUPOLA_ADMIN_PASSWORD='a long password' go run ./cmd/cupola serve
+
+# or separately
+go run ./cmd/cupola agent --init --node atlas --name atlas --config /tmp/atlas.json
+go run ./cmd/cupola agent --config /tmp/atlas.json
+CUPOLA_ADMIN_PASSWORD='a long password' go run ./cmd/cupola hub --web-dir web/dist
+```
+
+Web development and tests:
+
+```bash
 cd web && npm ci
-npm run dev          # http://localhost:5173
+npm run dev          # http://localhost:5173 (needs a hub, see docs/DEPLOY.md)
 npm run lint
 npm test
 npm run build        # production build and PWA in web/dist
-npm run preview      # http://127.0.0.1:4173
-npx playwright test  # desktop, iPad, iPhone (WebKit), Pixel (Chromium)
+npx playwright test  # starts a hub + three fictional agents (scripts/e2e-hub.sh)
 ```
 
-Go side (module and subcommand shell in M0):
+Fixture screenshots: [docs/screenshots/v1](docs/screenshots/v1). All host names,
+addresses and figures in them are invented.
+
+Go checks:
 
 ```bash
 go vet ./...
@@ -78,8 +91,8 @@ go test ./...
 go build ./cmd/cupola
 ```
 
-The M0 screenshots live in [docs/screenshots/m0](docs/screenshots/m0); the data
-is fake. Fonts are self-hosted; no runtime third-party assets.
+The M0 screenshots live in [docs/screenshots/m0](docs/screenshots/m0); fonts are
+self-hosted and there are no runtime third-party assets.
 
 ## License
 

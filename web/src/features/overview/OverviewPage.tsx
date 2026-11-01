@@ -1,72 +1,110 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Power } from '@phosphor-icons/react';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { FleetHorizon } from '../../components/FleetHorizon';
 import { CopyLinkButton } from '../../components/CopyLinkButton';
-import { RunPill, StatusPill } from '../../components/StatusPill';
-import { PageSkeleton, ErrorPanel } from '../../components/States';
+import { StatusPill } from '../../components/StatusPill';
+import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from '../apps/RunActionDialog';
-import { useFleet } from '../../data/queries';
-import {
-  attentionItems,
-  diskUsedPct,
-  fleetFinding,
-  needAttention,
-  nodeById,
-} from '../../data/derive';
-import type { Action } from '../../data/schema';
-import { capacity, eventTime, percent, relative, size, uptime } from '../../lib/format';
+import { EventsList } from '../events/EventsList';
+import { useEvents, useFleet, useFleetActions, useSettings } from '../../data/queries';
+import type { Action, Event, FleetAction } from '../../data/types';
+import { days, percent, relative, size, uptime } from '../../lib/format';
+
+interface Attention {
+  key: string;
+  nodeId: string;
+  severity: 'warning' | 'critical';
+  title: string;
+  detail: string;
+  ts: number;
+}
+
+function attentionItems(events: Event[]): Attention[] {
+  const now = Date.now();
+  const seen = new Set<string>();
+  const out: Attention[] = [];
+  for (const event of events) {
+    if (event.severity === 'info' || now - event.ts > 24 * 3600 * 1000) continue;
+    const key = `${event.node_id}:${event.kind}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      key: `${event.id}`,
+      nodeId: event.node_id,
+      severity: event.severity,
+      title: event.message,
+      detail: `${event.node_id} · ${event.kind}`,
+      ts: event.ts,
+    });
+  }
+  return out;
+}
 
 export function OverviewPage() {
   const fleet = useFleet();
+  const events = useEvents({ limit: 60 });
+  const actions = useFleetActions();
+  const settings = useSettings();
   const [params] = useSearchParams();
-  const [pending, setPending] = useState<Action | null>(null);
-  const [runOpen, setRunOpen] = useState(false);
+  const [selected, setSelected] = useState<FleetAction | null>(null);
+  const [open, setOpen] = useState(false);
+  const now = Date.now();
+
+  const nodes = fleet.data?.nodes ?? [];
+  const attention = useMemo(() => attentionItems(events.data ?? []), [events.data]);
+  const offline = nodes.find((view) => view.health.status === 'offline');
+  const degraded = nodes.find((view) => view.health.status === 'degraded');
+  const selectedId = params.get('node') ?? (offline ?? degraded)?.node.id ?? nodes[0]?.node.id;
+  const needAttention = nodes.filter((view) => view.health.status !== 'healthy').length;
+  const sessions = nodes.reduce((sum, view) => sum + view.health.agents, 0);
+  const appCount = actions.data?.length ?? 0;
+  const stripActions = (actions.data ?? []).slice(0, 3);
 
   if (fleet.isPending) return <PageSkeleton title="Overview" />;
   if (fleet.isError || !fleet.data) {
     return (
       <>
-        <PageHeader title="Overview" finding="The snapshot did not load." />
+        <PageHeader title="Overview" finding="The fleet did not load." />
         <ErrorPanel what="Couldn't load the fleet snapshot." onRetry={() => void fleet.refetch()} />
       </>
     );
   }
 
-  const snapshot = fleet.data;
-  const now = snapshot.generatedAt;
-  const nodes = snapshot.nodes;
-  const attention = attentionItems(snapshot, now);
-  const offline = nodes.find((node) => node.status === 'offline');
-  const degraded = nodes.find((node) => node.status === 'degraded');
-  const selectedId = params.get('node') ?? (offline ?? degraded)?.id ?? nodes[0]?.id;
-
-  const wake = snapshot.actions.find((action) => action.id === 'wake-desk') ?? snapshot.actions[0];
-
-  const stripActions = ['wake-desk', 'restart-jellyfin', 'backup-now']
-    .map((id) => snapshot.actions.find((action) => action.id === id))
-    .filter((action): action is Action => Boolean(action));
-
-  const events = snapshot.events.slice(0, 5);
-
-  const openRun = (action: Action) => {
-    setPending(action);
-    setRunOpen(true);
-  };
+  const finding = (() => {
+    if (nodes.length === 0) return 'No node is registered yet. Add one in Settings → Nodes.';
+    const parts: string[] = [];
+    if (offline) parts.push(`${offline.node.name} is offline`);
+    const full = nodes
+      .map((view) => ({ view, disk: view.snapshot?.disks.find((disk) => disk.mount === '/') }))
+      .filter((entry) => entry.disk && entry.disk.used_pct >= 85)
+      .sort((a, b) => (b.disk?.used_pct ?? 0) - (a.disk?.used_pct ?? 0))[0];
+    if (full?.disk) parts.push(`${full.view.node.name}'s root disk is ${percent(full.disk.used_pct)} full`);
+    const otherFinding = attention.find((item) => item.nodeId !== offline?.node.id);
+    if (otherFinding) parts.push(otherFinding.title.toLowerCase());
+    return `${nodes.length} boxes, ${needAttention} need attention${parts.length ? `: ${parts.join('; ')}` : '.'}`;
+  })();
 
   return (
     <>
       <PageHeader
         title="Overview"
-        finding={`${nodes.length} boxes, ${needAttention(snapshot)} need attention: ${fleetFinding(snapshot, now)}`}
+        finding={finding}
         actions={
           <>
-            {wake ? (
-              <button type="button" className="btn btn-ghost" onClick={() => openRun(wake)}>
+            {stripActions[0] ? (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => {
+                  setSelected(stripActions[0]);
+                  setOpen(true);
+                }}
+              >
                 <Power size={15} aria-hidden="true" />
-                {wake.name}
+                {stripActions[0].name}
               </button>
             ) : null}
             <CopyLinkButton />
@@ -79,41 +117,66 @@ export function OverviewPage() {
         meta={
           <>
             <span>CPU now</span>
-            <span className="quiet">accent line marks {nodes.find((node) => node.id === selectedId)?.name}</span>
+            <span className="quiet">accent line marks {nodes.find((view) => view.node.id === selectedId)?.node.name ?? 'the selected node'}</span>
           </>
         }
         flush
       >
-        <FleetHorizon nodes={nodes} now={now} selectedId={selectedId} />
+        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetHorizon nodes={nodes} selectedId={selectedId} />}
       </Panel>
+
+      <div className="kpi-row" data-count="4">
+        <div className="kpi-cell">
+          <div className="kpi-label">Boxes</div>
+          <div className="kpi-value">{nodes.length}</div>
+          <div className="kpi-sub">{needAttention} need attention</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-label">Agent sessions</div>
+          <div className="kpi-value">{sessions}</div>
+          <div className="kpi-sub">across the fleet</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-label">Apps</div>
+          <div className="kpi-value">{appCount}</div>
+          <div className="kpi-sub">configured actions</div>
+        </div>
+        <div className="kpi-cell">
+          <div className="kpi-label">Findings</div>
+          <div className="kpi-value">{attention.length}</div>
+          <div className="kpi-sub">warnings in the last 24 h</div>
+        </div>
+      </div>
 
       <div className="row">
         <div className="span-5">
-          <Panel
-            title="Attention"
-            meta={`${attention.length} findings`}
-            flush
-          >
-            <ul className="attention-list">
-              {attention.map((item) => (
-                <li key={item.id}>
-                  <Link className="attention-row" to={item.href}>
-                    <span className="dot-mark attention-dot" data-severity={item.severity} aria-hidden="true" />
-                    <span>
-                      <span className="attention-title">{item.title}</span>
-                      <span className="attention-detail">{item.detail}</span>
-                    </span>
-                    <span className="attention-when">{relative(item.at, now)}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+          <Panel title="Attention" meta={`${attention.length} findings`} flush>
+            {attention.length === 0 ? (
+              <Empty>Nothing needs attention. Units, containers, disks and thresholds are quiet.</Empty>
+            ) : (
+              <ul className="attention-list">
+                {attention.slice(0, 4).map((item) => (
+                  <li key={item.key}>
+                    <Link className="attention-row" to={`/nodes/${item.nodeId}/events`}>
+                      <span className="dot-mark attention-dot" data-severity={item.severity} aria-hidden="true" />
+                      <span>
+                        <span className="attention-title">{item.title}</span>
+                        <span className="attention-detail">{item.detail}</span>
+                      </span>
+                      <span className="attention-when">{relative(item.ts, now)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
             <div className="panel-foot">
-              <span className="note">Sorted by severity. Action failures stay on the Apps screen.</span>
+              <span className="note">
+                {attention.length > 4 ? `${attention.length - 4} more findings in Events. ` : ''}
+                Derived from events; action failures stay on the Apps screen.
+              </span>
             </div>
           </Panel>
         </div>
-
         <div className="span-7">
           <Panel
             title="Nodes"
@@ -133,48 +196,45 @@ export function OverviewPage() {
                 <Th num>CPU</Th>
                 <Th num>Memory</Th>
                 <Th num>Root disk</Th>
-                <Th num>Net Mbit/s</Th>
                 <Th num>Uptime</Th>
               </THead>
               <TBody>
-                {nodes.map((node) => {
-                  const disk = node.disks.find((entry) => entry.mount === '/') ?? node.disks[0];
+                {nodes.map((view) => {
+                  const node = view.node;
                   return (
                     <tr key={node.id}>
                       <Td cell="primary">
                         <Link to={`/nodes/${node.id}`} className="row-name">
                           {node.name}
-                          <StatusPill status={node.status} />
+                          <StatusPill status={view.health.status} />
                         </Link>
-                        <span className="cell-sub">{node.ip}</span>
+                        <span className="cell-sub">{node.os || 'unknown OS'} · {node.arch}</span>
                       </Td>
-                      <Td num cell="key">
-                        {node.status === 'offline' ? '—' : percent(node.cpuPct)}
-                      </Td>
+                      <Td num cell="key">{view.health.status === 'offline' ? '—' : percent(view.health.cpu_pct)}</Td>
                       <Td num cell="field" label="Memory">
-                        {size(node.memUsedGb)}
-                        <span className="cell-sub">of {capacity(node.memTotalGb)}</span>
+                        {percent(view.health.mem_pct)}
+                        <span className="cell-sub">{size(view.health.mem_used)} of {size(view.health.mem_total)}</span>
                       </Td>
                       <Td num cell="field" label="Disk">
-                        {disk ? percent(diskUsedPct(disk.usedGb, disk.sizeGb)) : '—'}
-                        <span className="cell-sub">
-                          {disk ? `${size(disk.usedGb)} of ${size(disk.sizeGb)}` : 'no disk'}
-                        </span>
-                      </Td>
-                      <Td num cell="field" label="Net">
-                        {node.status === 'offline'
-                          ? '—'
-                          : `${(node.net.rxKbps / 1000).toFixed(1)} / ${(node.net.txKbps / 1000).toFixed(1)}`}
-                        <span className="cell-sub">rx / tx</span>
+                        {percent(view.health.root_disk_pct)}
+                        <span className="cell-sub">{view.health.root_disk_total ? `${size(view.health.root_disk_used)} of ${size(view.health.root_disk_total)}` : 'no disk'}</span>
                       </Td>
                       <Td num cell="field" label="Uptime">
-                        {node.status === 'offline' ? relative(node.lastSeenAt, now) : uptime(node.uptimeSec)}
+                        {view.health.status === 'offline'
+                          ? node.last_seen ? relative(node.last_seen, now) : 'never seen'
+                          : uptime(view.health.uptime_sec)}
+                        <span className="cell-sub">
+                          {view.health.days_to_full ? `full in ${days(view.health.days_to_full)}` : 'no fill trend'}
+                        </span>
                       </Td>
                     </tr>
                   );
                 })}
               </TBody>
             </Table>
+            <div className="panel-foot">
+              <span className="note">Updated every {settings.data?.poll_interval_sec ?? 5} s · open a node for the full snapshot.</span>
+            </div>
           </Panel>
         </div>
       </div>
@@ -183,7 +243,7 @@ export function OverviewPage() {
         title="Apps"
         meta={
           <>
-            <span>{stripActions.length} of {snapshot.actions.length} actions</span>
+            <span>{stripActions.length} of {appCount} actions</span>
             <Link className="text-link" to="/apps">
               All apps
             </Link>
@@ -191,46 +251,46 @@ export function OverviewPage() {
         }
         flush
       >
-        <div className="app-cells" data-count={stripActions.length}>
-          {stripActions.map((action) => {
-            const node = nodeById(snapshot, action.nodeId);
-            return (
-              <button type="button" className="app-cell" key={action.id} onClick={() => openRun(action)}>
+        {stripActions.length === 0 ? (
+          <Empty>No action configured. Add them to the agent config on each host.</Empty>
+        ) : (
+          <div className="app-cells" data-count={stripActions.length}>
+            {stripActions.map((action) => (
+              <button
+                type="button"
+                className="app-cell"
+                key={`${action.node_id}-${action.id}`}
+                onClick={() => {
+                  setSelected(action);
+                  setOpen(true);
+                }}
+              >
                 <span className="app-cell-top">
                   <span className="app-cell-name">{action.name}</span>
-                  {action.lastRun ? <RunPill ok={action.lastRun.ok} /> : <span className="pill" data-tone="neutral">Never run</span>}
+                  {action.last_ok == null ? (
+                    <span className="pill" data-tone="neutral">Never run</span>
+                  ) : (
+                    <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>{action.last_ok ? 'OK' : 'Failed'}</span>
+                  )}
                 </span>
                 <span className="app-cell-desc">{action.description}</span>
                 <span className="app-cell-meta">
-                  {node?.name ?? action.nodeId} ·{' '}
-                  {action.lastRun ? relative(action.lastRun.at, now) : 'never run'}
+                  {action.node_name} · {action.last_run_at ? relative(action.last_run_at, now) : 'never run'}
                 </span>
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </Panel>
 
-      <Panel title="Recent events" meta={`${snapshot.events.length} events`} flush>
-        <ul className="event-list">
-          {events.map((event) => (
-            <li className="event-row" key={event.id}>
-              <span className="event-time">{eventTime(event.at, now)}</span>
-              <span className="event-node">
-                {nodeById(snapshot, event.nodeId)?.name ?? event.nodeId}
-              </span>
-              <span className="dot-mark" data-severity={event.severity} aria-hidden="true" />
-              <span className="event-message">{event.message}</span>
-            </li>
-          ))}
-        </ul>
-      </Panel>
+      <EventsList title="Recent events" compact />
 
       <RunActionDialog
-        action={pending}
-        nodeName={pending ? nodeById(snapshot, pending.nodeId)?.name ?? pending.nodeId : ''}
-        open={runOpen}
-        onOpenChange={setRunOpen}
+        action={selected as Action | null}
+        nodeId={selected?.node_id ?? ''}
+        nodeName={selected?.node_name ?? ''}
+        open={open}
+        onOpenChange={setOpen}
       />
     </>
   );

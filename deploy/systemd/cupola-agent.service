@@ -1,0 +1,21 @@
+[Unit]
+Description=Cupola agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/cupola agent --config /etc/cupola/agent.json
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=read-only
+ProtectSystem=full
+# SMART/NVML and the Docker socket need root; the agent is read-only by design.
+CapabilityBoundingSet=CAP_SYS_RAWIO CAP_DAC_READ_SEARCH
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target

@@ -1,22 +1,15 @@
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link } from 'react-router-dom';
 import { percent, relative } from '../lib/format';
-import type { Node } from '../data/schema';
+import type { NodeView } from '../data/types';
 
 /**
  * The fleet horizon: one mark per node on a common baseline. Height is CPU
  * utilisation, status colour only for degraded or offline, and a 1px accent
- * line under the selected node. Every mark links to its node.
+ * line beside the selected node. Every mark links to its node.
  */
-export function FleetHorizon({
-  nodes,
-  now,
-  selectedId,
-}: {
-  nodes: Node[];
-  now: number;
-  selectedId?: string;
-}) {
+export function FleetHorizon({ nodes, selectedId }: { nodes: NodeView[]; selectedId?: string }) {
+  const now = Date.now();
   return (
     <div className="horizon">
       <div className="horizon-scale" aria-hidden="true">
@@ -28,31 +21,27 @@ export function FleetHorizon({
         <div className="horizon-grid" data-line="top" aria-hidden="true" />
         <div className="horizon-grid" data-line="mid" aria-hidden="true" />
         <div className="horizon-marks">
-          {nodes.map((node) => {
-            const offline = node.status === 'offline';
-            const height = offline ? 0 : Math.min(100, Math.max(0, node.cpuPct));
+          {nodes.map((view) => {
+            const node = view.node;
+            const offline = view.health.status === 'offline';
+            const value = Math.min(100, Math.max(0, view.health.cpu_pct || 0));
             return (
               <Tooltip.Root key={node.id} delayDuration={180}>
                 <Tooltip.Trigger asChild>
                   <Link
                     to={`/nodes/${node.id}`}
                     className="horizon-node"
-                    data-status={node.status}
+                    data-status={view.health.status}
                     data-selected={node.id === selectedId ? 'true' : undefined}
-                    aria-label={`${node.name}: ${node.status}, CPU ${percent(node.cpuPct, 1)}`}
+                    aria-label={`${node.name}: ${view.health.status}, CPU ${percent(value, 1)}`}
                   >
                     <span className="horizon-track">
-                      <span
-                        className="horizon-bar"
-                        style={{ height: offline ? '2px' : `${Math.max(2, height * 0.96)}%` }}
-                      />
+                      <span className="horizon-bar" style={{ height: offline ? '2px' : `${Math.max(2, value * 0.96)}%` }} />
                       <span className="horizon-tick" aria-hidden="true" />
                     </span>
                     <span className="horizon-label">
                       <span className="horizon-name">{node.name}</span>
-                      <span className="horizon-value">
-                        {offline ? 'offline' : percent(node.cpuPct)}
-                      </span>
+                      <span className="horizon-value">{offline ? 'offline' : percent(value)}</span>
                     </span>
                   </Link>
                 </Tooltip.Trigger>
@@ -62,8 +51,8 @@ export function FleetHorizon({
                     <span className="quiet">
                       {' '}
                       {offline
-                        ? `last seen ${relative(node.lastSeenAt, now)}`
-                        : `CPU ${percent(node.cpuPct, 1)} · load ${node.load[0].toFixed(2)}`}
+                        ? `last seen ${relative(node.last_seen, now)}`
+                        : `CPU ${percent(view.health.cpu_pct, 1)} · memory ${percent(view.health.mem_pct)}`}
                     </span>
                     <Tooltip.Arrow className="tooltip-arrow" />
                   </Tooltip.Content>

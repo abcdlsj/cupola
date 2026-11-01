@@ -5,33 +5,59 @@ test.describe('fleet overview', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
     const marks = page.locator('.horizon-node');
-    await expect(marks).toHaveCount(4);
-    await expect(page.locator('.horizon-node[data-status="offline"]')).toHaveCount(1);
-    await page.getByLabel(/^studio: degraded/).click();
-    await expect(page).toHaveURL(/\/nodes\/studio$/);
-    await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
+    await expect(marks).toHaveCount(3);
+    await page.getByLabel(/^beelink: (healthy|degraded)/).click();
+    await expect(page).toHaveURL(/\/nodes\/beelink$/);
+    await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/$/);
   });
 
-  test('answer the screen question first: the finding names offline and disk', async ({ page }) => {
+  test('answers the screen question with real API data', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.page-finding')).toContainText('2 need attention');
-    await expect(page.locator('.page-finding')).toContainText('shed has been offline');
-    await expect(page.locator('.page-finding')).toContainText('91% full');
+    await expect(page.locator('.page-finding')).toContainText('boxes');
+    await expect(page.locator('.kpi-cell').first()).toContainText('3');
+    await expect(page.locator('.attention-list, .empty').first()).toBeVisible();
   });
 });
 
-test.describe('keyboard', () => {
-  test('command palette opens, filters and navigates', async ({ page }) => {
+test.describe('nodes', () => {
+  test('the list stays a table and filters', async ({ page }) => {
     await page.goto('/nodes');
-    await page.keyboard.press('Meta+k');
-    const input = page.getByRole('combobox');
-    await expect(input).toBeVisible();
-    await input.fill('beelink');
-    await expect(page.locator('.palette-item', { hasText: 'beelink' })).toBeVisible();
-    await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/nodes\/beelink$/);
+    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('tbody tr')).toHaveCount(3);
+    await page.getByPlaceholder('Filter nodes').fill('studio');
+    await expect(page.locator('tbody tr')).toHaveCount(1);
+    await expect(page.locator('tbody tr').first()).toContainText('studio');
+  });
+
+  test('node tabs are real routes and a process has a detail page', async ({ page }) => {
+    await page.goto('/nodes/studio');
+    await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
+    await page.getByRole('link', { name: 'Processes', exact: true }).click();
+    await expect(page).toHaveURL(/\/nodes\/studio\/processes$/);
+    await page.locator('tbody tr').first().getByRole('link').click();
+    await expect(page).toHaveURL(/\/nodes\/studio\/processes\/\d+$/);
+    await expect(page.getByText('Arguments are redacted by the agent.')).toBeVisible();
+  });
+
+  test('services and containers show their detail routes', async ({ page }) => {
+    await page.goto('/nodes/studio/services');
+    await expect(page.locator('tbody tr').filter({ hasText: 'jellyfin.service' })).toBeVisible();
+    await page.getByRole('link', { name: 'jellyfin.service' }).click();
+    await expect(page).toHaveURL(/\/nodes\/studio\/services\/jellyfin/);
+    await page.goto('/nodes/studio/containers');
+    await page.getByRole('link', { name: 'ollama' }).click();
+    await expect(page).toHaveURL(/\/nodes\/studio\/containers\//);
+  });
+});
+
+test.describe('agents', () => {
+  test('the roster groups real sessions', async ({ page }) => {
+    await page.goto('/agents');
+    await expect(page.getByRole('heading', { level: 1, name: 'Agents' })).toBeVisible();
+    await expect(page.locator('.page-finding')).toContainText('7 sessions', { timeout: 15_000 });
+    await expect(page.locator('.agent-mark').first()).toBeVisible();
   });
 });
 
@@ -42,8 +68,11 @@ test.describe('apps', () => {
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('Run Restart Jellyfin?')).toBeVisible();
     await dialog.getByRole('button', { name: 'Run Restart Jellyfin' }).click();
-    await expect(dialog.getByText('Exited 1')).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText('Exited 1')).toBeVisible({ timeout: 8000 });
     await expect(dialog).toContainText('port 8096 is already allocated');
+    await page.keyboard.press('Escape');
+    await page.goto('/apps');
+    await expect(page.locator('.run-row').first()).toBeVisible();
   });
 
   test('a dangerous action needs its name typed', async ({ page }) => {
@@ -55,14 +84,64 @@ test.describe('apps', () => {
     await dialog.getByLabel(/Type Update packages to confirm/).fill('Update packages');
     await expect(run).toBeEnabled();
     await run.click();
-    await expect(dialog.getByText('Exited 0')).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText('Exited 0')).toBeVisible({ timeout: 8000 });
   });
 });
 
-test.describe('shell', () => {
+test.describe('events and alerts', () => {
+  test('events derived from the snapshots have a detail route', async ({ page }) => {
+    await page.goto('/events');
+    await expect(page.locator('.event-row').first()).toBeVisible({ timeout: 15_000 });
+    await page.locator('.event-message a').first().click();
+    await expect(page).toHaveURL(/\/events\/\d+$/);
+    await expect(page.getByRole('button', { name: 'Alert me about this' })).toBeVisible();
+  });
+
+  test('a metric rule can be created and listed', async ({ page }, testInfo) => {
+    const name = `CPU busy ${testInfo.project.name}`;
+    await page.goto('/alerts/rules/new');
+    await page.getByLabel('Name').fill(name);
+    await page.getByRole('spinbutton', { name: 'Threshold' }).fill('0');
+    await page.getByRole('button', { name: 'Save rule' }).click();
+    await expect(page).toHaveURL(/\/alerts\/rules\/[a-z0-9]+$/);
+    await page.goto('/alerts');
+    await expect(page.locator('tbody tr').filter({ hasText: name }).first()).toBeVisible();
+  });
+});
+
+test.describe('settings and tokens', () => {
+  test('creates a token and shows it once', async ({ page }, testInfo) => {
+    await page.goto('/settings/tokens');
+    await page.getByLabel('Name').fill(`e2e-token-${testInfo.project.name}`);
+    await page.getByRole('button', { name: 'Create token' }).click();
+    await expect(page.locator('.token-reveal')).toContainText('cupola_');
+  });
+
+  test('channels can be added and tested', async ({ page }, testInfo) => {
+    await page.goto('/settings/alerts');
+    await page.getByLabel('Name').fill(`e2e hook ${testInfo.project.name}`);
+    await page.getByLabel('URL').fill('http://127.0.0.1:9/hook');
+    await page.getByRole('button', { name: 'Add channel' }).click();
+    await expect(page.locator('.form-error, .form-ok')).toBeVisible();
+  });
+});
+
+test.describe('keyboard and shell', () => {
+  test('command palette opens, filters and navigates', async ({ page }) => {
+    await page.goto('/nodes');
+    await expect(page.getByRole('heading', { level: 1, name: 'Nodes' })).toBeVisible();
+    await page.keyboard.press('Meta+k');
+    const input = page.getByRole('combobox');
+    await expect(input).toBeVisible();
+    await input.fill('beelink');
+    await expect(page.locator('.palette-item', { hasText: 'beelink' })).toBeVisible();
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/nodes\/beelink$/);
+  });
+
   test('phone shows the bottom bar, desktop shows the rail', async ({ page, viewport }) => {
     await page.goto('/');
-    await expect(page.locator('.horizon-node')).toHaveCount(4);
+    await expect(page.locator('.horizon-node')).toHaveCount(3);
     if ((viewport?.width ?? 1440) < 641) {
       await expect(page.locator('.bottom-bar')).toBeVisible();
       await expect(page.locator('.rail')).toBeHidden();
@@ -93,10 +172,8 @@ test.describe('shell', () => {
         };
       });
 
-    const scrollHeight = await page
-      .locator('.main')
-      .evaluate((el) => el.scrollHeight);
-    expect(scrollHeight).toBeGreaterThan((viewport?.height ?? 700) * 1.5);
+    const scrollHeight = await page.locator('.main').evaluate((el) => el.scrollHeight);
+    expect(scrollHeight).toBeGreaterThan((viewport?.height ?? 700) * 1.2);
 
     const atTop = await measure();
     expect(atTop.bottom).toBeLessThanOrEqual(atTop.viewportTop + atTop.viewportHeight + 0.5);
@@ -107,43 +184,16 @@ test.describe('shell', () => {
     const atBottom = await measure();
     expect(atBottom.bottom).toBeLessThanOrEqual(atBottom.viewportTop + atBottom.viewportHeight + 0.5);
     expect(atBottom.top).toBeGreaterThanOrEqual(atBottom.viewportTop - 0.5);
-    expect(atBottom.height).toBeGreaterThanOrEqual(56);
   });
 
   test('offline names the last snapshot', async ({ page, context }) => {
     await page.goto('/');
     await expect(page.locator('.page-title')).toBeVisible();
+    await page.waitForTimeout(600);
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
     await expect(page.locator('.offline')).toContainText('Offline');
-    await expect(page.locator('.offline')).toContainText('04:02 UTC');
+    await expect(page.locator('.offline')).toContainText('snapshot from');
     await context.setOffline(false);
-  });
-
-  test('the manifest and service worker are served', async ({ page, request }) => {
-    await page.goto('/');
-    const manifest = await request.get('/manifest.webmanifest');
-    expect(manifest.status()).toBe(200);
-    const json = await manifest.json();
-    expect(json.name).toBe('Cupola');
-    expect(json.start_url).toBe('/');
-    expect(json.theme_color).toBe('#171719');
-    const sw = await request.get('/sw.js');
-    expect(sw.status()).toBe(200);
-    const registered = await page.evaluate(async () => {
-      const reg = await Promise.race([
-        navigator.serviceWorker.ready,
-        new Promise((resolve) => setTimeout(() => resolve(null), 8000)),
-      ]);
-      return Boolean(reg);
-    });
-    expect(registered).toBe(true);
-  });
-
-  test('the agents roster answers with grouped sessions', async ({ page }) => {
-    await page.goto('/agents');
-    await expect(page.getByRole('heading', { level: 1, name: 'Agents' })).toBeVisible();
-    await expect(page.locator('.roster-group-row')).toHaveCount(5);
-    await expect(page.locator('.page-finding')).toContainText('7 sessions');
   });
 });

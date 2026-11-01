@@ -1,7 +1,7 @@
 {
   "name": "cupola-web",
   "private": true,
-  "version": "0.1.0-m0",
+  "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": ">=22"

@@ -68,6 +68,8 @@ func (c *Collector) collectDisks(ctx context.Context, out *[]model.DiskStats, wa
 func skipMount(mount string) bool {
 	for _, prefix := range []string{
 		"/dev",
+		"/snap/",
+		"/var/snap/",
 		"/System/Volumes/",
 		"/Library/Developer/",
 		"/private/var/run/",
