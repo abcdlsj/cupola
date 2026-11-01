@@ -187,6 +187,17 @@ func (h *Hub) startEmbeddedAgent(ctx context.Context) error {
 		CreatedAt: time.Now().UnixMilli(),
 		Status:    "unknown",
 	}
+	// A display name set in Settings -> Nodes survives restarts; the embedded
+	// agent must not overwrite it with the hostname on every start.
+	if existing, err := h.store.GetNode(ctx, cfg.NodeID); err == nil && existing.ID != "" {
+		if existing.Name != "" {
+			record.Name = existing.Name
+		}
+		if len(existing.Labels) > 0 {
+			record.Labels = existing.Labels
+		}
+		record.CreatedAt = existing.CreatedAt
+	}
 	if err := h.store.UpsertNode(ctx, record, tokenEnc, nil); err != nil {
 		return err
 	}
