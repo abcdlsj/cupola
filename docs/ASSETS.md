@@ -61,7 +61,5 @@ after changing the mark.
 
 ## Screenshots
 
-`docs/screenshots/m0/` was captured from the production build with the fixture
-snapshot in `web/src/data/fixtures.ts`. Every host, address and figure in it is
-invented (`atlas`, `beelink`, `studio`, `shed`; documentation and private
-ranges). Re-capture rather than edit. See `docs/reports/M0.md`.
+`docs/screenshots/overview.png` is the production build on the demo hub
+(`atlas`, `beelink`, `studio`), so every figure in it is invented.

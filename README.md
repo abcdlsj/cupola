@@ -80,8 +80,9 @@ npm run build        # production build and PWA in web/dist
 npx playwright test  # starts a hub + three fictional agents (scripts/e2e-hub.sh)
 ```
 
-Fixture screenshots: [docs/screenshots/v1](docs/screenshots/v1). All host names,
-addresses and figures in them are invented.
+![Cupola overview](docs/screenshots/overview.png)
+
+The screenshot uses fictional nodes (`atlas`, `beelink`, `studio`).
 
 Go checks:
 
@@ -91,8 +92,7 @@ go test ./...
 go build ./cmd/cupola
 ```
 
-The M0 screenshots live in [docs/screenshots/m0](docs/screenshots/m0); fonts are
-self-hosted and there are no runtime third-party assets.
+Fonts are self-hosted and there are no runtime third-party assets.
 
 ## License
 
