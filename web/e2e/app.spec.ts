@@ -117,6 +117,21 @@ test.describe('settings and tokens', () => {
     await expect(page.locator('.token-reveal')).toContainText('cupola_');
   });
 
+  test('a node can be renamed from Settings', async ({ page }) => {
+    await page.goto('/settings/nodes');
+    const row = page.locator('tbody tr').filter({ hasText: 'atlas' }).first();
+    await row.getByRole('button', { name: 'Edit' }).click();
+    const form = page.getByTestId('edit-node-form');
+    await form.getByLabel('Display name').fill('atlas-prod');
+    await form.getByRole('button', { name: 'Save node' }).click();
+    await expect(page.locator('tbody tr').filter({ hasText: 'atlas-prod' }).first()).toBeVisible();
+
+    await page.locator('tbody tr').filter({ hasText: 'atlas-prod' }).first().getByRole('button', { name: 'Edit' }).click();
+    await page.getByTestId('edit-node-form').getByLabel('Display name').fill('atlas');
+    await page.getByTestId('edit-node-form').getByRole('button', { name: 'Save node' }).click();
+    await expect(page.locator('tbody tr').filter({ hasText: 'atlas' }).first()).toBeVisible();
+  });
+
   test('channels can be added and tested', async ({ page }, testInfo) => {
     await page.goto('/settings/alerts');
     await page.getByLabel('Name').fill(`e2e hook ${testInfo.project.name}`);

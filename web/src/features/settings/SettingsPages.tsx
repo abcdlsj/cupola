@@ -21,6 +21,7 @@ import {
   useTestNode,
   useTokens,
   useSaveChannel,
+  useUpdateNode,
 } from '../../data/queries';
 import { relative } from '../../lib/format';
 
@@ -62,9 +63,12 @@ export function NodesSettingsPage() {
   const fleet = useFleet();
   const me = useMe();
   const create = useCreateNode();
+  const update = useUpdateNode();
   const test = useTestNode();
   const remove = useDeleteNode();
   const [form, setForm] = useState({ id: '', name: '', url: 'http://127.0.0.1:9797', token: '', transport: 'direct', conn: '', labels: '' });
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', labels: '', url: '', token: '', transport: 'direct', conn: '' });
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const admin = Boolean(me.data?.admin);
   const now = Date.now();
@@ -123,6 +127,25 @@ export function NodesSettingsPage() {
                       <button
                         type="button"
                         className="text-link"
+                        disabled={!admin}
+                        onClick={() => {
+                          setEditing(view.node.id);
+                          setEditForm({
+                            name: view.node.name,
+                            labels: view.node.labels.join(', '),
+                            url: view.node.url ?? '',
+                            token: '',
+                            transport: view.node.transport,
+                            conn: '',
+                          });
+                          setMessage(null);
+                        }}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="text-link"
                         disabled={!admin || test.isPending}
                         onClick={async () => {
                           try {
@@ -154,6 +177,77 @@ export function NodesSettingsPage() {
           </Table>
         )}
       </Panel>
+      {admin && editing ? (
+        <Panel title={`Edit ${editing}`} flush>
+          <form
+            className="form"
+            data-testid="edit-node-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setMessage(null);
+              try {
+                await update.mutateAsync({
+                  id: editing,
+                  input: {
+                    name: editForm.name.trim() || editing,
+                    labels: editForm.labels.split(',').map((label) => label.trim()).filter(Boolean),
+                    url: editForm.url.trim(),
+                    token: editForm.token.trim() || undefined,
+                    transport: editForm.transport as 'direct' | 'bolthole',
+                    conn: editForm.conn.trim() || undefined,
+                  },
+                });
+                setMessage({ kind: 'ok', text: `${editForm.name || editing} saved.` });
+                setEditing(null);
+              } catch (caught) {
+                setMessage({ kind: 'error', text: caught instanceof ApiError ? caught.message : 'The node could not be saved.' });
+              }
+            }}
+          >
+            <div className="form-grid">
+              <label className="form-field">
+                <span>Display name</span>
+                <input className="input input-ui" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} required />
+              </label>
+              <label className="form-field">
+                <span>Labels (comma separated)</span>
+                <input className="input input-ui" value={editForm.labels} onChange={(event) => setEditForm({ ...editForm, labels: event.target.value })} />
+              </label>
+              <label className="form-field">
+                <span>Transport</span>
+                <select className="select" value={editForm.transport} onChange={(event) => setEditForm({ ...editForm, transport: event.target.value })}>
+                  <option value="direct">Direct HTTP</option>
+                  <option value="bolthole">Bolthole relay</option>
+                </select>
+              </label>
+              {editForm.transport === 'direct' ? (
+                <label className="form-field">
+                  <span>Agent URL</span>
+                  <input className="input input-ui" value={editForm.url} onChange={(event) => setEditForm({ ...editForm, url: event.target.value })} required />
+                </label>
+              ) : (
+                <label className="form-field">
+                  <span>New connection string (blank keeps the stored one)</span>
+                  <input className="input input-ui" value={editForm.conn} onChange={(event) => setEditForm({ ...editForm, conn: event.target.value })} />
+                </label>
+              )}
+              <label className="form-field">
+                <span>New agent token (blank keeps the stored one)</span>
+                <input className="input input-ui" type="password" value={editForm.token} onChange={(event) => setEditForm({ ...editForm, token: event.target.value })} />
+              </label>
+            </div>
+            {message ? <p className={message.kind === 'ok' ? 'form-ok' : 'form-error'}>{message.text}</p> : null}
+            <div className="form-actions">
+              <button type="button" className="btn btn-quiet" onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn btn-primary" disabled={update.isPending}>
+                {update.isPending ? 'Saving…' : 'Save node'}
+              </button>
+            </div>
+          </form>
+        </Panel>
+      ) : null}
       {admin ? (
         <Panel title="Add a node" flush>
           <form
