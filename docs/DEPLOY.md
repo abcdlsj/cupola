@@ -219,8 +219,9 @@ go run ./cmd/relay      # see its README for the flag; default 127.0.0.1:8787
 
 ## GitHub Pages PWA
 
-`.github/workflows/pages.yml` builds the web app with the repository base path
-and deploys it. On first load the static build asks for a hub URL and a read
+The static PWA is deployed to Cloudflare Workers (`deploy/cloudflare/`). To host
+it on another static host, build with `VITE_BASE` set to the prefix and serve
+`web/dist`; the app asks for a hub URL and a read token on first load. On first load the static build asks for a hub URL and a read
 token (or accepts `#hub=…&token=…` in the fragment, which is stored in
 localStorage and removed from the address bar). The hub must allow the Pages
 origin in `CUPOLA_CORS_ORIGINS`. The token only gets `read`; actions from a
