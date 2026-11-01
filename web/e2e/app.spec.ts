@@ -117,6 +117,21 @@ test.describe('settings and tokens', () => {
     await expect(page.locator('.token-reveal')).toContainText('cupola_');
   });
 
+  test('generates a one-command join for a new machine', async ({ page }) => {
+    await page.goto('/settings/nodes');
+    const form = page.getByTestId('join-form');
+    await form.getByLabel('Node ID (short slug)').fill('join-test');
+    await form.getByLabel('Target OS').selectOption('linux');
+    await form.getByRole('button', { name: 'Generate command' }).click();
+    const command = page.getByTestId('join-command');
+    await expect(command).toContainText('install.sh');
+    await expect(command).toContainText('--node join-test');
+    await expect(command).toContainText('--code ');
+    await expect(page.locator('.panel').filter({ hasText: 'Add a system' })).toContainText('Waiting for the agent');
+    const cleanup = await page.request.delete('/api/v1/nodes/join-test');
+    expect(cleanup.ok()).toBeTruthy();
+  });
+
   test('a node can be renamed from Settings', async ({ page }) => {
     await page.goto('/settings/nodes');
     const row = page.locator('tbody tr').filter({ hasText: 'atlas' }).first();

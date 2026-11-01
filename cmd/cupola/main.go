@@ -83,6 +83,11 @@ func runAgent(args []string, stdout, stderr io.Writer) int {
 	nodeID := fs.String("node", "", "node id (with --init)")
 	name := fs.String("name", "", "display name (with --init)")
 	listen := fs.String("listen", "", "loopback listen address (with --init)")
+	joinHub := fs.String("join", "", "hub URL to register with (one-time join code)")
+	joinCode := fs.String("join-code", "", "one-time join code from the hub")
+	advertise := fs.String("advertise", "", "URL the hub should poll (default from the join command)")
+	relayURL := fs.String("relay", "", "Bolthole relay URL; the hub reaches the agent through it")
+	allowRemote := fs.Bool("allow-remote", false, "accept connections from outside loopback")
 	level := fs.String("log-level", "info", "debug, info, warn or error")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -107,6 +112,21 @@ func runAgent(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(stderr, "config:", err)
 		return 1
+	}
+	if *joinHub != "" {
+		cfg.JoinHub = *joinHub
+		cfg.JoinCode = *joinCode
+		cfg.JoinAdvertise = *advertise
+		cfg.JoinMarker = *configPath + ".joined"
+	}
+	if *relayURL != "" {
+		cfg.Relay.URL = *relayURL
+	}
+	if *allowRemote {
+		cfg.AllowRemote = true
+	}
+	if *listen != "" && *initConfig == false {
+		cfg.Listen = *listen
 	}
 	instance, err := agent.New(cfg, log)
 	if err != nil {

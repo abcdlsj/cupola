@@ -26,6 +26,12 @@ type Config struct {
 	Relay       RelayConfig      `json:"relay,omitempty"`
 	Collect     CollectConfig    `json:"collect,omitempty"`
 	Actions     []ActionConfig   `json:"actions,omitempty"`
+
+	// Runtime-only join settings, never written to the config file.
+	JoinHub       string `json:"-"`
+	JoinCode      string `json:"-"`
+	JoinAdvertise string `json:"-"`
+	JoinMarker    string `json:"-"`
 }
 
 type RelayConfig struct {

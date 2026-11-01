@@ -1109,7 +1109,12 @@ func (h *Hub) handleStream(w http.ResponseWriter, r *http.Request) {
 func (h *Hub) routesHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /healthz", h.healthz())
-	mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
+		mux.HandleFunc("GET /install.sh", h.handleInstallScript)
+	mux.HandleFunc("GET /install/cupola", h.handleInstallBinary)
+	mux.HandleFunc("POST /api/v1/join", h.handleJoin)
+	mux.Handle("POST /api/v1/join/codes", h.requireAdmin(http.HandlerFunc(h.handleCreateJoinCode)))
+	mux.Handle("GET /api/v1/join/{id}/status", h.requireRead(http.HandlerFunc(h.handleJoinStatus)))
+mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.handleLogout)
 	mux.Handle("GET /api/v1/auth/me", h.requireRead(http.HandlerFunc(h.handleMe)))
 

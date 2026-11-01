@@ -10,6 +10,8 @@ import {
   useChannels,
   useCreateNode,
   useCreateToken,
+  useCreateJoinCode,
+  useJoinStatus,
   useDeleteChannel,
   useDeleteNode,
   useDeleteToken,
@@ -23,7 +25,7 @@ import {
   useSaveChannel,
   useUpdateNode,
 } from '../../data/queries';
-import { relative } from '../../lib/format';
+import { clock, relative } from '../../lib/format';
 
 const SECTIONS = [
   { to: '/settings/nodes', label: 'Nodes' },
@@ -56,6 +58,112 @@ function AdminOnly() {
         <Link className="link" to="/login">Sign in as the hub admin</Link> to change settings.
       </p>
     </div>
+  );
+}
+
+function JoinPanel() {
+  const create = useCreateJoinCode();
+  const [os, setOs] = useState<'linux' | 'darwin' | 'manual'>('linux');
+  const [form, setForm] = useState({ id: '', name: '', labels: '' });
+  const [issued, setIssued] = useState<{ code: string; nodeId: string; commands: Record<string, string>; expires: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const status = useJoinStatus(issued?.nodeId ?? null);
+
+  const generate = async () => {
+    setError(null);
+    setIssued(null);
+    try {
+      const result = await create.mutateAsync({
+        id: form.id.trim(),
+        name: form.name.trim() || form.id.trim(),
+        labels: form.labels.split(',').map((label) => label.trim()).filter(Boolean),
+      });
+      setIssued({ code: result.code, nodeId: result.node_id, commands: result.commands, expires: result.expires_at });
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : 'The join code could not be created.');
+    }
+  };
+
+  const command = issued?.commands[os] ?? '';
+
+  return (
+    <Panel title="Add a system" meta={issued ? `code expires ${clock(issued.expires)} UTC` : 'one command'} flush>
+      <form
+        className="form"
+        data-testid="join-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void generate();
+        }}
+      >
+        <div className="form-grid">
+          <label className="form-field">
+            <span>Node ID (short slug)</span>
+            <input className="input input-ui" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="studio" required />
+          </label>
+          <label className="form-field">
+            <span>Display name</span>
+            <input className="input input-ui" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="studio" />
+          </label>
+          <label className="form-field">
+            <span>Labels (comma separated)</span>
+            <input className="input input-ui" value={form.labels} onChange={(event) => setForm({ ...form, labels: event.target.value })} placeholder="homelab, gpu" />
+          </label>
+          <label className="form-field">
+            <span>Target OS</span>
+            <select className="select" value={os} onChange={(event) => setOs(event.target.value as typeof os)}>
+              <option value="linux">Linux (systemd)</option>
+              <option value="darwin">macOS (launchd)</option>
+              <option value="manual">Manual / Docker</option>
+            </select>
+          </label>
+        </div>
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        <div className="form-actions">
+          <button type="submit" className="btn btn-primary" disabled={create.isPending}>
+            {create.isPending ? 'Generating…' : 'Generate command'}
+          </button>
+        </div>
+      </form>
+
+      {issued ? (
+        <div className="panel-body">
+          <p className="note">
+            Paste this on the new machine. The code is single use and expires in 30 minutes; the agent registers itself and the hub starts polling it.
+          </p>
+          <pre className="output" data-testid="join-command">
+            {command}
+          </pre>
+          <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(command);
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 1800);
+                } catch {
+                  setCopied(false);
+                }
+              }}
+            >
+              {copied ? 'Copied' : 'Copy command'}
+            </button>
+            {status.data?.joined ? (
+              <Link className="btn btn-primary" to={`/nodes/${issued.nodeId}`}>
+                Open {status.data.name}
+              </Link>
+            ) : (
+              <span className="note" role="status">
+                Waiting for the agent to join… <Link className="link" to={`/nodes/${issued.nodeId}`}>pending node</Link>
+              </span>
+            )}
+          </div>
+        </div>
+      ) : null}
+    </Panel>
   );
 }
 
@@ -100,6 +208,7 @@ export function NodesSettingsPage() {
         actions={<CopyLinkButton />}
       />
       <SettingsNav />
+      {admin ? <JoinPanel /> : null}
       <Panel title="Nodes" meta={`${fleet.data?.nodes.length ?? 0} registered`} flush>
         {!fleet.data || fleet.data.nodes.length === 0 ? (
           <Empty>No node yet. Add the first agent below.</Empty>

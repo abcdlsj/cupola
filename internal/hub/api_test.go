@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -197,5 +198,65 @@ func TestEndToEnd(t *testing.T) {
 	status, _ = doJSON(t, c, http.MethodPost, server.URL+"/api/v1/nodes/test/actions/noop/run", nil, "")
 	if status != http.StatusOK {
 		t.Fatalf("admin run = %d", status)
+	}
+}
+
+func TestJoinFlow(t *testing.T) {
+	agentServer := fakeAgent(t)
+	hub, server := newTestHub(t)
+	c := testClient(t)
+	if status, _ := doJSON(t, c, http.MethodPost, server.URL+"/api/v1/auth/login", map[string]string{"password": "test-password-123"}, ""); status != http.StatusOK {
+		t.Fatalf("login = %d", status)
+	}
+	status, created := doJSON(t, c, http.MethodPost, server.URL+"/api/v1/join/codes", map[string]any{
+		"id": "joined", "name": "Joined", "labels": []string{"new"},
+	}, "")
+	if status != http.StatusCreated {
+		t.Fatalf("create code = %d %+v", status, created)
+	}
+	code := created["code"].(string)
+	commands := created["commands"].(map[string]any)
+	if !strings.Contains(commands["linux"].(string), "--code "+code) {
+		t.Fatalf("linux command missing the code: %v", commands["linux"])
+	}
+
+	// Unknown code is refused, and the public endpoint needs no session.
+	anon := testClient(t)
+	status, _ = doJSON(t, anon, http.MethodPost, server.URL+"/api/v1/join", map[string]any{
+		"code": "WRONG", "token": "agent-token", "url": agentServer.URL,
+	}, "")
+	if status != http.StatusBadRequest {
+		t.Fatalf("bad code = %d, want 400", status)
+	}
+
+	status, joined := doJSON(t, anon, http.MethodPost, server.URL+"/api/v1/join", map[string]any{
+		"code": code, "token": "agent-token", "url": agentServer.URL, "os": "linux", "arch": "amd64",
+	}, "")
+	if status != http.StatusOK || joined["node_url"] == "" {
+		t.Fatalf("join = %d %+v", status, joined)
+	}
+
+	// The code is single use.
+	status, _ = doJSON(t, anon, http.MethodPost, server.URL+"/api/v1/join", map[string]any{
+		"code": code, "token": "agent-token", "url": agentServer.URL,
+	}, "")
+	if status != http.StatusBadRequest {
+		t.Fatalf("reused code = %d, want 400", status)
+	}
+
+	status, info := doJSON(t, c, http.MethodGet, server.URL+"/api/v1/join/joined/status", nil, "")
+	if status != http.StatusOK || info["joined"] != false {
+		t.Fatalf("status before poll = %d %+v", status, info)
+	}
+	hub.poller.pollAll(context.Background())
+	status, info = doJSON(t, c, http.MethodGet, server.URL+"/api/v1/join/joined/status", nil, "")
+	if status != http.StatusOK || info["joined"] != true {
+		t.Fatalf("status after poll = %d %+v", status, info)
+	}
+	// The install script is served with this hub's base URL.
+	response, err := anon.Get(server.URL + "/install.sh")
+	if err == nil { defer response.Body.Close() }
+	if err != nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("install.sh = %v", err)
 	}
 }

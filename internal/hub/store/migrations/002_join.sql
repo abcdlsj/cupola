@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS join_codes (
+  hash TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  expires_at INTEGER NOT NULL,
+  used_at INTEGER NOT NULL DEFAULT 0
+);

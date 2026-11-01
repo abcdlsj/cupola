@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -19,6 +20,9 @@ import (
 	"github.com/abcdlsj/cupola/internal/model"
 	"github.com/abcdlsj/cupola/internal/version"
 )
+
+//go:embed assets/install.sh
+var webAssets embed.FS
 
 // Hub is the single hub process: SQLite, poller, alerting, API, SSE and the
 // PWA.

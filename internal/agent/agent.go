@@ -277,6 +277,21 @@ func (a *Agent) Run(ctx context.Context) error {
 		}()
 	}
 
+	// Register with the hub that issued the join code, now that the listener
+	// and the relay (if any) are up.
+	if a.cfg.JoinHub != "" {
+		conn := ""
+		if exposure != nil {
+			conn, _ = exposure.ConnString()
+		}
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			if err := a.join(ctx, conn); err != nil {
+				a.log.Warn("join failed", "error", err.Error())
+			}
+		}()
+	}
+
 	select {
 	case <-ctx.Done():
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

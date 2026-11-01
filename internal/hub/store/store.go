@@ -942,3 +942,42 @@ func boolInt(value bool) int {
 	}
 	return 0
 }
+
+// ---------- join codes ----------
+
+// CreateJoinCode stores a hashed one-time code for a node that an agent will
+// claim. The plaintext never touches the database.
+func (s *Store) CreateJoinCode(ctx context.Context, hash, nodeID string, expiresAt int64) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO join_codes(hash, node_id, expires_at) VALUES(?, ?, ?)`, hash, nodeID, expiresAt)
+	return err
+}
+
+// ConsumeJoinCode atomically checks and burns a code, returning its node.
+func (s *Store) ConsumeJoinCode(ctx context.Context, hash string, now int64) (string, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	var nodeID string
+	var expiresAt, usedAt int64
+	err = tx.QueryRowContext(ctx, `SELECT node_id, expires_at, used_at FROM join_codes WHERE hash = ?`, hash).Scan(&nodeID, &expiresAt, &usedAt)
+	if err != nil {
+		return "", err
+	}
+	if usedAt != 0 {
+		return "", errors.New("this join code was already used")
+	}
+	if expiresAt < now {
+		return "", errors.New("this join code expired")
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE join_codes SET used_at = ? WHERE hash = ?`, now, hash); err != nil {
+		return "", err
+	}
+	return nodeID, tx.Commit()
+}
+
+func (s *Store) PruneJoinCodes(ctx context.Context, now int64) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM join_codes WHERE expires_at < ?`, now-24*3600*1000)
+	return err
+}
