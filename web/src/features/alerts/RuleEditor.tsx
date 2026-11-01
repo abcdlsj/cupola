@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { Empty } from '../../components/States';
 import { useChannels, useDeleteRule, useFleet, useMe, useRule, useSaveRule, ApiError } from '../../data/queries';
 import type { AlertRule, Severity } from '../../data/types';
@@ -72,7 +71,6 @@ export function RuleEditorPage() {
             ? 'Notify a channel when an event kind arrives (unit failed, container restarted, node offline, port opened).'
             : 'Notify a channel when a metric crosses a threshold for the configured duration.'
         }
-        actions={<CopyLinkButton />}
       />
       {!admin ? (
         <Panel title="Read-only">

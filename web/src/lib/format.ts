@@ -34,17 +34,17 @@ export function percent(value: number, digits = 0): string {
 
 export function duration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.round(totalSeconds));
-  if (seconds < 60) return `${seconds} s`;
+  if (seconds < 60) return `${seconds}s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes}m`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) {
     const restMin = minutes % 60;
-    return restMin ? `${hours} h ${restMin} min` : `${hours} h`;
+    return restMin ? `${hours}h ${restMin}m` : `${hours}h`;
   }
   const days = Math.floor(hours / 24);
   const restHours = hours % 24;
-  return restHours ? `${days} d ${restHours} h` : `${days} d`;
+  return restHours ? `${days}d ${restHours}h` : `${days}d`;
 }
 
 export function relative(ms: number, now: number): string {
@@ -96,5 +96,5 @@ export function usedPct(used: number, total: number): number {
 export function days(value: number): string {
   if (!value) return '—';
   if (value > 365) return 'over a year';
-  return `${value.toFixed(0)} d`;
+  return `${value.toFixed(0)}d`;
 }

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { MagnifyingGlass } from '@phosphor-icons/react';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { StatusPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
 import { useFleet } from '../../data/queries';
@@ -58,8 +57,7 @@ export function NodesPage() {
                 type="search"
               />
             </label>
-            <CopyLinkButton />
-          </>
+</>
         }
       />
       <Panel title="Fleet" meta={`${nodes.length} boxes`} flush>
@@ -86,7 +84,6 @@ export function NodesPage() {
             <TBody>
               {nodes.map((view) => {
                 const node = view.node;
-                const disk = view.snapshot?.disks.find((entry) => entry.mount === '/');
                 return (
                   <tr key={node.id}>
                     <Td cell="primary">
@@ -107,13 +104,12 @@ export function NodesPage() {
                       {view.health.load1.toFixed(2)}
                     </Td>
                     <Td num cell="key">{view.health.status === 'offline' ? '—' : percent(view.health.cpu_pct)}</Td>
-                    <Td num cell="field" label="Memory">
-                      {percent(view.health.mem_pct)}
-                      <span className="cell-sub">{size(view.snapshot?.memory.used ?? 0)} of {size(view.snapshot?.memory.total ?? 0)}</span>
-                    </Td>
+        
                     <Td num cell="field" label="Disk">
                       {percent(view.health.root_disk_pct)}
-                      <span className="cell-sub">{disk ? `${size(disk.used)} of ${size(disk.total)}` : 'no disk'}</span>
+                      <span className="cell-sub">
+                        {view.health.root_disk_total ? `${size(view.health.root_disk_used)} of ${size(view.health.root_disk_total)}` : 'no disk'}
+                      </span>
                     </Td>
                     <Td cell="field" label="Seen">
                       {relative(node.last_seen, now)}

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { Empty, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
@@ -31,7 +30,6 @@ export function AppsPage() {
                 .join('; ')}.`
             : `${all.length} actions on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${runs.data?.length ?? 0} runs recorded.`
         }
-        actions={<CopyLinkButton />}
       />
       <div className="app-grid" data-columns={all.length % 3 === 0 ? '3' : '2'}>
         {all.map((action) => (

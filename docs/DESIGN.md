@@ -103,22 +103,26 @@ decision. Defend it in the report, do not blanket `--allow` other rules.
   Tabs scroll in their own row. Tables become two-line rows (identity + key
   figure on line 1; fields in 13 px muted on line 2), never dropping fields.
 
-## The fleet horizon
+## The fleet profile
 
 The one signature element only Cupola has. On the overview:
 
-- A full-width band, ~120 px desktop / ~88 px phone, one vertical mark per
-  node on a common baseline.
-- Mark height = live CPU or a documented composite pressure; no fake data.
-- Status colour only for degraded/offline; healthy nodes are grey.
-- A 1 px accent line marks the selected node; hover/tap shows name and value;
-  click routes to `/nodes/:id`.
+- One thin line per node across four shared axes: **CPU, memory, root disk,
+  network** (Mbit/s). A flat line is a quiet box; a spike is a box under load.
+  The shape of the whole fleet reads in one glance, which four KPI columns and
+  a bar per node cannot do.
+- Lines use the identity hues (`--series-1`, `--series-2`, `--chart-1`, cycling),
+  never a status colour: two boxes can share a status and still have to be
+  distinguishable. Degraded and offline are named in the line label and the
+  readout, and an offline line is dashed in `--muted`.
+- A 1 px accent tick marks the selected node; hover or focus prints its four
+  figures in the readout under the chart; click or Enter routes to
+  `/nodes/:id`.
 - Above it: the fleet count and the finding sentence (“3 boxes, 2 need
   attention”). Beside it: the one action the operator is most likely to take.
-- On phone it becomes a compact row of marks; labels appear on tap.
 
-This is functional data, not a decorative skyline. Do not add orbital rings,
-glows, or fake constellations.
+This is functional data, not a decorative skyline. No bars, no orbital rings,
+no glows, no fake constellations.
 
 ## Agent marks
 
@@ -136,14 +140,17 @@ glyph + the type name; do not draw fake brand marks.
 
 ## Charts
 
-- uPlot for time series with a custom theme (not its defaults); SVG for
-  sparklines/rings if needed.
-- One hue per chart. Main series `--chart-1` (white), bad/negative series
-  `--chart-2`, accent series `--chart-3`.
-- Straight 2 px lines, no point markers, no gradient fill (a flat 6–14 % tint
-  at most), no smoothing.
-- 3–5 faint horizontal gridlines, no y-axis line, round ticks above the max.
-- No legend for one series; the card title or a control names it.
+- uPlot for time series with a custom theme (not its defaults); hand-drawn SVG
+  for the fleet profile.
+- Lines are thin and coloured: 1.5 px, never filled, never smoothed. The hues
+  come from `--series-1..4` (blue, teal, amber, red) and a chart uses at most
+  four, usually two (utilisation against pressure). Chrome stays monochrome.
+- The crosshair is shared: one 1 px accent line and one readout that lists every
+  series in the chart with its value at the cursor.
+- 3–5 faint horizontal gridlines, no y-axis line, round ticks above the max;
+  seconds on the x-axis when the window is shorter than 30 minutes.
+- No boxed legend: for one series the card title names it; for two, a plain
+  swatch-and-label line sits under the chart.
 - Shared crosshair across charts; tooltip with label + value, no arrow.
 - Annotate the event that matters (reboot, deploy, alert) with a 1 px marker
   and a short label; dashed reference lines only for thresholds.

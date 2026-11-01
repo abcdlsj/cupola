@@ -1,14 +1,24 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { SeriesChart } from '../../components/SeriesChart';
+import { SeriesChart, type ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
 import { useSeries } from '../../data/queries';
-import type { NodeView } from '../../data/types';
+import type { NodeView, SeriesPoint } from '../../data/types';
+import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, size } from '../../lib/format';
 import { RangeControl } from './RangeControl';
+
+/** "Loading a window" is one quiet line; the chart frame never collapses. */
+const NO_WINDOW = 'No sample in this window. The hub reads live samples for 1 h; longer windows need rollups it has not built yet.';
+
+function windowNote(pending: boolean, points: SeriesPoint[], empty: string, filled: string): string {
+  if (pending && points.length === 0) return 'Loading this window from the hub…';
+  if (points.length === 0) return empty;
+  return filled;
+}
 
 function useSnapshot() {
   const view = useOutletContext<NodeView>();
@@ -21,6 +31,16 @@ export function CpuPage() {
   const snap = view.snapshot;
   const [range, setRange] = useState('1h');
   const series = useSeries(nodeId, 'cpu', range);
+  const pressure = useSeries(nodeId, 'psi_cpu', range);
+  const points = useMemo(() => series.data?.points ?? [], [series.data]);
+  const pressurePoints = useMemo(() => pressure.data?.points ?? [], [pressure.data]);
+  const chart = useMemo<ChartSeries[]>(
+    () => [
+      { label: 'Utilisation', points, color: seriesColor(0) },
+      { label: 'Pressure', points: pressurePoints, color: seriesColor(1) },
+    ],
+    [points, pressurePoints],
+  );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   const cores = snap.cpu.per_core;
   return (
@@ -28,8 +48,24 @@ export function CpuPage() {
       <Panel title="CPU" meta={<RangeControl value={range} onChange={setRange} />} flush>
         <div className="cpu-split">
           <div className="cpu-split-main">
-            <SeriesChart points={series.data?.points ?? []} unit="percent" threshold={80} label="CPU utilisation" height={232} />
-            <p className="cpu-note">Utilisation per interval; the dashed line is the 80% alert threshold.</p>
+            <SeriesChart series={chart} unit="percent" threshold={80} label="CPU utilisation and pressure" height={232} />
+            <p className="cpu-note">
+              <span className="legend-inline">
+                <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
+                Utilisation
+              </span>
+              <span className="legend-inline">
+                <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
+                Pressure
+              </span>
+              {' · '}
+              {windowNote(
+                series.isPending || pressure.isPending,
+                points,
+                NO_WINDOW,
+                'Time tasks waited on the CPU; the dashed line is the 80% alert threshold.',
+              )}
+            </p>
           </div>
           <div className="cpu-split-side">
             <h3 className="split-title">Breakdown</h3>
@@ -74,6 +110,11 @@ export function MemoryPage() {
   const snap = view.snapshot;
   const [range, setRange] = useState('1h');
   const series = useSeries(nodeId, 'mem', range);
+  const points = useMemo(() => series.data?.points ?? [], [series.data]);
+  const chart = useMemo<ChartSeries[]>(
+    () => [{ label: 'Memory', points, color: seriesColor(1) }],
+    [points],
+  );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   const top = [...snap.processes].sort((a, b) => b.rss_bytes - a.rss_bytes).slice(0, 6);
   return (
@@ -81,8 +122,8 @@ export function MemoryPage() {
       <Panel title="Memory" meta={<RangeControl value={range} onChange={setRange} />} flush>
         <div className="cpu-split">
           <div className="cpu-split-main">
-            <SeriesChart points={series.data?.points ?? []} unit="percent" label="Memory used" height={232} />
-            <p className="cpu-note">Used percentage over the window.</p>
+            <SeriesChart series={chart} unit="percent" label="Memory used" height={232} />
+            <p className="cpu-note">{windowNote(series.isPending, points, NO_WINDOW, 'Used percentage over the window.')}</p>
           </div>
           <div className="cpu-split-side">
             <h3 className="split-title">Breakdown</h3>
@@ -140,32 +181,27 @@ export function StoragePage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
-  const [range, setRange] = useState('24h');
-  const [metric, setMetric] = useState<'disk_r' | 'disk_w'>('disk_r');
-  const series = useSeries(nodeId, metric, range);
+  const [range, setRange] = useState('1h');
+  const series = useSeries(nodeId, 'psi_io', range);
+  const points = useMemo(() => series.data?.points ?? [], [series.data]);
+  const chart = useMemo<ChartSeries[]>(
+    () => [{ label: 'I/O pressure', points, color: seriesColor(1) }],
+    [points],
+  );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   return (
     <>
-      <Panel
-        title="Disk throughput"
-        meta={
-          <>
-            <div className="range" role="group" aria-label="Direction">
-              <button type="button" className="range-btn" aria-pressed={metric === 'disk_r'} onClick={() => setMetric('disk_r')}>
-                Read
-              </button>
-              <button type="button" className="range-btn" aria-pressed={metric === 'disk_w'} onClick={() => setMetric('disk_w')}>
-                Write
-              </button>
-            </div>
-            <RangeControl value={range} onChange={setRange} />
-          </>
-        }
-        flush
-      >
+      <Panel title="I/O pressure" meta={<RangeControl value={range} onChange={setRange} />} flush>
         <div className="cpu-split-main">
-          <SeriesChart points={series.data?.points ?? []} unit="rate" label={`Disk ${metric === 'disk_r' ? 'read' : 'write'} throughput`} height={210} />
-          <p className="cpu-note">Bytes per second, averaged per step. The dashed file-system fill prediction is in the table.</p>
+          <SeriesChart series={chart} unit="percent" label="I/O pressure" height={210} />
+          <p className="cpu-note">
+            {windowNote(
+              series.isPending,
+              points,
+              NO_WINDOW,
+              'Share of the window some task stalled on disk. Live fill and per-device throughput are in the table below.',
+            )}
+          </p>
         </div>
       </Panel>
       <Panel title="Filesystems" meta={`${snap.disks.length} mounted`} flush>
@@ -221,11 +257,7 @@ export function StoragePage() {
 
 export function NetworkPage() {
   const view = useSnapshot();
-  const { nodeId = '' } = useParams();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
-  const [metric, setMetric] = useState<'net_rx' | 'net_tx'>('net_rx');
-  const series = useSeries(nodeId, metric, range);
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   const sum = (key: 'rx_bps' | 'tx_bps') =>
     snap.network.filter((iface) => iface.iface !== 'lo').reduce((total, iface) => total + iface[key], 0);
@@ -248,28 +280,6 @@ export function NetworkPage() {
           <div className="kpi-sub">conntrack entries</div>
         </div>
       </div>
-      <Panel
-        title="Throughput"
-        meta={
-          <>
-            <div className="range" role="group" aria-label="Direction">
-              <button type="button" className="range-btn" aria-pressed={metric === 'net_rx'} onClick={() => setMetric('net_rx')}>
-                In
-              </button>
-              <button type="button" className="range-btn" aria-pressed={metric === 'net_tx'} onClick={() => setMetric('net_tx')}>
-                Out
-              </button>
-            </div>
-            <RangeControl value={range} onChange={setRange} />
-          </>
-        }
-        flush
-      >
-        <div className="cpu-split-main">
-          <SeriesChart points={series.data?.points ?? []} unit="net" label="Network throughput" height={210} />
-          <p className="cpu-note">Bits per second across interfaces get summed by the hub's sample.</p>
-        </div>
-      </Panel>
       <Panel title="Interfaces" meta={`${snap.network.length} interfaces`} flush>
         <Table label="Interfaces">
           <THead>
@@ -313,6 +323,12 @@ export function NetworkPage() {
             ))}
           </TBody>
         </Table>
+        <div className="panel-foot">
+          <span className="note">
+            Live rates from the latest snapshot. The hub answers history for CPU, memory, load and pressure only, so this page has no
+            throughput curve until the series route serves the net_rx and net_tx columns the store already keeps.
+          </span>
+        </div>
       </Panel>
     </>
   );

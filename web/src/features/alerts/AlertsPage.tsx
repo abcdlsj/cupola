@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { Empty, PageSkeleton } from '../../components/States';
 import { useAlerts, useChannels, useDeliveries, useRules } from '../../data/queries';
 import { clock, relative } from '../../lib/format';
@@ -26,8 +25,7 @@ export function AlertsPage() {
             <Link className="btn btn-ghost" to="/alerts/rules/new">
               New rule
             </Link>
-            <CopyLinkButton />
-          </>
+</>
         }
       />
       <div className="kpi-row" data-count="3">

@@ -18,18 +18,19 @@ const NOON = Date.UTC(2026, 10, 1, 12, 0, 0);
 
 describe('duration', () => {
   it('keeps two units and never invents precision', () => {
-    expect(duration(38)).toBe('38 s');
-    expect(duration(41 * 60)).toBe('41 min');
-    expect(duration(2 * 3600 + 14 * 60)).toBe('2 h 14 min');
-    expect(duration(3 * 86400 + 2 * 3600)).toBe('3 d 2 h');
-    expect(duration(-5)).toBe('0 s');
+    expect(duration(38)).toBe('38s');
+    expect(duration(41 * 60)).toBe('41m');
+    expect(duration(2 * 3600 + 14 * 60)).toBe('2h 14m');
+    expect(duration(3 * 86400 + 2 * 3600)).toBe('3d 2h');
+    expect(duration(2 * 86400 + 22 * 3600)).toBe('2d 22h');
+    expect(duration(-5)).toBe('0s');
   });
 });
 
 describe('relative', () => {
   it('always names the baseline', () => {
     expect(relative(NOON - 2000, NOON)).toBe('just now');
-    expect(relative(NOON - 2 * 86400 * 1000, NOON)).toBe('2 d ago');
+    expect(relative(NOON - 2 * 86400 * 1000, NOON)).toBe('2d ago');
   });
 });
 
@@ -58,6 +59,6 @@ describe('time', () => {
     expect(day(Date.UTC(2026, 10, 1, 4, 2, 0))).toBe('Nov 1');
     expect(eventTime(Date.UTC(2026, 10, 1, 3, 56, 0), Date.UTC(2026, 10, 1, 4, 12, 0))).toBe('03:56');
     expect(eventTime(Date.UTC(2026, 9, 31, 23, 34, 0), Date.UTC(2026, 10, 1, 4, 12, 0))).toBe('Oct 31 23:34');
-    expect(uptime(3_564_000)).toBe('41 d 6 h');
+    expect(uptime(3_564_000)).toBe('41d 6h');
   });
 });

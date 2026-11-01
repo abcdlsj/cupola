@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { SeriesChart } from '../../components/SeriesChart';
+import { SeriesChart, type ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
 import { useSeries } from '../../data/queries';
 import type { NodeView } from '../../data/types';
+import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, relative, size, uptime } from '../../lib/format';
 import { RangeControl } from './RangeControl';
 
@@ -13,9 +14,10 @@ export function NodeOverview() {
   const view = useOutletContext<NodeView>();
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
-  const [range, setRange] = useState('24h');
+  const [range, setRange] = useState('1h');
   const series = useSeries(nodeId, 'cpu', range);
-  const points = series.data?.points ?? [];
+  const points = useMemo(() => series.data?.points ?? [], [series.data]);
+  const chart = useMemo<ChartSeries[]>(() => [{ label: 'CPU', points, color: seriesColor(0) }], [points]);
   const peak = useMemo(() => {
     const data = series.data?.points ?? [];
     return data.length ? data.reduce((a, b) => (b.max > a.max ? b : a)) : null;
@@ -82,9 +84,13 @@ export function NodeOverview() {
         <div className="cpu-split">
           <div className="cpu-split-main">
             {points.length > 0 ? (
-              <SeriesChart points={points} unit="percent" threshold={80} label={`CPU on ${view.node.name}`} height={232} />
+              <SeriesChart series={chart} unit="percent" threshold={80} label={`CPU on ${view.node.name}`} height={232} />
             ) : (
-              <Empty>No samples in this window yet.</Empty>
+              <Empty>
+                {series.isPending
+                  ? 'Loading this window from the hub…'
+                  : 'No sample in this window. The hub reads live samples for 1 h; longer windows need rollups it has not built yet.'}
+              </Empty>
             )}
             <p className="cpu-note">
               {peak && series.data

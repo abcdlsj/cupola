@@ -16,7 +16,7 @@ export function PageSkeleton({ title, finding }: { title: string; finding?: stri
       </div>
       <div className="row" aria-hidden="true">
         <div className="span-7">
-          <Panel title="Fleet horizon">
+          <Panel title="Fleet profile">
             <div className="skeleton-block" />
           </Panel>
         </div>

@@ -15,34 +15,3 @@ export function useOnline(): boolean {
   }, []);
   return online;
 }
-
-/** Copies a URL and reports success for a moment; no toast, no global state. */
-export function useCopyLink(): { copied: boolean; copy: () => void } {
-  const [copied, setCopied] = useState(false);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = window.setTimeout(() => setCopied(false), 1800);
-    return () => window.clearTimeout(timer);
-  }, [copied]);
-
-  const copy = () => {
-    const url = window.location.href;
-    const done = () => setCopied(true);
-    if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(url).then(done).catch(done);
-      return;
-    }
-    const field = document.createElement('textarea');
-    field.value = url;
-    field.setAttribute('readonly', '');
-    field.style.position = 'fixed';
-    field.style.opacity = '0';
-    document.body.appendChild(field);
-    field.select();
-    document.execCommand('copy');
-    document.body.removeChild(field);
-    done();
-  };
-
-  return { copied, copy };
-}

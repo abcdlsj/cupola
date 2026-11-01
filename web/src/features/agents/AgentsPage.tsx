@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { AgentMark } from '../../components/AgentMark';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { Empty, PageSkeleton } from '../../components/States';
 import { useFleetAgents } from '../../data/queries';
 import { agentTypeInfo } from '../../data/registry';
@@ -36,7 +35,6 @@ export function AgentsPage() {
                 leader ? `${agentTypeInfo(leader[0]).label} holds ${leader[1]}` : 'no leader'
               }.`
         }
-        actions={<CopyLinkButton />}
       />
       <div className="kpi-row" data-count="4">
         <div className="kpi-cell">

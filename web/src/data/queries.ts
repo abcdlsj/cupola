@@ -6,6 +6,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import { api, ApiError } from './api';
+import { supportsSeries } from '../lib/metrics';
 import type {
   Action,
   ActionRun,
@@ -130,13 +131,44 @@ export function useSeries(nodeId: string, metric: string, range: string) {
     queryKey: keys.series(nodeId, metric, range),
     queryFn: () =>
       api<Series>(`${V1}/nodes/${encodeURIComponent(nodeId)}/series?metric=${metric}&range=${range}`),
-    enabled: Boolean(nodeId),
+    enabled: Boolean(nodeId) && supportsSeries(metric),
     // A window switch keeps the previous curve until the next one lands, so the
     // panel never collapses to an empty frame.
     placeholderData: keepPreviousData,
     staleTime: 15_000,
   });
 }
+
+/**
+ * Warm the series the operator is about to open. The hub already has the
+ * samples; this removes the wait between a click and a drawn curve.
+ */
+export function prefetchSeries(
+  client: QueryClient,
+  nodeId: string,
+  pairs: ReadonlyArray<readonly [string, string]>,
+): void {
+  for (const [metric, range] of pairs) {
+    if (!supportsSeries(metric)) continue;
+    void client.prefetchQuery({
+      queryKey: keys.series(nodeId, metric, range),
+      queryFn: () =>
+        api<Series>(`${V1}/nodes/${encodeURIComponent(nodeId)}/series?metric=${metric}&range=${range}`),
+      staleTime: 15_000,
+    });
+  }
+}
+
+/** What each node tab draws first, warmed when the tab is hovered or focused. */
+export const TAB_SERIES: Record<string, ReadonlyArray<readonly [string, string]>> = {
+  '': [['cpu', '1h']],
+  '/cpu': [
+    ['cpu', '1h'],
+    ['psi_cpu', '1h'],
+  ],
+  '/memory': [['mem', '1h']],
+  '/storage': [['psi_io', '1h']],
+};
 
 export function useCreateNode() {
   const client = useQueryClient();

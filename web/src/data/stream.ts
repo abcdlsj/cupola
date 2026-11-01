@@ -18,10 +18,21 @@ export function useStream(enabled: boolean): void {
     let retry = 0;
     let timer: number | undefined;
 
-    const schedule = () => {
+    const reconnect = () => {
       if (closed) return;
       retry = Math.min(retry + 1, 6);
       timer = window.setTimeout(connect, 1000 * retry);
+    };
+
+    // The hub pushes on every poll; refresh the cached reads at most every two
+    // seconds so three boxes polling at 2 s cannot start a refetch storm.
+    let flush: number | undefined;
+    const schedule = (run: () => void) => {
+      if (flush) return;
+      run();
+      flush = window.setTimeout(() => {
+        flush = undefined;
+      }, 2000);
     };
 
     const handle = (chunk: string) => {
@@ -29,7 +40,7 @@ export function useStream(enabled: boolean): void {
         const line = block.split('\n').find((entry) => entry.startsWith('data:'));
         if (!line) continue;
         retry = 0;
-        invalidateLive(client);
+        schedule(() => invalidateLive(client));
       }
     };
 
@@ -45,7 +56,7 @@ export function useStream(enabled: boolean): void {
       })
         .then(async (response) => {
           if (!response.ok || !response.body) {
-            schedule();
+            reconnect();
             return;
           }
           retry = 0;
@@ -56,11 +67,11 @@ export function useStream(enabled: boolean): void {
             if (done) break;
             handle(decoder.decode(value, { stream: true }));
           }
-          schedule();
+          reconnect();
         })
         .catch((caught: unknown) => {
           if (caught instanceof DOMException && caught.name === 'AbortError') return;
-          schedule();
+          reconnect();
         });
     };
 
@@ -69,6 +80,7 @@ export function useStream(enabled: boolean): void {
       closed = true;
       controller.abort();
       if (timer) window.clearTimeout(timer);
+      if (flush) window.clearTimeout(flush);
     };
   }, [client, enabled]);
 }

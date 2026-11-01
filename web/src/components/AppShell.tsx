@@ -48,33 +48,56 @@ function RailLink({ to, label, icon: Icon, active }: { to: string; label: string
   );
 }
 
-function pageLabel(path: string, nodeName?: string): string {
-  if (path === '/') return 'Overview';
-  if (path === '/nodes') return 'Nodes';
-  if (path === '/agents') return 'Agents';
-  if (path === '/apps') return 'Apps';
-  if (path === '/alerts' || path.startsWith('/alerts/')) return 'Alerts';
-  if (path === '/events' || path.startsWith('/events/')) return 'Events';
-  if (path.startsWith('/settings')) return 'Settings';
-  if (nodeName) return nodeName;
-  return 'Node';
+const NODE_TABS: Record<string, string> = {
+  cpu: 'CPU',
+  memory: 'Memory',
+  storage: 'Storage',
+  network: 'Network',
+  processes: 'Processes',
+  agents: 'Agents',
+  services: 'Services',
+  containers: 'Containers',
+  apps: 'Apps',
+  events: 'Events',
+};
+
+/**
+ * The top bar locates the view; the page's own title names the object. It never
+ * repeats the heading below it, so a node page says "Cupola / Nodes / CPU" and
+ * the heading carries the node name once.
+ */
+function trail(path: string): string[] {
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] === 'nodes' && parts[1]) {
+    const tab = NODE_TABS[parts[2] ?? ''];
+    return tab ? ['Nodes', tab] : ['Nodes'];
+  }
+  if (parts[0] === 'events' && parts[1]) return ['Events'];
+  if (parts[0] === 'alerts' && parts[1] === 'rules') return ['Alerts'];
+  if (parts[0] === 'settings' && parts[1]) return ['Settings'];
+  return [];
 }
 
 function TopBar({ onSearch }: { onSearch: () => void }) {
   const fleet = useFleet();
   const location = useLocation();
-  const nodeId = location.pathname.split('/')[2];
-  const node = fleet.data?.nodes.find((view) => view.node.id === nodeId);
   const updated = fleet.data?.updated;
+  const crumbs = trail(location.pathname);
 
   return (
     <header className="topbar">
       <div className="topbar-context">
-        <span className="topbar-scope">hub</span>
-        <span className="topbar-sep" aria-hidden="true">
-          /
-        </span>
-        <span className="topbar-title">{pageLabel(location.pathname, node?.node.name)}</span>
+        <Link to="/" className="topbar-scope">
+          Cupola
+        </Link>
+        {crumbs.map((crumb) => (
+          <span className="topbar-crumb" key={crumb}>
+            <span className="topbar-sep" aria-hidden="true">
+              /
+            </span>
+            {crumb}
+          </span>
+        ))}
       </div>
       <div className="topbar-right">
         <button type="button" className="search-btn" onClick={onSearch} aria-label="Search nodes and screens">

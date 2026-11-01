@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('fleet overview', () => {
-  test('shows the horizon and routes to a node', async ({ page }) => {
+  test('shows the fleet profile and routes to a node', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-    const marks = page.locator('.horizon-node');
-    await expect(marks).toHaveCount(3);
-    await page.getByLabel(/^beelink: (healthy|degraded)/).click();
+    const lines = page.locator('.fleet-node');
+    await expect(lines).toHaveCount(3);
+    await page.locator('.fleet-key-link', { hasText: 'beelink' }).click();
     await expect(page).toHaveURL(/\/nodes\/beelink$/);
     await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
     await page.goBack();
@@ -171,7 +171,7 @@ test.describe('keyboard and shell', () => {
 
   test('phone shows the bottom bar, desktop shows the rail', async ({ page, viewport }) => {
     await page.goto('/');
-    await expect(page.locator('.horizon-node')).toHaveCount(3);
+    await expect(page.locator('.fleet-node')).toHaveCount(3);
     if ((viewport?.width ?? 1440) < 641) {
       await expect(page.locator('.bottom-bar')).toBeVisible();
       await expect(page.locator('.rail')).toBeHidden();

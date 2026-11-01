@@ -1,6 +1,5 @@
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
-import { CopyLinkButton } from '../../components/CopyLinkButton';
 import { SeverityPill } from '../../components/StatusPill';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
@@ -14,7 +13,6 @@ export function EventsPage() {
       <PageHeader
         title="Events"
         finding="Changes the hub derived from the snapshots: units, containers, reboots, ports and alert transitions."
-        actions={<CopyLinkButton />}
       />
       <EventsList title="Fleet events" />
     </>
@@ -47,8 +45,7 @@ export function EventDetailPage() {
             <button type="button" className="btn btn-ghost" onClick={() => navigate(`/alerts/rules/new?${params.toString()}`)}>
               Alert me about this
             </button>
-            <CopyLinkButton />
-          </>
+</>
         }
       />
       <Panel title="Event" meta={<SeverityPill severity={event.severity} />} flush>
