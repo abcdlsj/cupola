@@ -21,9 +21,11 @@ dense, fast PWA.
 - **Every view has a URL.** Copy and share a node, process, agent session,
   service, container, app, alert or event, with its time range intact.
 
-> **Status: implementation starting at M0.** The build plan is
-> [docs/PLAN.md](docs/PLAN.md); the visual direction is
-> [docs/DESIGN.md](docs/DESIGN.md).
+> **Status: M0, the design gate.** The shell, tokens and five screens render a
+> fixture snapshot; there is no agent or hub yet. The build plan is
+> [docs/PLAN.md](docs/PLAN.md), the visual direction is
+> [docs/DESIGN.md](docs/DESIGN.md), and the milestone report is
+> [docs/reports/M0.md](docs/reports/M0.md).
 
 ## Shape
 
@@ -55,6 +57,29 @@ Read-only by default. Remote actions are fixed scripts or Wake-on-LAN packets
 configured on the agent, never arbitrary shell. API tokens for automation are
 scoped to read or a specific action allowlist. Webhooks are signed and guarded
 against SSRF. No telemetry.
+
+## Development
+
+```bash
+cd web && npm ci
+npm run dev          # http://localhost:5173
+npm run lint
+npm test
+npm run build        # production build and PWA in web/dist
+npm run preview      # http://127.0.0.1:4173
+npx playwright test  # desktop, iPad, iPhone (WebKit), Pixel (Chromium)
+```
+
+Go side (module and subcommand shell in M0):
+
+```bash
+go vet ./...
+go test ./...
+go build ./cmd/cupola
+```
+
+The M0 screenshots live in [docs/screenshots/m0](docs/screenshots/m0); the data
+is fake. Fonts are self-hosted; no runtime third-party assets.
 
 ## License
 

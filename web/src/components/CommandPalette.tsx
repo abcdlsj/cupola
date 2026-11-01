@@ -1,0 +1,140 @@
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import { useNavigate } from 'react-router-dom';
+import { useFleet } from '../data/queries';
+import { StatusPill } from './StatusPill';
+
+interface Item {
+  id: string;
+  label: string;
+  group: 'Go to' | 'Nodes';
+  to: string;
+  hint?: string;
+  status?: 'healthy' | 'degraded' | 'offline';
+}
+
+const SCREENS: Item[] = [
+  { id: 'screen-overview', label: 'Overview', group: 'Go to', to: '/' },
+  { id: 'screen-nodes', label: 'Nodes', group: 'Go to', to: '/nodes' },
+  { id: 'screen-agents', label: 'Agents', group: 'Go to', to: '/agents' },
+  { id: 'screen-apps', label: 'Apps', group: 'Go to', to: '/apps' },
+  { id: 'screen-about', label: 'About', group: 'Go to', to: '/settings/about' },
+];
+
+/**
+ * ⌘K / Ctrl-K palette. Every entry is a route, so the keyboard path and the
+ * links land on the same URL.
+ */
+export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const navigate = useNavigate();
+  const fleet = useFleet();
+  const [query, setQuery] = useState('');
+  const [active, setActive] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const items = useMemo<Item[]>(() => {
+    const nodes: Item[] = (fleet.data?.nodes ?? []).map((node) => ({
+      id: `node-${node.id}`,
+      label: node.name,
+      group: 'Nodes',
+      to: `/nodes/${node.id}`,
+      hint: node.status === 'offline' ? 'offline' : `${Math.round(node.cpuPct)}% CPU`,
+      status: node.status,
+    }));
+    const all = [...SCREENS, ...nodes];
+    const needle = query.trim().toLowerCase();
+    if (!needle) return all;
+    return all.filter((item) => `${item.label} ${item.hint ?? ''}`.toLowerCase().includes(needle));
+  }, [fleet.data, query]);
+
+  useEffect(() => {
+    if (open) {
+      setQuery('');
+      setActive(0);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    setActive(0);
+  }, [query]);
+
+  const go = (item: Item | undefined) => {
+    if (!item) return;
+    onOpenChange(false);
+    navigate(item.to);
+  };
+
+  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActive((index) => Math.min(items.length - 1, index + 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActive((index) => Math.max(0, index - 1));
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      go(items[active]);
+    }
+  };
+
+  useEffect(() => {
+    const node = listRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [active]);
+
+  let lastGroup: string | null = null;
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="overlay" />
+        <Dialog.Content className="dialog palette" aria-describedby={undefined}>
+          <Dialog.Title className="sr-only">Search nodes and screens</Dialog.Title>
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Search nodes and screens"
+            aria-label="Search nodes and screens"
+            aria-controls="palette-list"
+            aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
+            role="combobox"
+            aria-expanded="true"
+          />
+          <div className="palette-list" id="palette-list" role="listbox" ref={listRef}>
+            {items.length === 0 ? <p className="empty">No node or screen matches “{query}”.</p> : null}
+            {items.map((item, index) => {
+              const header = item.group !== lastGroup ? item.group : null;
+              lastGroup = item.group;
+              return (
+                <div key={item.id}>
+                  {header ? <div className="palette-group">{header}</div> : null}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={index === active}
+                    id={`palette-${item.id}`}
+                    className="palette-item"
+                    data-active={index === active ? 'true' : undefined}
+                    onMouseEnter={() => setActive(index)}
+                    onClick={() => go(item)}
+                  >
+                    <span>{item.label}</span>
+                    {item.status ? (
+                      <span className="palette-hint">
+                        <StatusPill status={item.status} />
+                      </span>
+                    ) : item.hint ? (
+                      <span className="palette-hint">{item.hint}</span>
+                    ) : null}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
