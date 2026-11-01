@@ -192,11 +192,21 @@ static PWA need a token with `actions:run` and agent `allow_api: true`.
 
 ## Cloudflare
 
-The hub is a normal HTTP service; run it behind a Cloudflare Tunnel or a Worker
-proxy if you like. This release does not create a Worker, route or DNS record.
-The relay can run on a Worker (Bolthole ships one); accept the exact zone and a
-two-digit subdomain from the operator first, and never commit account IDs or
-tokens.
+What runs there: the static PWA (Workers Assets) and the Bolthole relay (a
+Worker in the Bolthole repository). The hub and the agent do not: the hub needs
+SQLite, a long-lived poller and a persistent key, the agent needs host access.
+
+```bash
+cd web && VITE_BASE=/ npm run build
+npx wrangler deploy --config ../deploy/cloudflare/wrangler.jsonc
+```
+
+The config declares no route, so the Worker lives at
+`<name>.<account>.workers.dev`; the deployed URL is recorded in
+`deploy/cloudflare/README.md` (never the account ID). Add a custom domain only
+with the operator's exact zone and two-digit subdomain, and remove the route and
+DNS record when done. A static PWA talks to a hub over HTTPS with a read token;
+set `CUPOLA_CORS_ORIGINS` to the Worker origin.
 
 ## Backups and rotation
 
