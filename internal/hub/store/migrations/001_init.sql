@@ -1,0 +1,237 @@
+CREATE TABLE IF NOT EXISTS nodes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  labels TEXT NOT NULL DEFAULT '[]',
+  transport TEXT NOT NULL DEFAULT 'direct',
+  url TEXT NOT NULL DEFAULT '',
+  token_enc BLOB,
+  conn_enc BLOB,
+  agent_version TEXT NOT NULL DEFAULT '',
+  os TEXT NOT NULL DEFAULT '',
+  kernel TEXT NOT NULL DEFAULT '',
+  arch TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  last_seen INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'unknown'
+);
+
+CREATE TABLE IF NOT EXISTS samples (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  cpu REAL NOT NULL DEFAULT 0,
+  mem REAL NOT NULL DEFAULT 0,
+  mem_used INTEGER NOT NULL DEFAULT 0,
+  mem_total INTEGER NOT NULL DEFAULT 0,
+  load1 REAL NOT NULL DEFAULT 0,
+  load5 REAL NOT NULL DEFAULT 0,
+  load15 REAL NOT NULL DEFAULT 0,
+  net_rx REAL NOT NULL DEFAULT 0,
+  net_tx REAL NOT NULL DEFAULT 0,
+  disk_r REAL NOT NULL DEFAULT 0,
+  disk_w REAL NOT NULL DEFAULT 0,
+  procs INTEGER NOT NULL DEFAULT 0,
+  uptime INTEGER NOT NULL DEFAULT 0,
+  psi_cpu REAL NOT NULL DEFAULT 0,
+  psi_io REAL NOT NULL DEFAULT 0,
+  psi_mem REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, ts)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS samples_ts ON samples(ts);
+
+CREATE TABLE IF NOT EXISTS samples_1m (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  cpu_min REAL NOT NULL DEFAULT 0,
+  cpu_avg REAL NOT NULL DEFAULT 0,
+  cpu_max REAL NOT NULL DEFAULT 0,
+  mem_min REAL NOT NULL DEFAULT 0,
+  mem_avg REAL NOT NULL DEFAULT 0,
+  mem_max REAL NOT NULL DEFAULT 0,
+  load_avg REAL NOT NULL DEFAULT 0,
+  load_max REAL NOT NULL DEFAULT 0,
+  net_rx_avg REAL NOT NULL DEFAULT 0,
+  net_tx_avg REAL NOT NULL DEFAULT 0,
+  disk_r_avg REAL NOT NULL DEFAULT 0,
+  disk_w_avg REAL NOT NULL DEFAULT 0,
+  psi_cpu_avg REAL NOT NULL DEFAULT 0,
+  psi_io_avg REAL NOT NULL DEFAULT 0,
+  psi_mem_avg REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, ts)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS samples_1h (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  cpu_min REAL NOT NULL DEFAULT 0,
+  cpu_avg REAL NOT NULL DEFAULT 0,
+  cpu_max REAL NOT NULL DEFAULT 0,
+  mem_min REAL NOT NULL DEFAULT 0,
+  mem_avg REAL NOT NULL DEFAULT 0,
+  mem_max REAL NOT NULL DEFAULT 0,
+  load_avg REAL NOT NULL DEFAULT 0,
+  load_max REAL NOT NULL DEFAULT 0,
+  net_rx_avg REAL NOT NULL DEFAULT 0,
+  net_tx_avg REAL NOT NULL DEFAULT 0,
+  disk_r_avg REAL NOT NULL DEFAULT 0,
+  disk_w_avg REAL NOT NULL DEFAULT 0,
+  psi_cpu_avg REAL NOT NULL DEFAULT 0,
+  psi_io_avg REAL NOT NULL DEFAULT 0,
+  psi_mem_avg REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, ts)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS disk_samples (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  mount TEXT NOT NULL,
+  device TEXT NOT NULL DEFAULT '',
+  fs TEXT NOT NULL DEFAULT '',
+  used INTEGER NOT NULL DEFAULT 0,
+  size INTEGER NOT NULL DEFAULT 0,
+  inode_pct REAL NOT NULL DEFAULT 0,
+  read_bps REAL NOT NULL DEFAULT 0,
+  write_bps REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, ts, mount)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS net_samples (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  iface TEXT NOT NULL,
+  rx_bps REAL NOT NULL DEFAULT 0,
+  tx_bps REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (node_id, ts, iface)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS process_samples (
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  pid INTEGER NOT NULL,
+  name TEXT NOT NULL DEFAULT '',
+  user TEXT NOT NULL DEFAULT '',
+  cpu REAL NOT NULL DEFAULT 0,
+  rss INTEGER NOT NULL DEFAULT 0,
+  threads INTEGER NOT NULL DEFAULT 0,
+  started_at INTEGER NOT NULL DEFAULT 0,
+  command TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (node_id, ts, pid)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS node_state (
+  node_id TEXT PRIMARY KEY,
+  ts INTEGER NOT NULL,
+  payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS node_actions (
+  node_id TEXT PRIMARY KEY,
+  ts INTEGER NOT NULL,
+  payload TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  severity TEXT NOT NULL,
+  message TEXT NOT NULL,
+  meta TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
+CREATE INDEX IF NOT EXISTS events_node ON events(node_id, ts);
+
+CREATE TABLE IF NOT EXISTS action_runs (
+  id TEXT PRIMARY KEY,
+  node_id TEXT NOT NULL,
+  action_id TEXT NOT NULL,
+  action_name TEXT NOT NULL DEFAULT '',
+  ts INTEGER NOT NULL,
+  actor TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'ui',
+  ok INTEGER NOT NULL DEFAULT 0,
+  exit_code INTEGER NOT NULL DEFAULT 0,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  output TEXT NOT NULL DEFAULT '',
+  truncated INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS action_runs_ts ON action_runs(ts);
+
+CREATE TABLE IF NOT EXISTS alert_rules (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'metric',
+  metric TEXT NOT NULL DEFAULT '',
+  comparator TEXT NOT NULL DEFAULT 'gt',
+  threshold REAL NOT NULL DEFAULT 0,
+  duration_sec INTEGER NOT NULL DEFAULT 0,
+  severity TEXT NOT NULL DEFAULT 'warning',
+  node_id TEXT NOT NULL DEFAULT '',
+  kinds TEXT NOT NULL DEFAULT '[]',
+  channel_id TEXT NOT NULL DEFAULT '',
+  enabled INTEGER NOT NULL DEFAULT 1,
+  cooldown_sec INTEGER NOT NULL DEFAULT 300,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS alerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id TEXT NOT NULL,
+  rule_name TEXT NOT NULL DEFAULT '',
+  node_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  state TEXT NOT NULL,
+  value REAL NOT NULL DEFAULT 0,
+  message TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS alerts_ts ON alerts(ts);
+
+CREATE TABLE IF NOT EXISTS alert_state (
+  rule_id TEXT NOT NULL,
+  node_id TEXT NOT NULL,
+  state TEXT NOT NULL,
+  since INTEGER NOT NULL,
+  value REAL NOT NULL DEFAULT 0,
+  last_notified INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (rule_id, node_id)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS channels (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  config_enc BLOB NOT NULL,
+  secret_enc BLOB,
+  created_at INTEGER NOT NULL,
+  verified_at INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS deliveries (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  alert_id INTEGER NOT NULL,
+  channel_id TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  ok INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT '',
+  attempts INTEGER NOT NULL DEFAULT 0,
+  error TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS deliveries_ts ON deliveries(ts);
+
+CREATE TABLE IF NOT EXISTS api_tokens (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  hash TEXT NOT NULL UNIQUE,
+  prefix TEXT NOT NULL,
+  scopes TEXT NOT NULL DEFAULT '[]',
+  node_ids TEXT NOT NULL DEFAULT '[]',
+  action_ids TEXT NOT NULL DEFAULT '[]',
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL DEFAULT 0,
+  last_used INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);

@@ -11,7 +11,7 @@ func TestVersionCommand(t *testing.T) {
 	if code := run([]string{"version"}, &out, &errOut); code != 0 {
 		t.Fatalf("exit = %d, want 0 (stderr: %s)", code, errOut.String())
 	}
-	if !strings.Contains(out.String(), "cupola 0.1.0-m0") {
+	if !strings.Contains(out.String(), "cupola 1.0.0") {
 		t.Fatalf("stdout = %q, want version line", out.String())
 	}
 }
@@ -36,14 +36,25 @@ func TestUnknownCommand(t *testing.T) {
 	}
 }
 
-func TestUnimplementedSubcommandsSaySo(t *testing.T) {
-	for _, cmd := range []string{"agent", "hub", "serve"} {
-		var out, errOut bytes.Buffer
-		if code := run([]string{cmd}, &out, &errOut); code == 0 {
-			t.Fatalf("%s: exit = 0, want a non-zero code until the backend lands", cmd)
-		}
-		if !strings.Contains(errOut.String(), "not implemented yet") {
-			t.Fatalf("%s: stderr = %q, want an explicit not-implemented message", cmd, errOut.String())
-		}
+func TestAgentMissingConfigFails(t *testing.T) {
+	var out, errOut bytes.Buffer
+	if code := run([]string{"agent", "--config", "/nonexistent/agent.json"}, &out, &errOut); code != 1 {
+		t.Fatalf("exit = %d, want 1", code)
+	}
+	if !strings.Contains(errOut.String(), "config:") {
+		t.Fatalf("stderr = %q, want a config error", errOut.String())
+	}
+}
+
+func TestHubWithoutPasswordFails(t *testing.T) {
+	t.Setenv("CUPOLA_ADMIN_PASSWORD", "")
+	t.Setenv("CUPOLA_DATA_DIR", t.TempDir())
+	t.Setenv("CUPOLA_LISTEN", "127.0.0.1:0")
+	var out, errOut bytes.Buffer
+	if code := run([]string{"hub"}, &out, &errOut); code != 1 {
+		t.Fatalf("exit = %d, want 1 (stderr: %s)", code, errOut.String())
+	}
+	if !strings.Contains(errOut.String(), "admin password") {
+		t.Fatalf("stderr = %q, want the admin-password instruction", errOut.String())
 	}
 }

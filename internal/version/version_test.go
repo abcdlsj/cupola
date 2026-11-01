@@ -16,18 +16,18 @@ func TestGetReturnsBuildIdentity(t *testing.T) {
 }
 
 func TestStringOmitsUnknownDate(t *testing.T) {
-	info := Info{Version: "0.1.0-m0", Commit: "abc1234", Date: "unknown"}
+	info := Info{Version: "1.0.0", Commit: "abc1234", Date: "unknown"}
 	got := info.String()
 	if strings.Contains(got, "built") {
 		t.Errorf("String() = %q, want no build date", got)
 	}
-	if !strings.Contains(got, "0.1.0-m0") || !strings.Contains(got, "abc1234") {
+	if !strings.Contains(got, "1.0.0") || !strings.Contains(got, "abc1234") {
 		t.Errorf("String() = %q, want version and commit", got)
 	}
 }
 
 func TestStringIncludesBuildDate(t *testing.T) {
-	info := Info{Version: "0.1.0-m0", Commit: "abc1234", Date: "2026-11-01T09:42:00Z"}
+	info := Info{Version: "1.0.0", Commit: "abc1234", Date: "2026-11-01T09:42:00Z"}
 	if !strings.Contains(info.String(), "built 2026-11-01T09:42:00Z") {
 		t.Errorf("String() = %q, want build date", info.String())
 	}

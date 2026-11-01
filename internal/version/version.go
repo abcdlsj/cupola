@@ -5,7 +5,7 @@ import "strings"
 
 // Version follows semver with the milestone suffix while the product is under
 // construction.
-const Version = "0.1.0-m0"
+const Version = "1.0.0"
 
 // Commit and Date are overridden at build time:
 //
