@@ -12,7 +12,7 @@ import { days, netRate, percent, rate, size } from '../../lib/format';
 import { RangeControl } from './RangeControl';
 
 /** "Loading a window" is one quiet line; the chart frame never collapses. */
-const NO_WINDOW = 'No sample in this window. The hub reads live samples for 1 h; longer windows need rollups it has not built yet.';
+const NO_WINDOW = 'No sample in this window yet.';
 
 function windowNote(pending: boolean, points: SeriesPoint[], empty: string, filled: string): string {
   if (pending && points.length === 0) return 'Loading this window from the hub…';
@@ -182,24 +182,37 @@ export function StoragePage() {
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
   const [range, setRange] = useState('1h');
-  const series = useSeries(nodeId, 'psi_io', range);
-  const points = useMemo(() => series.data?.points ?? [], [series.data]);
+  const read = useSeries(nodeId, 'disk_r', range);
+  const write = useSeries(nodeId, 'disk_w', range);
+  const points = useMemo(() => read.data?.points ?? [], [read.data]);
   const chart = useMemo<ChartSeries[]>(
-    () => [{ label: 'I/O pressure', points, color: seriesColor(1) }],
-    [points],
+    () => [
+      { label: 'Read', points, color: seriesColor(0) },
+      { label: 'Write', points: write.data?.points ?? [], color: seriesColor(1) },
+    ],
+    [points, write.data],
   );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   return (
     <>
-      <Panel title="I/O pressure" meta={<RangeControl value={range} onChange={setRange} />} flush>
+      <Panel title="Disk throughput" meta={<RangeControl value={range} onChange={setRange} />} flush>
         <div className="cpu-split-main">
-          <SeriesChart series={chart} unit="percent" label="I/O pressure" height={210} />
+          <SeriesChart series={chart} unit="rate" label="Disk read and write throughput" height={210} />
           <p className="cpu-note">
+            <span className="legend-inline">
+              <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
+              Read
+            </span>
+            <span className="legend-inline">
+              <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
+              Write
+            </span>
+            {' · '}
             {windowNote(
-              series.isPending,
+              read.isPending || write.isPending,
               points,
               NO_WINDOW,
-              'Share of the window some task stalled on disk. Live fill and per-device throughput are in the table below.',
+              'Bytes per second across the sampled block devices. Mounted usage, inodes and fill prediction are in the table below.',
             )}
           </p>
         </div>
@@ -257,7 +270,19 @@ export function StoragePage() {
 
 export function NetworkPage() {
   const view = useSnapshot();
+  const { nodeId = '' } = useParams();
   const snap = view.snapshot;
+  const [range, setRange] = useState('1h');
+  const rx = useSeries(nodeId, 'net_rx', range);
+  const tx = useSeries(nodeId, 'net_tx', range);
+  const points = useMemo(() => rx.data?.points ?? [], [rx.data]);
+  const chart = useMemo<ChartSeries[]>(
+    () => [
+      { label: 'In', points, color: seriesColor(0) },
+      { label: 'Out', points: tx.data?.points ?? [], color: seriesColor(1) },
+    ],
+    [points, tx.data],
+  );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   const sum = (key: 'rx_bps' | 'tx_bps') =>
     snap.network.filter((iface) => iface.iface !== 'lo').reduce((total, iface) => total + iface[key], 0);
@@ -280,6 +305,28 @@ export function NetworkPage() {
           <div className="kpi-sub">conntrack entries</div>
         </div>
       </div>
+      <Panel title="Throughput" meta={<RangeControl value={range} onChange={setRange} />} flush>
+        <div className="cpu-split-main">
+          <SeriesChart series={chart} unit="net" label="Network throughput" height={210} />
+          <p className="cpu-note">
+            <span className="legend-inline">
+              <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
+              In
+            </span>
+            <span className="legend-inline">
+              <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
+              Out
+            </span>
+            {' · '}
+            {windowNote(
+              rx.isPending || tx.isPending,
+              points,
+              NO_WINDOW,
+              'Bits per second, summed over the interfaces the hub sampled.',
+            )}
+          </p>
+        </div>
+      </Panel>
       <Panel title="Interfaces" meta={`${snap.network.length} interfaces`} flush>
         <Table label="Interfaces">
           <THead>

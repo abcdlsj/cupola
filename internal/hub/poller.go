@@ -39,10 +39,15 @@ func newPoller(h *Hub, interval time.Duration) *poller {
 }
 
 func (p *poller) Run(ctx context.Context) {
+	// Materialise rollups once at start so a restart immediately serves 6h+
+	// windows from the 1m/1h tables.
+	if err := p.hub.store.Rollup(ctx, time.Now().UnixMilli()); err != nil {
+		p.hub.log.Warn("rollup failed", "error", err.Error())
+	}
 	p.pollAll(ctx)
 	ticker := time.NewTicker(p.interval)
 	defer ticker.Stop()
-	rollup := time.NewTicker(10 * time.Minute)
+	rollup := time.NewTicker(2 * time.Minute)
 	defer rollup.Stop()
 	for {
 		select {

@@ -129,6 +129,21 @@ func TestRollupMovesOldSamples(t *testing.T) {
 	if err != nil || len(raw) != 0 {
 		t.Fatalf("raw samples kept: %d, %v", len(raw), err)
 	}
+	// Recent raw data is rolled into 1m buckets so the 6h/24h windows are not
+	// empty; a 24h request (step 60) must find points.
+	recent := now - 10*60*1000
+	for i := 0; i < 3; i++ {
+		if err := st.SaveSnapshot(ctx, testSnapshot("atlas", recent+int64(i)*60_000), nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := st.Rollup(ctx, now); err != nil {
+		t.Fatal(err)
+	}
+	minute, err := st.Series(ctx, "atlas", "cpu", recent-60_000, now, 60)
+	if err != nil || len(minute) == 0 {
+		t.Fatalf("1m rollup missing for a 24h window: %d, %v", len(minute), err)
+	}
 	if err := st.DeleteNode(ctx, "atlas"); err != nil {
 		t.Fatal(err)
 	}

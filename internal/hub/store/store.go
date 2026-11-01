@@ -887,9 +887,13 @@ func (s *Store) SetSetting(ctx context.Context, key, value string) error {
 // Rollup aggregates raw samples into 1m and 1m into 1h, then deletes data past
 // its retention. It is idempotent.
 func (s *Store) Rollup(ctx context.Context, now int64) error {
+	// Rollups are materialised continuously so 6h/24h/7d windows are never
+	// empty: raw becomes 1m after 3 minutes, 1m becomes 1h after 90 minutes.
 	rawCutoff := now - 48*3600*1000
 	minuteCutoff := now - 30*24*3600*1000
 	hourCutoff := now - 13*30*24*3600*1000
+	rollMinuteFrom := now - 3*60*1000
+	rollHourFrom := now - 90*60*1000
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -902,7 +906,7 @@ func (s *Store) Rollup(ctx context.Context, now int64) error {
 		SELECT node_id, (ts / 60000) * 60000, MIN(cpu), AVG(cpu), MAX(cpu), MIN(mem), AVG(mem), MAX(mem), AVG(load1), MAX(load1),
 			AVG(net_rx), AVG(net_tx), AVG(disk_r), AVG(disk_w), AVG(psi_cpu), AVG(psi_io), AVG(psi_mem)
 		FROM samples WHERE ts < ? GROUP BY node_id, ts / 60000
-		ON CONFLICT(node_id, ts) DO NOTHING`, rawCutoff); err != nil {
+		ON CONFLICT(node_id, ts) DO NOTHING`, rollMinuteFrom); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
@@ -912,7 +916,7 @@ func (s *Store) Rollup(ctx context.Context, now int64) error {
 			AVG(load_avg), MAX(load_max), AVG(net_rx_avg), AVG(net_tx_avg), AVG(disk_r_avg), AVG(disk_w_avg),
 			AVG(psi_cpu_avg), AVG(psi_io_avg), AVG(psi_mem_avg)
 		FROM samples_1m WHERE ts < ? GROUP BY node_id, ts / 3600000
-		ON CONFLICT(node_id, ts) DO NOTHING`, minuteCutoff); err != nil {
+		ON CONFLICT(node_id, ts) DO NOTHING`, rollHourFrom); err != nil {
 		return err
 	}
 	for _, stmt := range []struct {

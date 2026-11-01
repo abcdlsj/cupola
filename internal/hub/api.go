@@ -22,6 +22,14 @@ const sessionCookie = "cupola_session"
 
 var nodeIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,31}$`)
 
+// seriesAllow is the set of time-series the hub stores and serves; alert
+// metrics (disk, inode, temp) are current values, not series.
+var seriesAllow = map[string]bool{
+	"cpu": true, "mem": true, "load": true,
+	"net_rx": true, "net_tx": true, "disk_r": true, "disk_w": true,
+	"psi_cpu": true, "psi_io": true, "procs": true,
+}
+
 type identity struct {
 	authenticated bool
 	admin         bool
@@ -315,8 +323,8 @@ func (h *Hub) handleSeries(w http.ResponseWriter, r *http.Request) {
 	if metric == "" {
 		metric = "cpu"
 	}
-	if !metricNames[metric] {
-		apiError(w, http.StatusBadRequest, "metric", "unknown metric")
+	if !seriesAllow[metric] {
+		apiError(w, http.StatusBadRequest, "metric", "this metric has no series; available: cpu, mem, load, net_rx, net_tx, disk_r, disk_w, psi_cpu, psi_io, procs")
 		return
 	}
 	rangeID := r.URL.Query().Get("range")
