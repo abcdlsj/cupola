@@ -45,11 +45,10 @@ func nvidiaGPUs() []model.GPU {
 		}
 		if procs, ret := nvml.DeviceGetComputeRunningProcesses(device); ret == nvml.SUCCESS {
 			for _, proc := range procs {
-				entry := model.GPUProcess{PID: int32(proc.Pid)}
-				if proc.UsedGpuMemory != nil {
-					entry.MemBytes = *proc.UsedGpuMemory
-				}
-				gpu.Processes = append(gpu.Processes, entry)
+				gpu.Processes = append(gpu.Processes, model.GPUProcess{
+					PID:      int32(proc.Pid),
+					MemBytes: proc.UsedGpuMemory,
+				})
 			}
 		}
 		out = append(out, gpu)
