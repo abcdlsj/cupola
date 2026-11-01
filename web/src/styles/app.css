@@ -1505,9 +1505,23 @@
   .rail {
     display: none;
   }
+  /* 100dvh flex shell: the page itself does not scroll, so the bottom bar is a
+     flex child at the visual viewport's bottom instead of a fixed element that
+     iOS clips below the visible area. */
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
   .main {
+    flex: 1 1 auto;
+    min-height: 0;
     margin-left: 0;
-    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .topbar {
     height: 48px;
@@ -1561,6 +1575,28 @@
   }
   .kpi-row[data-count="5"] .kpi-cell:last-child {
     grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    column-gap: 16px;
+    align-items: baseline;
+  }
+  .kpi-row[data-count="5"] .kpi-cell:last-child .kpi-label {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+  .kpi-row[data-count="5"] .kpi-cell:last-child .kpi-value {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    margin-top: 0;
+  }
+  .kpi-row[data-count="5"] .kpi-cell:last-child .kpi-sub {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+    text-align: right;
   }
   .kpi-row[data-count="4"] .kpi-cell:nth-child(3) {
     border-left: 0;
@@ -1653,11 +1689,8 @@
     height: 180px;
   }
   .bottom-bar {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 40;
+    position: static;
+    flex: none;
     height: calc(56px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     display: grid;

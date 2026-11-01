@@ -72,6 +72,44 @@ test.describe('shell', () => {
     }
   });
 
+  test('the bottom bar stays inside the visual viewport on a long node page', async ({ page, viewport }) => {
+    test.skip((viewport?.width ?? 1440) >= 641, 'phone only');
+    await page.goto('/nodes/studio');
+    const bar = page.locator('.bottom-bar');
+    await expect(bar).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
+    await expect(page.locator('.kpi-row')).toBeVisible();
+
+    const measure = () =>
+      page.evaluate(() => {
+        const rect = document.querySelector('.bottom-bar')!.getBoundingClientRect();
+        const vv = window.visualViewport;
+        return {
+          top: rect.top,
+          bottom: rect.bottom,
+          height: rect.height,
+          viewportTop: vv ? vv.offsetTop : 0,
+          viewportHeight: vv ? vv.height : window.innerHeight,
+        };
+      });
+
+    const scrollHeight = await page
+      .locator('.main')
+      .evaluate((el) => el.scrollHeight);
+    expect(scrollHeight).toBeGreaterThan((viewport?.height ?? 700) * 1.5);
+
+    const atTop = await measure();
+    expect(atTop.bottom).toBeLessThanOrEqual(atTop.viewportTop + atTop.viewportHeight + 0.5);
+    expect(atTop.top).toBeGreaterThanOrEqual(atTop.viewportTop - 0.5);
+    expect(atTop.height).toBeGreaterThanOrEqual(56);
+
+    await page.locator('.main').evaluate((el) => el.scrollTo(0, el.scrollHeight));
+    const atBottom = await measure();
+    expect(atBottom.bottom).toBeLessThanOrEqual(atBottom.viewportTop + atBottom.viewportHeight + 0.5);
+    expect(atBottom.top).toBeGreaterThanOrEqual(atBottom.viewportTop - 0.5);
+    expect(atBottom.height).toBeGreaterThanOrEqual(56);
+  });
+
   test('offline names the last snapshot', async ({ page, context }) => {
     await page.goto('/');
     await expect(page.locator('.page-title')).toBeVisible();

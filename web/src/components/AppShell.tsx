@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowClockwise, HardDrives, Info, MagnifyingGlass, PlayCircle, Robot, SquaresFour } from '@phosphor-icons/react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link, Outlet, useLocation } from 'react-router-dom';
@@ -117,6 +117,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const fleet = useFleet();
+  const mainRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -130,7 +131,10 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
+    // desktop scrolls the window, the phone scrolls the main column inside the
+    // 100dvh shell; both start a new route at the top.
     window.scrollTo({ top: 0 });
+    mainRef.current?.scrollTo({ top: 0 });
   }, [location.pathname]);
 
   return (
@@ -164,7 +168,7 @@ export function AppShell() {
             </span>
           </div>
         </nav>
-        <div className="main">
+        <div className="main" ref={mainRef}>
           <TopBar onSearch={() => setPaletteOpen(true)} />
           <main className="content">
             {fleet.data ? (
