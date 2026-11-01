@@ -1013,6 +1013,19 @@ func (h *Hub) handleListTokens(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
+	// JSON null for an empty allowlist makes clients branch on null; always send
+	// an array.
+	for i := range tokens {
+		if tokens[i].Scopes == nil {
+			tokens[i].Scopes = []string{}
+		}
+		if tokens[i].NodeIDs == nil {
+			tokens[i].NodeIDs = []string{}
+		}
+		if tokens[i].ActionIDs == nil {
+			tokens[i].ActionIDs = []string{}
+		}
+	}
 	writeJSON(w, http.StatusOK, tokens)
 }
 
@@ -1046,6 +1059,12 @@ func (h *Hub) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 		ID: id, Name: body.Name, Prefix: tokenPrefix(id, strings.SplitN(token, "_", 3)[2]),
 		Scopes: body.Scopes, NodeIDs: body.NodeIDs, ActionIDs: body.ActionIDs,
 		CreatedAt: time.Now().UnixMilli(), ExpiresAt: body.ExpiresAt,
+	}
+	if record.NodeIDs == nil {
+		record.NodeIDs = []string{}
+	}
+	if record.ActionIDs == nil {
+		record.ActionIDs = []string{}
 	}
 	if err := h.store.InsertToken(r.Context(), record, hash); err != nil {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())

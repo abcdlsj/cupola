@@ -627,11 +627,11 @@ export function TokensSettingsPage() {
                 <tr key={token.id}>
                   <Td cell="primary"><span className="row-name">{token.name}</span></Td>
                   <Td cell="field" label="Prefix"><span className="fig">{token.prefix}…</span></Td>
-                  <Td cell="field" label="Scopes">{token.scopes.join(', ')}</Td>
+                  <Td cell="field" label="Scopes">{(token.scopes ?? []).join(', ')}</Td>
                   <Td cell="field" label="Allowlist">
-                    {token.node_ids.length === 0 && token.action_ids.length === 0
+                    {(token.node_ids ?? []).length === 0 && (token.action_ids ?? []).length === 0
                       ? 'all'
-                      : `${token.node_ids.join(', ') || 'all nodes'} · ${token.action_ids.join(', ') || 'all actions'}`}
+                      : `${(token.node_ids ?? []).join(', ') || 'all nodes'} · ${(token.action_ids ?? []).join(', ') || 'all actions'}`}
                   </Td>
                   <Td num cell="field" label="Last used">{token.last_used ? relative(token.last_used, Date.now()) : 'never'}</Td>
                   <Td cell="field" label="Actions">

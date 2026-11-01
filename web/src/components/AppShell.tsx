@@ -14,6 +14,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { CupolaMark } from './CupolaMark';
 import { CommandPalette } from './CommandPalette';
+import { ErrorBoundary } from './ErrorBoundary';
 import { OfflineBanner } from './OfflineBanner';
 import { useFleet, useMe } from '../data/queries';
 import { useStream } from '../data/stream';
@@ -191,7 +192,9 @@ export function AppShell() {
           <TopBar onSearch={() => setPaletteOpen(true)} />
           <main className="content">
             {fleet.data ? <OfflineBanner lastUpdated={fleet.data.updated} stale={Boolean(fleet.data.stale)} /> : null}
-            <Outlet />
+            <ErrorBoundary key={location.pathname}>
+              <Outlet />
+            </ErrorBoundary>
           </main>
         </div>
         <BottomBar />
