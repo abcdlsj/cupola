@@ -132,6 +132,7 @@ session.
 | GET | `/nodes/{id}/actions` | advertised actions |
 | POST | `/nodes/{id}/actions/{action}/run` | `read`+`actions:run`; agent `allow_api` and allowlists apply |
 | GET | `/nodes/{id}/action-runs`, `/action-runs` | audit rows |
+| GET | `/nodes/{id}/containers/series?range=&ids=` | per-container CPU and memory buckets; `ids` is a comma list, max 8 |
 | GET | `/agents` | sessions from every node |
 | GET | `/actions` | actions from every node |
 | GET | `/events?node=&kind=&severity=&q=&since=&limit=` | newest first |
@@ -175,6 +176,22 @@ host, override with `force`), 409 `disabled` or 503 when no release resolves.
 
 The privileged side is the `cupola upgrade` command, run by the
 `cupola-upgrade.path`/`.service` pair; see `docs/DEPLOY.md`.
+
+### Container history
+
+`GET /api/v1/nodes/{id}/containers/series?range=1h|6h|24h|7d|30d&ids=a,b`
+
+History is written once a minute per container and kept 30 days; there are no
+rollup tables, so the step never drops below 60 s and the window is bucketed
+(`60`, `120`, `600`, `1800` s). `ids` is optional: without it every container
+that reported in the window comes back, sorted by peak CPU.
+
+```json
+{"node_id": "beelink", "range": "1h", "step_sec": 60,
+ "containers": [{"id": "c11a9d3e8f21", "name": "jellyfin",
+                 "image": "jellyfin/jellyfin:10.10.3",
+                 "points": [{"ts": 1793609340000, "cpu": 12.4, "mem": 1929379840}]}]}
+```
 
 ### Tailnet peers
 

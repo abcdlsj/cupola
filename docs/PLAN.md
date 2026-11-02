@@ -315,7 +315,8 @@ SQLite (pure Go), WAL, one writer, batched inserts, embedded migrations.
   arch, created_at, last_seen, status.
 - `samples`: node_id, ts, cpu fields, memory fields, load, net/disk rates,
   procs, uptime, pressure.
-- `disk_samples`, `net_samples`; `process_samples` (top N).
+- `disk_samples`, `net_samples`; `process_samples` (top N);
+  `container_samples` (one row per container per minute, 30 days, no rollup).
 - `events`: node_id, ts, kind, severity, message, meta JSON.
 - `alerts`, `alert_rules` (including event rules), `alert_deliveries`.
 - `actions`, `action_runs` (metadata + truncated output).
@@ -335,7 +336,7 @@ Hub (bearer): `/api/v1/auth/login|me`, `/fleet/summary`, `/nodes` CRUD + test,
 `/nodes/{id}/snapshot|series|processes|agents|services|containers|ports|events|actions`,
 `/nodes/{id}/actions/{action}/run`, `/events`, `/alerts`, `/alerts/rules`,
 `/alerts/deliveries`, `/alerts/test`, `/tokens`, `/update` (GET status, POST
-queue, DELETE cancel), `/stream` (SSE).
+queue, DELETE cancel), `/nodes/{id}/containers/series`, `/stream` (SSE).
 
 JSON, Unix milliseconds, units labeled, errors `{error:{code,message}}`.
 

@@ -356,6 +356,10 @@ func (s *Store) SaveSnapshot(ctx context.Context, snap *model.Snapshot, actions 
 		}
 	}
 
+	if err := s.SaveContainerSamples(ctx, tx, snap.Node.ID, ts, snap.Containers); err != nil {
+		return err
+	}
+
 	payload, err := json.Marshal(snap)
 	if err != nil {
 		return err
@@ -968,6 +972,9 @@ func (s *Store) Rollup(ctx context.Context, now int64) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err := pruneContainerSamples(ctx, tx, now); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO samples_1m(node_id, ts, cpu_min, cpu_avg, cpu_max, mem_min, mem_avg, mem_max, load_avg, load_max,
 			net_rx_avg, net_tx_avg, disk_r_avg, disk_w_avg, psi_cpu_avg, psi_io_avg, psi_mem_avg)
@@ -1051,5 +1058,124 @@ func (s *Store) ConsumeJoinCode(ctx context.Context, hash string, now int64) (st
 
 func (s *Store) PruneJoinCodes(ctx context.Context, now int64) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM join_codes WHERE expires_at < ?`, now-24*3600*1000)
+	return err
+}
+
+// ---------- container history ----------
+
+// containerSampleGap is the resolution of the container chart: one row per
+// container per minute, written from the poll that crosses the boundary.
+const containerSampleGap = 60_000
+
+// containerRetention keeps 30 days of container history, the same window the
+// 1-minute rollups cover for the node.
+const containerRetention = 30 * 24 * 3600 * 1000
+
+// SaveContainerSamples stores one row per container for this poll, at most once
+// a minute per node.
+func (s *Store) SaveContainerSamples(ctx context.Context, tx *sql.Tx, nodeID string, ts int64, containers []model.Container) error {
+	if len(containers) == 0 {
+		return nil
+	}
+	var last int64
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(ts), 0) FROM container_samples WHERE node_id = ?`, nodeID).Scan(&last); err != nil {
+		return err
+	}
+	if ts-last < containerSampleGap {
+		return nil
+	}
+	for _, container := range containers {
+		if _, err := tx.ExecContext(ctx, `
+			INSERT OR REPLACE INTO container_samples(node_id, container_id, ts, name, image, cpu, mem, mem_limit)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+			nodeID, container.ID, ts, container.Name, container.Image,
+			container.CPUPercent, container.MemBytes, container.MemLimit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ContainerHistory returns bucketed CPU and memory for the requested
+// containers, or for every container that reported in the window when ids is
+// empty. Buckets are AVG for CPU and memory: a container's chart is about the
+// shape of the load, not about peaks the node-level min/avg/max keeps.
+func (s *Store) ContainerHistory(ctx context.Context, nodeID string, ids []string, from, to, step int64) ([]model.ContainerSeries, error) {
+	if step < 60 {
+		step = 60
+	}
+	// step is seconds; the bucket arithmetic is in milliseconds like every
+	// other timestamp in the store.
+	stepMs := step * 1000
+	args := []any{stepMs, stepMs, nodeID, from, to}
+	filter := ""
+	if len(ids) > 0 {
+		placeholders := make([]string, 0, len(ids))
+		for range ids {
+			placeholders = append(placeholders, "?")
+		}
+		filter = " AND container_id IN (" + strings.Join(placeholders, ",") + ")"
+		for _, id := range ids {
+			args = append(args, id)
+		}
+	}
+	query := `
+		SELECT container_id, (ts / ?) * ? AS bucket, AVG(cpu), AVG(mem), MAX(name), MAX(image)
+		FROM container_samples
+		WHERE node_id = ? AND ts >= ? AND ts <= ?` + filter + `
+		GROUP BY container_id, bucket
+		ORDER BY container_id, bucket`
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	byID := make(map[string]*model.ContainerSeries)
+	order := make([]string, 0, 4)
+	for rows.Next() {
+		var (
+			id, name, image string
+			bucket          int64
+			cpu             float64
+			mem             float64
+		)
+		if err := rows.Scan(&id, &bucket, &cpu, &mem, &name, &image); err != nil {
+			return nil, err
+		}
+		entry, ok := byID[id]
+		if !ok {
+			entry = &model.ContainerSeries{ID: id}
+			byID[id] = entry
+			order = append(order, id)
+		}
+		entry.Name, entry.Image = name, image
+		entry.Points = append(entry.Points, model.ContainerPoint{Ts: bucket, CPU: cpu, Mem: int64(mem)})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]model.ContainerSeries, 0, len(order))
+	for _, id := range order {
+		out = append(out, *byID[id])
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return peak(out[i].Points) > peak(out[j].Points)
+	})
+	return out, nil
+}
+
+func peak(points []model.ContainerPoint) float64 {
+	high := 0.0
+	for _, point := range points {
+		if point.CPU > high {
+			high = point.CPU
+		}
+	}
+	return high
+}
+
+// pruneContainerSamples drops history past the retention window.
+func pruneContainerSamples(ctx context.Context, tx *sql.Tx, now int64) error {
+	_, err := tx.ExecContext(ctx, `DELETE FROM container_samples WHERE ts < ?`, now-containerRetention)
 	return err
 }

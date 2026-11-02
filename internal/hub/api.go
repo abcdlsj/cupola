@@ -1178,6 +1178,7 @@ mux.Handle("POST /api/v1/auth/password", h.requireAdmin(http.HandlerFunc(h.handl
 	mux.Handle("GET /api/v1/nodes/{id}/actions", h.requireRead(http.HandlerFunc(h.handleListActions)))
 	mux.Handle("POST /api/v1/nodes/{id}/actions/{action}/run", h.requireActions(http.HandlerFunc(h.handleRunAction)))
 	mux.Handle("GET /api/v1/nodes/{id}/action-runs", h.requireRead(http.HandlerFunc(h.handleActionRuns)))
+	mux.Handle("GET /api/v1/nodes/{id}/containers/series", h.requireRead(http.HandlerFunc(h.handleContainerSeries)))
 	mux.Handle("GET /api/v1/action-runs", h.requireRead(http.HandlerFunc(h.handleActionRuns)))
 
 	mux.Handle("GET /api/v1/events", h.requireRead(http.HandlerFunc(h.handleEvents)))
@@ -1361,4 +1362,58 @@ func (h *Hub) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	h.mu.Unlock()
 	h.log.Info("admin password changed")
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// handleContainerSeries serves the Docker chart: per-container CPU and memory
+// buckets. Only minute-resolution history exists, so the step never goes below
+// a minute and the 13-month window is not offered.
+func (h *Hub) handleContainerSeries(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !tokenAllowsNode(identityFrom(r.Context()), id) {
+		apiError(w, http.StatusForbidden, "scope", "token is not allowed on this node")
+		return
+	}
+	rangeID := r.URL.Query().Get("range")
+	from, to, step := containerWindow(rangeID, time.Now().UnixMilli())
+	if raw := r.URL.Query().Get("from"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			from = parsed.UnixMilli()
+		}
+	}
+	if raw := r.URL.Query().Get("to"); raw != "" {
+		if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+			to = parsed.UnixMilli()
+		}
+	}
+	var ids []string
+	for _, raw := range strings.Split(r.URL.Query().Get("ids"), ",") {
+		raw = strings.TrimSpace(raw)
+		if raw != "" && len(ids) < 8 {
+			ids = append(ids, raw)
+		}
+	}
+	containers, err := h.store.ContainerHistory(r.Context(), id, ids, from, to, step)
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, "series", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, model.ContainerHistory{
+		NodeID: id, Range: rangeID, Step: step, Containers: containers,
+	})
+}
+
+// containerWindow picks a bucket at or above the one-minute resolution the
+// container samples are written at.
+func containerWindow(rangeID string, now int64) (from, to, step int64) {
+	to = now
+	switch rangeID {
+	case "1h":
+		return now - 3600_000, to, 60
+	case "7d":
+		return now - 7*24*3600_000, to, 600
+	case "30d":
+		return now - 30*24*3600_000, to, 1800
+	default: // 6h and 24h
+		return now - 24*3600_000, to, 120
+	}
 }

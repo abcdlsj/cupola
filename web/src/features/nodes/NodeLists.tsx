@@ -16,9 +16,12 @@ import { AgentMark } from '../../components/AgentMark';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
 import { RunActionDialog } from '../apps/RunActionDialog';
-import { useActions, useNode, useRuns } from '../../data/queries';
+import { useActions, useContainerHistory, useNode, useRuns } from '../../data/queries';
 import { agentTypeInfo } from '../../data/registry';
-import type { Action, AgentSession, DockerImage, NodeView, ProcessInfo } from '../../data/types';
+import type { Action, AgentSession, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
+import { SeriesChart, type ChartSeries } from '../../components/SeriesChart';
+import { seriesColor } from '../../lib/chart';
+import { RangeControl } from './RangeControl';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 
@@ -365,6 +368,49 @@ export function ServiceDetailPage() {
 }
 
 const IMAGE_ROWS = 8;
+/** Four distinct data hues is what the token set offers; the table has the rest. */
+const CHART_CONTAINERS = 4;
+
+/** Turns container history rows into the chart's series, one colour each. */
+function historyChart(containers: ContainerSeries[], pick: 'cpu' | 'mem'): ChartSeries[] {
+  return containers.map((container, index) => ({
+    label: container.name || container.id,
+    color: seriesColor(index),
+    points: container.points.map((point) => ({
+      ts: point.ts,
+      min: point[pick],
+      avg: point[pick],
+      max: point[pick],
+    })),
+  }));
+}
+
+function peakOf(points: Array<{ cpu: number; mem: number }>, key: 'cpu' | 'mem'): number {
+  let peak = 0;
+  for (const point of points) if (point[key] > peak) peak = point[key];
+  return peak;
+}
+
+/** Container CPU rarely reaches 100%: scale to the window instead of a flat axis. */
+function percentCeiling(peak: number): number {
+  if (peak <= 0) return 10;
+  const step = peak * 1.25 <= 12 ? 1 : peak * 1.25 <= 30 ? 5 : 10;
+  return Math.min(100, Math.max(10, Math.ceil((peak * 1.25) / step) * step));
+}
+
+function ContainerLegend({ chart }: { chart: ChartSeries[] }) {
+  if (chart.length === 0) return null;
+  return (
+    <p className="cpu-note">
+      {chart.map((entry) => (
+        <span className="legend-inline" key={entry.label}>
+          <span className="legend-swatch" style={{ background: entry.color }} aria-hidden="true" />
+          {entry.label}
+        </span>
+      ))}
+    </p>
+  );
+}
 
 /**
  * Docker images ranked by size. The bar is the image's own size (every layer it
@@ -379,11 +425,7 @@ function ImageChart({ images }: { images: DockerImage[] }) {
   const onDisk = images.reduce((sum, image) => sum + Math.max(0, image.size - image.shared_size), 0);
   const restBytes = rest.reduce((sum, image) => sum + image.size, 0);
   return (
-    <Panel
-      title="Images"
-      meta={`${images.length} images · ${size(onDisk)} on disk`}
-      flush
-    >
+    <Panel title="Images" meta={`${images.length} images · ${size(onDisk)} on disk`} flush>
       {images.length === 0 ? (
         <Empty>The image list is empty or the Docker socket is not readable by the agent.</Empty>
       ) : (
@@ -416,56 +458,91 @@ export function ContainersPage() {
   const view = useSnap();
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
+  const [range, setRange] = useState('1h');
+  // The chart follows the window, not the live snapshot: a container that
+  // restarted, or is gone now, still has history worth seeing.
+  const history = useContainerHistory(nodeId, range, []);
+  const containers = useMemo(
+    () =>
+      [...(history.data?.containers ?? [])]
+        .sort((a, b) => peakOf(b.points, 'cpu') - peakOf(a.points, 'cpu'))
+        .slice(0, CHART_CONTAINERS),
+    [history.data],
+  );
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
+  const cpu = historyChart(containers, 'cpu');
+  const memory = historyChart(containers, 'mem');
+  const cpuMax = percentCeiling(peakOf(containers.flatMap((entry) => entry.points), 'cpu'));
+  const empty = 'No sample in this window yet. History is written once a minute.';
   return (
     <>
-    <ImageChart images={snap.images ?? []} />
-    <Panel title="Containers" meta={`${snap.containers.length} containers`} flush>
-      {snap.containers.length === 0 ? (
-        <Empty>No container or the Docker socket is not readable by the agent.</Empty>
-      ) : (
-        <Table label="Containers">
-          <THead>
-            <Th>Container</Th>
-            <Th>Image</Th>
-            <Th>State</Th>
-            <Th num>CPU</Th>
-            <Th num>Memory</Th>
-            <Th num>Restarts</Th>
-            <Th num>Up</Th>
-          </THead>
-          <TBody>
-            {snap.containers.map((container) => (
-              <tr key={container.id}>
-                <Td cell="primary">
-                  <Link className="row-name" to={`/nodes/${nodeId}/containers/${container.id}`}>
-                    {container.name}
-                  </Link>
-                </Td>
-                <Td cell="field" label="Image">
-                  {container.image}
-                </Td>
-                <Td cell="field" label="State">
-                  <span className="pill" data-tone={container.state === 'running' ? 'positive' : 'neutral'}>{container.state}</span>
-                </Td>
-                <Td num cell="key">
-                  {percent(container.cpu_percent, 1)}
-                </Td>
-                <Td num cell="field" label="Memory">
-                  {size(container.mem_bytes)}
-                </Td>
-                <Td num cell="field" label="Restarts">
-                  {container.restarts}
-                </Td>
-                <Td num cell="field" label="Up">
-                  {container.uptime_sec ? duration(container.uptime_sec) : '—'}
-                </Td>
-              </tr>
-            ))}
-          </TBody>
-        </Table>
-      )}
-    </Panel>
+      <Panel title="Container CPU" meta={<RangeControl value={range} onChange={setRange} />} flush>
+        {cpu.length === 0 ? (
+          <Empty>{empty}</Empty>
+        ) : (
+          <>
+            <SeriesChart series={cpu} unit="percent" label="CPU per container" height={200} maxValue={cpuMax} />
+            <ContainerLegend chart={cpu} />
+          </>
+        )}
+      </Panel>
+      <Panel title="Container memory" flush>
+        {memory.length === 0 ? (
+          <Empty>{empty}</Empty>
+        ) : (
+          <>
+            <SeriesChart series={memory} unit="bytes" label="Memory per container" height={200} />
+            <ContainerLegend chart={memory} />
+          </>
+        )}
+      </Panel>
+      <ImageChart images={snap.images ?? []} />
+      <Panel title="Containers" meta={`${snap.containers.length} containers`} flush>
+        {snap.containers.length === 0 ? (
+          <Empty>No container or the Docker socket is not readable by the agent.</Empty>
+        ) : (
+          <Table label="Containers">
+            <THead>
+              <Th>Container</Th>
+              <Th>Image</Th>
+              <Th>State</Th>
+              <Th num>CPU</Th>
+              <Th num>Memory</Th>
+              <Th num>Restarts</Th>
+              <Th num>Up</Th>
+            </THead>
+            <TBody>
+              {snap.containers.map((container) => (
+                <tr key={container.id}>
+                  <Td cell="primary">
+                    <Link className="row-name" to={`/nodes/${nodeId}/containers/${container.id}`}>
+                      {container.name}
+                    </Link>
+                  </Td>
+                  <Td cell="field" label="Image">
+                    {container.image}
+                  </Td>
+                  <Td cell="field" label="State">
+                    <span className="pill" data-tone={container.state === 'running' ? 'positive' : 'neutral'}>{container.state}</span>
+                  </Td>
+                  <Td num cell="key">
+                    {percent(container.cpu_percent, 1)}
+                  </Td>
+                  <Td num cell="field" label="Memory">
+                    {size(container.mem_bytes)}
+                  </Td>
+                  <Td num cell="field" label="Restarts">
+                    {container.restarts}
+                  </Td>
+                  <Td num cell="field" label="Up">
+                    {container.uptime_sec ? duration(container.uptime_sec) : '—'}
+                  </Td>
+                </tr>
+              ))}
+            </TBody>
+          </Table>
+        )}
+      </Panel>
     </>
   );
 }
@@ -473,9 +550,27 @@ export function ContainersPage() {
 export function ContainerDetailPage() {
   const view = useSnap();
   const { nodeId = '', containerId = '' } = useParams();
+  const [range, setRange] = useState('1h');
   const container = view.snapshot?.containers.find((entry) => entry.id === containerId);
+  const history = useContainerHistory(nodeId, range, container ? [container.id] : []);
   if (!container) return <NotFound what="This container" to={`/nodes/${nodeId}/containers`} />;
+  const series = history.data?.containers ?? [];
   return (
+    <>
+    <Panel title={`${container.name} CPU`} meta={<RangeControl value={range} onChange={setRange} />} flush>
+      {series.length === 0 ? (
+        <Empty>No sample in this window yet. History is written once a minute.</Empty>
+      ) : (
+        <SeriesChart series={historyChart(series, 'cpu')} unit="percent" label="CPU of this container" height={200} />
+      )}
+    </Panel>
+    <Panel title={`${container.name} memory`} flush>
+      {series.length === 0 ? (
+        <Empty>No sample in this window yet. History is written once a minute.</Empty>
+      ) : (
+        <SeriesChart series={historyChart(series, 'mem')} unit="bytes" label="Memory of this container" height={200} />
+      )}
+    </Panel>
     <Panel title={container.name} flush>
       <div className="panel-body">
         <Kv
@@ -493,6 +588,7 @@ export function ContainerDetailPage() {
         />
       </div>
     </Panel>
+    </>
   );
 }
 

@@ -327,6 +327,29 @@ type Series struct {
 	Points []SeriesPoint `json:"points"`
 }
 
+// ContainerPoint is one minute of a container's history.
+type ContainerPoint struct {
+	Ts  int64   `json:"ts"`
+	CPU float64 `json:"cpu"`
+	Mem int64   `json:"mem"`
+}
+
+// ContainerSeries is one container's buckets over the requested window.
+type ContainerSeries struct {
+	ID     string           `json:"id"`
+	Name   string           `json:"name"`
+	Image  string           `json:"image"`
+	Points []ContainerPoint `json:"points"`
+}
+
+// ContainerHistory is the chart payload for the Containers tab.
+type ContainerHistory struct {
+	NodeID     string            `json:"node_id"`
+	Range      string            `json:"range"`
+	Step       int64             `json:"step_sec"`
+	Containers []ContainerSeries `json:"containers"`
+}
+
 type NodeHealth struct {
 	Status       string   `json:"status"` // healthy | degraded | offline | unknown
 	DaysToFull   float64  `json:"days_to_full,omitempty"`

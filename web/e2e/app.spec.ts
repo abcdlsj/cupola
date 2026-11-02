@@ -46,6 +46,12 @@ test.describe('nodes', () => {
     await page.getByRole('link', { name: 'jellyfin.service' }).click();
     await expect(page).toHaveURL(/\/nodes\/studio\/services\/jellyfin/);
     await page.goto('/nodes/studio/containers');
+    // The Docker charts read the per-container history; depending on how long
+    // the suite has run they hold data or say the window is still empty.
+    const cpuPanel = page.locator('.panel', { has: page.getByRole('heading', { name: 'Container CPU' }) });
+    await expect(cpuPanel).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Container memory' })).toBeVisible();
+    await expect(cpuPanel.locator('canvas, .empty').first()).toBeVisible();
     // The images chart ranks what the image cache holds down on disk.
     const images = page.locator('.panel', { has: page.getByRole('heading', { name: 'Images' }) });
     await expect(images.locator('.image-row')).toHaveCount(3);

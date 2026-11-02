@@ -91,9 +91,11 @@ glyph + the type name; do not draw fake brand marks.
 
 - uPlot for time series with a custom theme (not its defaults); hand-drawn SVG
   for the fleet profile.
-- Lines are thin and coloured: 1.5 px, never filled, never smoothed. The hues
-  come from `--series-1..4` (blue, teal, amber, red) and a chart uses at most
-  four, usually two (utilisation against pressure). Chrome stays monochrome.
+- Lines are thin and coloured: 1.5 px, never smoothed, sitting on a flat
+  translucent area (18 % of the same hue, no gradient) so the shape of the load
+  reads at a glance the way Beszel draws it. The hues come from
+  `--series-1..4` (blue, teal, amber, red) and a chart uses at most four,
+  usually two (utilisation against pressure). Chrome stays monochrome.
 - The crosshair is shared: one 1 px accent line and one readout that lists every
   series in the chart with its value at the cursor.
 - 3–5 faint horizontal gridlines, no y-axis line, round ticks above the max;

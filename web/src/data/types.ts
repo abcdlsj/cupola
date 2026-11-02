@@ -210,6 +210,27 @@ export interface DockerImage {
   created_at: number;
 }
 
+/** One bucket of a container's history. */
+export interface ContainerPoint {
+  ts: number;
+  cpu: number;
+  mem: number;
+}
+
+export interface ContainerSeries {
+  id: string;
+  name: string;
+  image: string;
+  points: ContainerPoint[];
+}
+
+export interface ContainerHistory {
+  node_id: string;
+  range: string;
+  step_sec: number;
+  containers: ContainerSeries[];
+}
+
 export interface Sensor {
   chip: string;
   label: string;

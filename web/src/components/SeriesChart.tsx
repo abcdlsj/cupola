@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
-import { clock, clockSeconds, day, netRate, percent, rate } from '../lib/format';
+import { clock, clockSeconds, day, netRate, percent, rate, size } from '../lib/format';
 import type { SeriesPoint } from '../data/types';
 import { cssColor, useResolvedTheme } from '../lib/theme';
 
@@ -10,7 +10,10 @@ export interface ChartMarker {
   label: string;
 }
 
-export type ChartUnit = 'percent' | 'rate' | 'net' | 'load';
+export type ChartUnit = 'percent' | 'rate' | 'net' | 'load' | 'bytes';
+
+/** uPlot paints a flat translucent area under each line; no gradients. */
+const FILL_ALPHA = '2e';
 
 /** One thin line. The colour comes from a data hue, never from the chrome. */
 export interface ChartSeries {
@@ -40,9 +43,16 @@ function formatValue(value: number, unit: ChartUnit): string {
       return netRate(value);
     case 'load':
       return value.toFixed(2);
+    case 'bytes':
+      return size(value);
     default:
       return percent(value, 0);
   }
+}
+
+/** Appends alpha to a resolved hex colour; anything else is left alone. */
+function withAlpha(color: string, alpha: string): string {
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color + alpha : color;
 }
 
 function niceMax(value: number): number {
@@ -172,6 +182,9 @@ export function SeriesChart({
         ...series.map((entry) => ({
           stroke: cssColor(entry.color),
           width: 1.5,
+          // A flat translucent area, the way Beszel draws its metrics: the
+          // shape of the load reads at a glance, the line keeps the edge.
+          fill: withAlpha(cssColor(entry.color), FILL_ALPHA),
           points: { show: false },
         })),
       ],

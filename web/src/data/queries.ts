@@ -26,6 +26,7 @@ import type {
   Me,
   NodeView,
   Series,
+  ContainerHistory,
   TailnetPeers,
   UpdateStatus,
 } from './types';
@@ -40,6 +41,7 @@ export const keys = {
   fleet: ['fleet'] as const,
   node: (id: string) => ['node', id] as const,
   series: (id: string, metric: string, range: string) => ['series', id, metric, range] as const,
+  containerSeries: (id: string, range: string, ids: string) => ['container-series', id, range, ids] as const,
   agents: ['fleet-agents'] as const,
   actions: (id?: string) => ['actions', id ?? 'fleet'] as const,
   runs: (id?: string) => ['runs', id ?? 'fleet'] as const,
@@ -134,6 +136,20 @@ export function useNode(nodeId: string | undefined) {
     enabled: Boolean(nodeId),
     placeholderData: keepPreviousData,
     staleTime: 5_000,
+  });
+}
+
+export function useContainerHistory(nodeId: string, range: string, ids: string[]) {
+  const key = ids.join(',');
+  return useQuery({
+    queryKey: keys.containerSeries(nodeId, range, key),
+    queryFn: () =>
+      api<ContainerHistory>(
+        `${V1}/nodes/${encodeURIComponent(nodeId)}/containers/series?range=${range}${key ? `&ids=${encodeURIComponent(key)}` : ''}`,
+      ),
+    enabled: Boolean(nodeId),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 
