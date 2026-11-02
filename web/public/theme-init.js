@@ -3,7 +3,7 @@
   try {
     var value = localStorage.getItem('cupola.theme');
     if (value === 'light' || value === 'dark') document.documentElement.dataset.theme = value;
-  } catch (error) {
+  } catch {
     // storage blocked: the system theme applies
   }
 })();
