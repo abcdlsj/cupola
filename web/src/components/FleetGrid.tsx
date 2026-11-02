@@ -9,6 +9,8 @@ type Column = {
   label: string;
   value: (view: NodeView) => number | null;
   text: (view: NodeView) => string;
+  /** narrow screens: a bare figure, its unit moved to the header */
+  short?: { label: string; text: (view: NodeView) => string };
   level: (view: NodeView, maxNet: number) => number;
   tone: (level: number) => 'warning' | 'negative' | undefined;
 };
@@ -54,6 +56,10 @@ const COLUMNS: Column[] = [
     label: 'Network',
     value: (view) => (view.health.status === 'offline' ? null : view.health.net_rx_bps),
     text: (view) => (view.health.status === 'offline' ? '—' : netRate(view.health.net_rx_bps || 0)),
+    short: {
+      label: 'Mbit/s',
+      text: (view) => (view.health.status === 'offline' ? '—' : (((view.health.net_rx_bps || 0) * 8) / 1e6).toFixed(1)),
+    },
     level: (view, maxNet) => {
       if (view.health.status === 'offline') return -1;
       const value = view.health.net_rx_bps || 0;
@@ -87,11 +93,18 @@ export function FleetGrid({ nodes, selectedId }: { nodes: NodeView[]; selectedId
         </span>
         {COLUMNS.map((column) => (
           <span key={column.key} role="columnheader" className="fleet-grid-cell">
-            {column.label}
+            {column.short ? (
+              <>
+                <span className="fleet-long">{column.label}</span>
+                <span className="fleet-short" aria-hidden="true">{column.short.label}</span>
+              </>
+            ) : (
+              column.label
+            )}
           </span>
         ))}
-        <span role="columnheader" className="fleet-grid-status">
-          Status
+        <span role="columnheader" className="fleet-grid-status" aria-label="Status">
+          <span className="fleet-long">Status</span>
         </span>
       </div>
       {rows.map((view) => {
@@ -127,7 +140,14 @@ export function FleetGrid({ nodes, selectedId }: { nodes: NodeView[]; selectedId
                   data-missing={value === null ? 'true' : undefined}
                   aria-label={`${column.label}: ${column.text(view)}`}
                 >
-                  {column.text(view)}
+                  {column.short ? (
+                    <>
+                      <span className="fleet-long">{column.text(view)}</span>
+                      <span className="fleet-short">{column.short.text(view)}</span>
+                    </>
+                  ) : (
+                    column.text(view)
+                  )}
                 </span>
               );
             })}

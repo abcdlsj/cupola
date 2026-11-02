@@ -103,7 +103,12 @@ export function NodesPage() {
                       {view.health.load1.toFixed(2)}
                     </Td>
                     <Td num cell="key">{view.health.status === 'offline' ? '—' : percent(view.health.cpu_pct)}</Td>
-        
+                    <Td num cell="field" label="Memory">
+                      {percent(view.health.mem_pct)}
+                      <span className="cell-sub">
+                        {view.health.mem_total ? `${size(view.health.mem_used)} of ${size(view.health.mem_total)}` : 'no data'}
+                      </span>
+                    </Td>
                     <Td num cell="field" label="Disk">
                       {percent(view.health.root_disk_pct)}
                       <span className="cell-sub">
