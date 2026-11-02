@@ -2,92 +2,41 @@
 
 ## Direction
 
-**Data terminal**, dealt by tasteskill v2 (seed `956138436`, style
-`data-terminal`, kind `markets`, theme dark). Full sheet:
-`docs/design/direction.json`.
+Two themes on one layout, chosen in **Settings → Appearance** (system, light,
+dark; the choice is kept per browser in `localStorage` under `cupola.theme`,
+and `web/public/theme-init.js` applies it before first paint).
 
-Why: Cupola is a monitoring screen read in long sessions. The style keeps the
-chrome monochrome, puts colour on data and status only, uses tabular figures
-that stack, and marks every selection with the same 1 px accent line. It is
-deliberately not the cream-paper/ink dashboard look.
+- **Dark — true-black flat, data-terminal blue.** A cool near-black ground,
+  cards one lightness step above it, no borders or shadows on cards; colour on
+  data and status only; selection is the 1 px `#4a8ad6` accent line. Taken from
+  tasteskill v2 `true-black-flat`, keeping the original data-terminal blue
+  instead of the dealt lime.
+- **Light — framed sheet.** A blue-grey ground (`#f2f5f8`) around white cards,
+  ink text, a teal accent (`#1b6c80`) for selection and the main series. From
+  tasteskill v2 `framed-sheet`.
 
-The style sheet says “distilled from one screen; keep it narrow”. We keep its
-move (1 px accent selection, dense figures, dark elevation) and compose the
-screens from the app-screen rules of the skill, not from a template.
+Both themes share every layout, spacing and type token. The original
+data-terminal sheet (seed `956138436`) is kept in `docs/design/direction.json`
+for history.
 
-Read `references/app-screens.md` from
-`https://github.com/Leonxlnx/taste-skill` before building. The implementing
-agent must run the app gate on the production build:
-
-```bash
-node /tmp/taste-skill/skills/taste-skill/scripts/lint.mjs --app web/src
-node /tmp/taste-skill/skills/taste-skill/scripts/inspect.mjs --app http://localhost:5173
-```
-
-## Tokens
-
-```css
-:root {
-  --ground: #171719;
-  --surface: #131217;
-  --raised: #212023;
-  --border: #222224;
-  --rule: #1b1a1f;
-  --control: #3a3a3e;
-
-  --text: #ffffff;
-  --muted: #8a8c92;
-  --accent: #4a8ad6;
-
-  --positive: #44a282;
-  --negative: #e5566f;
-  --warning: #d9a441;
-
-  --chart-1: #f2f2f3;   /* the main series */
-  --chart-2: #e5566f;   /* the bad/negative series */
-  --chart-3: #4a8ad6;   /* the accent series */
-
-  --pill-positive-bg: #1b2828; --pill-positive-ink: #5fc39c;
-  --pill-negative-bg: #2c1a20; --pill-negative-ink: #e5566f;
-  --pill-warning-bg:  #2a2416; --pill-warning-ink:  #d9a441;
-  --pill-neutral-bg:  #212023; --pill-neutral-ink:  #bdbdc0;
-
-  --shadow: 0 12px 28px rgba(0, 0, 0, .2); /* floating menus/dialogs only */
-
-  --radius-card: 6px;
-  --radius-control: 999px;
-  --row-height: 42px;
-  --sidebar-width: 56px;
-  --gap: 24px;
-  --pad: 32px;
-  --control-height: 34px;
-
-  --fs-title: 26px;
-  --fs-section: 20px;
-  --fs-kpi: 20px;
-  --fs-body: 13px;
-  --fs-small: 12px;
-
-  --font-ui: "Public Sans", system-ui, sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, monospace;
-}
-```
-
-Density: dense. One gap value. Cards are darker than the ground; no borders or
-shadows on resting cards. The shadow belongs to floating UI only.
+Tokens live in `web/src/styles/tokens.css`: shared layout and type on `:root`,
+dark colours as the default, light colours under
+`@media (prefers-color-scheme: light)` (unless `data-theme="dark"`) and under
+`:root[data-theme="light"]`. Components never hard-code a colour; uPlot reads
+the tokens through `cssColor()` in `web/src/lib/theme.ts` and is rebuilt when
+the theme changes.
 
 ## Type
 
-- UI: **Public Sans**, 400/500/600/700.
+- UI: **IBM Plex Sans**, 400/500/600/700.
 - Numbers, timestamps, IDs, table figures: **IBM Plex Mono**, 400/500.
 - `font-variant-numeric: tabular-nums` on every figure.
-- Sizes: 26 title, 20 section, 20 KPI, 13 body, 12 small.
-- Section titles 20/400 in muted grey; card titles 16/600; body 13.
+- Sizes: 24 title, 16 section/card title, 24 KPI, 14 body, 12 small.
 - Sentence case; no tracked uppercase; no monospace in prose (only data/IDs).
 - Axis ticks and chart notes stay in the UI face, not mono.
 
-The taste-skill inspector flags monospace; this is the style’s deliberate
-decision. Defend it in the report, do not blanket `--allow` other rules.
+The taste-skill inspector flags monospace; this is a deliberate decision for
+figures. Defend it in the report, do not blanket `--allow` other rules.
 
 ## Shell
 

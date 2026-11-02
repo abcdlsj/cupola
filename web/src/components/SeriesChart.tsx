@@ -3,6 +3,7 @@ import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { clock, clockSeconds, day, netRate, percent, rate } from '../lib/format';
 import type { SeriesPoint } from '../data/types';
+import { cssColor, useResolvedTheme } from '../lib/theme';
 
 export interface ChartMarker {
   at: number;
@@ -18,10 +19,18 @@ export interface ChartSeries {
   color: string;
 }
 
-const AXIS_FONT = '12px "Public Sans", sans-serif';
-const AXIS_INK = '#8a8c92';
-const GRID_INK = '#222224';
-const CURSOR_INK = '#4a8ad6';
+const AXIS_FONT = '12px "IBM Plex Sans", sans-serif';
+
+/** Chart chrome comes from the theme tokens; read once per chart build. */
+function inks() {
+  return {
+    axis: cssColor('var(--muted)'),
+    grid: cssColor('var(--rule)'),
+    cursor: cssColor('var(--accent)'),
+    threshold: cssColor('var(--control)'),
+    surface: cssColor('var(--surface)'),
+  };
+}
 
 function formatValue(value: number, unit: ChartUnit): string {
   switch (unit) {
@@ -98,6 +107,7 @@ export function SeriesChart({
   const thresholdRef = useRef<number | undefined>(threshold);
   const unitRef = useRef<ChartUnit>(unit);
   const seriesRef = useRef<ChartSeries[]>(series);
+  const theme = useResolvedTheme();
   const [tip, setTip] = useState<{ left: number; rows: Array<{ label: string; color: string; value: string }>; at: number } | null>(null);
 
   useEffect(() => {
@@ -111,6 +121,7 @@ export function SeriesChart({
   useEffect(() => {
     const element = host.current;
     if (!element) return;
+    const ink = inks();
     const width = element.clientWidth || 600;
     const allPoints = series.flatMap((entry) => entry.points);
     const spanHours = allPoints.length > 1 ? (Math.max(...allPoints.map((p) => p.ts)) - Math.min(...allPoints.map((p) => p.ts))) / 3_600_000 : 1;
@@ -126,7 +137,7 @@ export function SeriesChart({
         show: true,
         x: true,
         y: false,
-        points: { show: true, size: 5, width: 1.5, stroke: () => AXIS_INK, fill: () => '#171719' },
+        points: { show: true, size: 5, width: 1.5, stroke: () => ink.axis, fill: () => ink.surface },
       },
       scales: {
         x: { time: true },
@@ -134,10 +145,10 @@ export function SeriesChart({
       },
       axes: [
         {
-          stroke: AXIS_INK,
+          stroke: ink.axis,
           font: AXIS_FONT,
           grid: { show: false },
-          ticks: { stroke: GRID_INK, width: 1, size: 4 },
+          ticks: { stroke: ink.grid, width: 1, size: 4 },
           gap: 8,
           size: 30,
           space: 96,
@@ -147,10 +158,10 @@ export function SeriesChart({
             ),
         },
         {
-          stroke: AXIS_INK,
+          stroke: ink.axis,
           font: AXIS_FONT,
           size: 56,
-          grid: { stroke: GRID_INK, width: 1 },
+          grid: { stroke: ink.grid, width: 1 },
           ticks: { show: false },
           splits: () => ySplits,
           values: (_u, splits) => splits.map((value) => formatValue(value, unitRef.current)),
@@ -159,7 +170,7 @@ export function SeriesChart({
       series: [
         {},
         ...series.map((entry) => ({
-          stroke: entry.color,
+          stroke: cssColor(entry.color),
           width: 1.5,
           points: { show: false },
         })),
@@ -177,15 +188,15 @@ export function SeriesChart({
             const limit = thresholdRef.current;
             if (limit != null) {
               const alertY = u.valToPos(limit, 'y', true);
-              ctx.strokeStyle = '#3a3a3e';
+              ctx.strokeStyle = ink.threshold;
               ctx.setLineDash([3, 4]);
               ctx.beginPath();
               ctx.moveTo(left, alertY);
               ctx.lineTo(right, alertY);
               ctx.stroke();
               ctx.setLineDash([]);
-              ctx.fillStyle = AXIS_INK;
-              ctx.font = AXIS_FONT;
+              ctx.fillStyle = ink.axis;
+              ctx.font = `${Math.round(12 * uPlot.pxRatio)}px "IBM Plex Sans", sans-serif`;
               ctx.textAlign = 'left';
               ctx.textBaseline = 'bottom';
               ctx.fillText(formatValue(limit, unitRef.current), left + 4, alertY - 4);
@@ -194,12 +205,12 @@ export function SeriesChart({
             if (event) {
               const x = u.valToPos(event.at / 1000, 'x', true);
               if (x >= left - 1 && x <= right + 1) {
-                ctx.strokeStyle = CURSOR_INK;
+                ctx.strokeStyle = ink.cursor;
                 ctx.beginPath();
                 ctx.moveTo(x, top);
                 ctx.lineTo(x, bottom);
                 ctx.stroke();
-                ctx.fillStyle = CURSOR_INK;
+                ctx.fillStyle = ink.cursor;
                 ctx.textBaseline = 'top';
                 const onRight = x > (left + right) / 2;
                 ctx.textAlign = onRight ? 'right' : 'left';
@@ -255,9 +266,9 @@ export function SeriesChart({
       instance.destroy();
       chart.current = null;
     };
-    // Created once per metric page; data, marker and threshold are applied below.
+    // Created once per metric page and theme; data, marker and threshold are applied below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [theme]);
 
   useEffect(() => {
     const instance = chart.current;

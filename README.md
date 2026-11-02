@@ -41,10 +41,11 @@ dense, fast PWA.
 
 ## Design
 
-Data terminal: dark, dense, monochrome figures, colour only on data and status,
-one 1 px accent line for selection. No cream-paper dashboards, gradients, glass,
-emoji or icon chips. Agent marks come from Warren’s preset set. See
-[docs/DESIGN.md](docs/DESIGN.md).
+Data terminal in two themes: dark (true black, blue selection line) and light
+(white cards on a blue-grey frame), following the system or picked in
+Settings. Dense, monochrome figures, colour only on data and status. No
+cream-paper dashboards, gradients, glass, emoji or icon chips. Agent marks
+come from Warren’s preset set. See [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Security
 

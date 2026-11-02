@@ -1,34 +1,36 @@
-/* Cupola design tokens. Source: docs/DESIGN.md and docs/design/direction.json
-   (data-terminal, seed 956138436). Do not add hues: colour is for data, status
-   and one selection line. */
+/* Cupola design tokens. Two themes share one layout and one type system:
+   dark (true-black flat, with the data-terminal blue) and light (framed sheet).
+   See docs/DESIGN.md. Do not add hues: colour is for data, status and one
+   selection line. The theme follows the system unless <html data-theme> says
+   otherwise (Settings → Appearance). */
 
 @font-face {
-  font-family: "Public Sans";
+  font-family: "IBM Plex Sans";
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/public-sans-400.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-sans-400.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Public Sans";
+  font-family: "IBM Plex Sans";
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/public-sans-500.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-sans-500.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Public Sans";
+  font-family: "IBM Plex Sans";
   font-style: normal;
   font-weight: 600;
   font-display: swap;
-  src: url("/fonts/public-sans-600.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-sans-600.woff2") format("woff2");
 }
 @font-face {
-  font-family: "Public Sans";
+  font-family: "IBM Plex Sans";
   font-style: normal;
   font-weight: 700;
   font-display: swap;
-  src: url("/fonts/public-sans-700.woff2") format("woff2");
+  src: url("/fonts/ibm-plex-sans-700.woff2") format("woff2");
 }
 @font-face {
   font-family: "IBM Plex Mono";
@@ -46,15 +48,33 @@
 }
 
 :root {
-  --ground: #171719;
-  --surface: #131217;
-  --raised: #212023;
-  --border: #222224;
-  --rule: #1b1a1f;
-  --control: #3a3a3e;
+  --radius-card: 10px;
+  --radius-control: 999px;
+  --row-height: 42px;
+  --rail-width: 56px;
+  --gap: 24px;
+  --pad: 28px;
+  --control-height: 34px;
+
+  --fs-title: 24px;
+  --fs-section: 16px;
+  --fs-kpi: 24px;
+  --fs-body: 14px;
+  --fs-small: 12px;
+
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  color-scheme: dark;
+  --ground: #0c0d0f;
+  --surface: #15171a;
+  --raised: #23262a;
+  --border: #1f2226;
+  --rule: #1d2024;
+  --control: #44474c;
 
   --text: #ffffff;
-  --muted: #8a8c92;
+  --muted: #a3a6ab;
   --accent: #4a8ad6;
 
   --positive: #44a282;
@@ -72,34 +92,102 @@
   --series-3: #d9a441;
   --series-4: #e5566f;
 
-  --pill-positive-bg: #1b2828;
+  --pill-positive-bg: #17271f;
   --pill-positive-ink: #5fc39c;
   --pill-negative-bg: #2c1a20;
   --pill-negative-ink: #e5566f;
   --pill-warning-bg: #2a2416;
   --pill-warning-ink: #d9a441;
-  --pill-neutral-bg: #212023;
-  --pill-neutral-ink: #bdbdc0;
+  --pill-neutral-bg: #23262a;
+  --pill-neutral-ink: #d0d2d6;
 
   /* one surface wash for hover and pressed states; never a gradient */
-  --wash: rgba(255, 255, 255, 0.035);
-  --track: #242328;
-  --shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+  --wash: rgba(255, 255, 255, 0.04);
+  --track: #1f2226;
+  --scrim: rgba(0, 0, 0, 0.62);
+  --shadow: 0 12px 28px rgba(0, 0, 0, 0.32);
+}
 
-  --radius-card: 6px;
-  --radius-control: 999px;
-  --row-height: 42px;
-  --rail-width: 56px;
-  --gap: 24px;
-  --pad: 32px;
-  --control-height: 34px;
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    color-scheme: light;
+    --ground: #f2f5f8;
+    --surface: #ffffff;
+    --raised: #f4f6f8;
+    --border: #e3e6e9;
+    --rule: #eceef0;
+    --control: #cdced1;
 
-  --fs-title: 26px;
-  --fs-section: 20px;
-  --fs-kpi: 20px;
-  --fs-body: 13px;
-  --fs-small: 12px;
+    --text: #131416;
+    --muted: #5d5f60;
+    --accent: #1b6c80;
 
-  --font-ui: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --positive: #1e7b4f;
+    --negative: #c4242a;
+    --warning: #92400e;
+
+    --chart-1: #1b6c80;
+    --chart-2: #c4242a;
+    --chart-3: #2f70bb;
+
+    --series-1: #1b6c80;
+    --series-2: #2f70bb;
+    --series-3: #a86f0c;
+    --series-4: #c4242a;
+
+    --pill-positive-bg: #dcfae5;
+    --pill-positive-ink: #04250e;
+    --pill-negative-bg: #ffedea;
+    --pill-negative-ink: #831c1e;
+    --pill-warning-bg: #fffbeb;
+    --pill-warning-ink: #92400e;
+    --pill-neutral-bg: #ebedee;
+    --pill-neutral-ink: #353736;
+
+    --wash: rgba(0, 0, 0, 0.035);
+    --track: #eef0f2;
+    --scrim: rgba(19, 20, 22, 0.32);
+    --shadow: 0 12px 28px rgba(19, 20, 22, 0.1);
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #f2f5f8;
+  --surface: #ffffff;
+  --raised: #f4f6f8;
+  --border: #e3e6e9;
+  --rule: #eceef0;
+  --control: #cdced1;
+
+  --text: #131416;
+  --muted: #5d5f60;
+  --accent: #1b6c80;
+
+  --positive: #1e7b4f;
+  --negative: #c4242a;
+  --warning: #92400e;
+
+  --chart-1: #1b6c80;
+  --chart-2: #c4242a;
+  --chart-3: #2f70bb;
+
+  --series-1: #1b6c80;
+  --series-2: #2f70bb;
+  --series-3: #a86f0c;
+  --series-4: #c4242a;
+
+  --pill-positive-bg: #dcfae5;
+  --pill-positive-ink: #04250e;
+  --pill-negative-bg: #ffedea;
+  --pill-negative-ink: #831c1e;
+  --pill-warning-bg: #fffbeb;
+  --pill-warning-ink: #92400e;
+  --pill-neutral-bg: #ebedee;
+  --pill-neutral-ink: #353736;
+
+  --wash: rgba(0, 0, 0, 0.035);
+  --track: #eef0f2;
+  --scrim: rgba(19, 20, 22, 0.32);
+  --shadow: 0 12px 28px rgba(19, 20, 22, 0.1);
 }

@@ -33,7 +33,7 @@ expand or shrink scope; update the plan when a decision changes.
 - SQLite via `modernc.org/sqlite`; hand-written SQL; embedded migrations.
 - React 19 + TypeScript + Vite + Tailwind v4 + uPlot + Radix primitives +
   Phosphor icons + TanStack Query + React Router + Zod; `vite-plugin-pwa`.
-- Public Sans (UI) + IBM Plex Mono (all figures/IDs), self-hosted.
+- IBM Plex Sans (UI) + IBM Plex Mono (all figures/IDs), self-hosted.
 - Transport is per node: `pull` (hub dials the agent) or `push` (agent posts to
   `/api/v1/ingest`). No relay dependency; see `docs/design/pull-vs-push.md`.
 
@@ -69,8 +69,11 @@ selection, monochrome numbers, colour only on data/status).
 - Do not use cream-paper/ink, beige, terracotta, violet/indigo, gradients,
   glass, glow, emoji, icon chips, sparklines on KPIs, rainbow charts, zebra
   rows, uppercase tracked headers, fake charts or lorem.
-- Public Sans for UI; IBM Plex Mono for every figure/timestamp/ID. Tabular.
-- Cards are darker than the ground; no card shadows. The shadow is for floating
+- IBM Plex Sans for UI; IBM Plex Mono for every figure/timestamp/ID. Tabular.
+- Two themes, dark and light, sharing one layout; Settings → Appearance picks
+  system, light or dark. Every colour comes from `tokens.css`; no hex in
+  components (canvas reads tokens through `cssColor`).
+- Cards are one lightness step off the ground; no card shadows. The shadow is for floating
   menus/dialogs only.
 - The **fleet horizon** is the signature element on the overview; build it from
   real data and make it clickable.

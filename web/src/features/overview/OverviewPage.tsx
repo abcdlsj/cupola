@@ -149,7 +149,7 @@ export function OverviewPage() {
 
       <div className="row">
         <div className="span-5">
-          <Panel title="Attention" meta={`${attention.length} findings`} flush>
+          <Panel title="Attention" meta={`${attention.length} ${attention.length === 1 ? 'finding' : 'findings'}`} flush>
             {attention.length === 0 ? (
               <Empty>Nothing needs attention. Units, containers, disks and thresholds are quiet.</Empty>
             ) : (
@@ -170,7 +170,7 @@ export function OverviewPage() {
             )}
             <div className="panel-foot">
               <span className="note">
-                {attention.length > 4 ? `${attention.length - 4} more findings in Events. ` : ''}
+                {attention.length > 4 ? `${attention.length - 4} more ${attention.length - 4 === 1 ? 'finding' : 'findings'} in Events. ` : ''}
                 Derived from events; action failures stay on the Apps screen.
               </span>
             </div>
@@ -223,7 +223,7 @@ export function OverviewPage() {
                           ? node.last_seen ? relative(node.last_seen, now) : 'never seen'
                           : uptime(view.health.uptime_sec)}
                         <span className="cell-sub">
-                          {view.health.days_to_full ? `full in ${days(view.health.days_to_full)}` : 'no fill trend'}
+                          {view.health.days_to_full ? `full in ${days(view.health.days_to_full)}` : 'disk steady'}
                         </span>
                       </Td>
                     </tr>
