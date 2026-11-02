@@ -552,6 +552,7 @@ Keep `/nodes` as the table (option A).
 ## 17. Open items
 
 1. Cloudflare exact zone and two-digit subdomain (ask before deploy).
-2. Whether to add light theme after M0; v1 is dark data-terminal.
+2. ~~Whether to add light theme after M0~~ — decided: v1.1 ships dark and light
+   on one layout, picked in Settings → Appearance; see `docs/DESIGN.md`.
 3. Additional agent brand marks beyond Warren’s preset set (only with a
    licensed/sourceable mark; otherwise neutral fallback).
