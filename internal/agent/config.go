@@ -17,15 +17,20 @@ import (
 // place actions may be defined. JSON is used instead of YAML so the binary
 // needs no extra dependency; the schema is documented in docs/DEPLOY.md.
 type Config struct {
-	Listen      string        `json:"listen"`
-	NodeID      string        `json:"node_id"`
-	Name        string        `json:"name"`
-	Labels      []string      `json:"labels,omitempty"`
-	TokenFile   string        `json:"token_file,omitempty"`
-	AllowRemote bool          `json:"allow_remote,omitempty"`
-	Push        PushConfig    `json:"push,omitempty"`
-	Collect     CollectConfig `json:"collect,omitempty"`
+	Listen      string         `json:"listen"`
+	NodeID      string         `json:"node_id"`
+	Name        string         `json:"name"`
+	Labels      []string       `json:"labels,omitempty"`
+	TokenFile   string         `json:"token_file,omitempty"`
+	AllowRemote bool           `json:"allow_remote,omitempty"`
+	Push        PushConfig     `json:"push,omitempty"`
+	Collect     CollectConfig  `json:"collect,omitempty"`
 	Actions     []ActionConfig `json:"actions,omitempty"`
+
+	// Legacy is the removed Bolthole relay block. Builds before 1.0.2 wrote it
+	// into local-agent.json; accepting and dropping it keeps an upgrade from
+	// bricking a running hub on DisallowUnknownFields.
+	LegacyRelay json.RawMessage `json:"relay,omitempty"`
 
 	// Runtime-only join settings, never written to the config file.
 	JoinHub       string `json:"-"`
@@ -43,11 +48,11 @@ type PushConfig struct {
 }
 
 type CollectConfig struct {
-	Updates bool `json:"updates"` // pending apt/dnf count, opt-in
-	Docker  bool `json:"docker"`
-	SMART   bool `json:"smart"`
-	GPU     bool `json:"gpu"`
-	Processes int `json:"processes"` // top N kept, default 40
+	Updates   bool `json:"updates"` // pending apt/dnf count, opt-in
+	Docker    bool `json:"docker"`
+	SMART     bool `json:"smart"`
+	GPU       bool `json:"gpu"`
+	Processes int  `json:"processes"` // top N kept, default 40
 }
 
 type ActionConfig struct {
@@ -98,6 +103,7 @@ func LoadConfig(path string) (*Config, error) {
 	if err := dec.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
+	cfg.LegacyRelay = nil
 	if cfg.Listen == "" {
 		cfg.Listen = "127.0.0.1:9797"
 	}

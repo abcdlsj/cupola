@@ -1,0 +1,20 @@
+[Unit]
+Description=Cupola hub self-upgrade
+Documentation=https://github.com/abcdlsj/cupola/blob/main/docs/DEPLOY.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The only unit allowed to write the install directory and restart the hub.
+# The unprivileged hub writes /var/lib/cupola/update.request; this unit consumes
+# it, verifies the tarball against checksums.txt, swaps the binary and web build,
+# restarts cupola-hub and rolls back if the health check fails.
+ExecStart=/opt/cupola/cupola upgrade --request /var/lib/cupola/update.request --result /var/lib/cupola/update.result --hold /var/lib/cupola/update.hold --bin /opt/cupola/cupola --web /opt/cupola/web --service cupola-hub --health http://127.0.0.1:8080/healthz
+EnvironmentFile=-/etc/cupola/upgrade.env
+Nice=10
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=full
+ReadWritePaths=/opt/cupola /var/lib/cupola
+NoNewPrivileges=true

@@ -140,8 +140,38 @@ session.
 | GET/POST | `/channels`, `/channels/{id}` | webhook/ntfy/Discord/Slack/Telegram |
 | GET/POST | `/tokens`, `/tokens/{id}` | admin only; the secret is returned once |
 | GET | `/settings` | retention, poll interval, version, data dir |
+| GET | `/update` | current version, newest release, hold, last run; `?refresh=1` skips the 1 h cache |
+| POST | `/update` | `{version?, force?}`; admin; queues the install and answers 202 |
+| DELETE | `/update` | drops a queued request before the upgrader sees it |
 | GET | `/tailnet/peers` | other machines in the hub's tailnet; `?refresh=1` skips the 10 s cache |
 | GET | `/stream` | SSE: `node`, `event`, `alert` |
+
+### Updates
+
+`GET /api/v1/update` resolves the newest release for the hub's own platform from
+GitHub (`CUPOLA_UPDATE_REPO`, default `abcdlsj/cupola`) and falls back to a
+tarball staged in `<data-dir>/updates/`. Results are cached for an hour.
+
+```json
+{"current": {"version": "1.0.1", "commit": "50d6f8c"},
+ "enabled": true, "repo": "abcdlsj/cupola", "can_apply": true,
+ "checked_at": 1793523007000, "available": true,
+ "latest": {"version": "1.0.2", "tag": "v1.0.2", "source": "github",
+            "asset": "cupola_1.0.2_linux_amd64.tar.gz",
+            "base_url": "https://github.com/abcdlsj/cupola/releases/download/v1.0.2",
+            "published_at": "2026-11-02T03:34:24Z", "notes": "…"},
+ "last": {"status": "ok", "from": "1.0.1", "to": "1.0.2", "at": 1793523100000, "web": true},
+ "hold": {"version": "1.0.3", "reason": "health check: 502", "at": 1793524200000}}
+```
+
+`POST /api/v1/update` requires an admin session and only writes
+`<data-dir>/update.request`; the hub never installs anything itself. It answers
+202, 409 `up_to_date`, 409 `held` (a version that already rolled back on this
+host, override with `force`), 409 `disabled` or 503 when no release resolves.
+`DELETE` removes the request.
+
+The privileged side is the `cupola upgrade` command, run by the
+`cupola-upgrade.path`/`.service` pair; see `docs/DEPLOY.md`.
 
 ### Tailnet peers
 

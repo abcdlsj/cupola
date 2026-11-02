@@ -11,9 +11,11 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/abcdlsj/cupola/internal/agent"
 	"github.com/abcdlsj/cupola/internal/hub"
+	"github.com/abcdlsj/cupola/internal/updater"
 	"github.com/abcdlsj/cupola/internal/version"
 )
 
@@ -26,6 +28,7 @@ Commands:
   agent     collect metrics and serve a read-only local API
   hub       poll agents, store history and serve the PWA
   serve     hub with an embedded local agent
+  upgrade   install the release the hub requested (root; run by systemd)
   version   print version and build information
 
 Run "cupola <command> -h" for the flags of a command.
@@ -53,6 +56,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runHub(args[1:], false, stdout, stderr)
 	case "serve":
 		return runHub(args[1:], true, stdout, stderr)
+	case "upgrade":
+		return runUpgrade(args[1:], stdout, stderr)
 	default:
 		fmt.Fprintf(stderr, "cupola: unknown command %q\n\n", args[0])
 		fmt.Fprint(stderr, usage)
@@ -179,5 +184,63 @@ func runHub(args []string, embeddedAgent bool, stdout, stderr io.Writer) int {
 		log.Error("hub stopped", "error", err.Error())
 		return 1
 	}
+	return 0
+}
+
+// runUpgrade installs the release the hub wrote to its request file. It is the
+// only privileged path: the hub runs unprivileged and cannot replace its own
+// binary, so a root oneshot unit invokes this command when the request appears.
+func runUpgrade(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("upgrade", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	requestPath := fs.String("request", "/var/lib/cupola/update.request", "request file written by the hub")
+	resultPath := fs.String("result", "/var/lib/cupola/update.result", "result file the hub reads back")
+	holdPath := fs.String("hold", "/var/lib/cupola/update.hold", "file that blocks retrying a rolled-back version")
+	binPath := fs.String("bin", "/opt/cupola/cupola", "binary to replace")
+	webDir := fs.String("web", "/opt/cupola/web", "built PWA directory to replace")
+	service := fs.String("service", "cupola-hub", "systemd unit to restart")
+	health := fs.String("health", "http://127.0.0.1:8080/healthz", "health URL polled after the restart")
+	timeout := fs.Duration("timeout", 60*time.Second, "how long the health check may take")
+	dryRun := fs.Bool("dry-run", false, "print the request and the target paths, install nothing")
+	level := fs.String("log-level", "info", "debug, info, warn or error")
+	if err := fs.Parse(args); err != nil {
+		return 2
+	}
+	if *dryRun {
+		request, err := updater.ReadRequest(*requestPath)
+		if err != nil {
+			fmt.Fprintln(stderr, "request:", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, "request  %s %s (%s)\n", request.Version, request.Asset, request.BaseURL)
+		fmt.Fprintf(stdout, "bin      %s\nweb      %s\nservice  %s\nhealth   %s\n", *binPath, *webDir, *service, *health)
+		return 0
+	}
+	if os.Geteuid() != 0 {
+		fmt.Fprintln(stderr, "upgrade: must run as root: it replaces the binary and restarts the service")
+		return 1
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	result, err := updater.Install(ctx, updater.InstallOptions{
+		RequestPath:  *requestPath,
+		ResultPath:   *resultPath,
+		HoldPath:     *holdPath,
+		BinPath:      *binPath,
+		WebDir:       *webDir,
+		Service:      *service,
+		HealthURL:    *health,
+		ProbeTimeout: *timeout,
+		Log:          logger(*level),
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "upgrade %s: %s (%s)\n", result.Status, err, result.Detail)
+		return 1
+	}
+	web := "binary only"
+	if result.Web {
+		web = "binary and web"
+	}
+	fmt.Fprintf(stdout, "%s → %s %s\n", result.From, result.To, web)
 	return 0
 }

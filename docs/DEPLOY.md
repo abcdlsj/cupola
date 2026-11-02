@@ -97,8 +97,13 @@ CUPOLA_ADMIN_PASSWORD='a long password' \
 CUPOLA_DATA_DIR=/var/lib/cupola \
 CUPOLA_LISTEN=127.0.0.1:8080 \
 CUPOLA_PUBLIC_URL=https://hub.example.com \
-cupola hub --web-dir /usr/local/share/cupola/web
+cupola hub --web-dir /opt/cupola/web
 ```
+
+Binary at `/opt/cupola/cupola`, PWA at `/opt/cupola/web`, state at
+`/var/lib/cupola`, environment at `/etc/cupola/hub.env` (0600). The hub runs as
+`cupola` with `/opt/cupola` mounted read-only; upgrades are the privileged
+upgrader's job (see [Self-upgrade](#self-upgrade)).
 
 Environment:
 
@@ -114,6 +119,10 @@ Environment:
 | `CUPOLA_ALLOW_PRIVATE_WEBHOOKS` | `0` | allow private webhook targets |
 | `CUPOLA_CORS_ORIGINS` | — | comma-separated origins for a static PWA |
 | `CUPOLA_TAILSCALE_BIN` | `tailscale` | binary used by `GET /api/v1/tailnet/peers` |
+| `CUPOLA_UPDATE` | `1` | `0` disables the release check and the upgrade API |
+| `CUPOLA_UPDATE_REPO` | `abcdlsj/cupola` | GitHub repository the hub reads |
+| `CUPOLA_UPDATE_API` | `https://api.github.com` | REST endpoint (GitHub Enterprise, tests) |
+| `CUPOLA_UPDATE_TOKEN` | — | optional GitHub token, raises the unauthenticated rate limit; never logged |
 
 `secret.key` is generated in the data directory (0600) when `CUPOLA_SECRET` is
 not set. Back it up with the database: without it, node tokens and webhook URLs
@@ -143,11 +152,64 @@ actions, then restart.
 
 ```bash
 useradd --system --home /var/lib/cupola --shell /usr/sbin/nologin cupola
+install -d -m 0750 -o root -g root /opt/cupola /etc/cupola
 install -d -m 0700 -o cupola -g cupola /var/lib/cupola
+install -m 0755 cupola /opt/cupola/cupola
+cp -R web/dist /opt/cupola/web
 install -m 0644 deploy/systemd/cupola-hub.service /etc/systemd/system/
+install -m 0644 deploy/systemd/cupola-upgrade.service /etc/systemd/system/
+install -m 0644 deploy/systemd/cupola-upgrade.path /etc/systemd/system/
 # /etc/cupola/hub.env (0600): CUPOLA_ADMIN_PASSWORD=..., CUPOLA_PUBLIC_URL=...
-systemctl daemon-reload && systemctl enable --now cupola-hub
+systemctl daemon-reload
+systemctl enable --now cupola-hub cupola-upgrade.path
 ```
+
+### Self-upgrade
+
+The hub cannot replace its own binary: systemd mounts `/opt/cupola` read-only
+and `NoNewPrivileges` is set. The split is deliberate.
+
+1. **Check.** Settings → About, or `GET /api/v1/update`. The hub asks GitHub for
+   the newest release of its own os/arch and caches the answer for an hour
+   (`?refresh=1` skips the cache). `CUPOLA_UPDATE=0` turns it off.
+2. **Request.** “Upgrade to x.y.z” (typed confirmation) calls
+   `POST /api/v1/update`, which only writes `/var/lib/cupola/update.request`.
+   Nothing is downloaded by the hub.
+3. **Install.** `cupola-upgrade.path` fires on that file and starts
+   `cupola-upgrade.service` as root:
+   - downloads the tarball and `checksums.txt` from the same URL, verifies
+     SHA-256 and refuses a mismatch;
+   - stages beside the binary (same filesystem) and runs `cupola version` on the
+     staged binary, so a corrupt or wrong-arch download never replaces anything;
+   - renames the old binary to `cupola.prev`, swaps the binary and `web/`, then
+     `systemctl restart cupola-hub`;
+   - polls `/healthz` for up to 60 s and re-runs `cupola version` on the
+     installed binary;
+   - on any failure restores both, restarts, writes `update.hold` and reports
+     `rolled_back` in the UI. The same version is not retried until an admin
+     forces it.
+
+Results land in `/var/lib/cupola/update.result` (0644, so the unprivileged hub
+can read it). The hub is down for well under a second; the PWA reconnects by
+itself.
+
+Offline hosts: drop `cupola_<version>_<os>_<arch>.tar.gz` and the release
+`checksums.txt` into `/var/lib/cupola/updates/`. The hub lists the highest staged
+version and `cupola upgrade` installs it from disk, no network needed.
+
+```bash
+# Inspect what the upgrader would do, without touching anything:
+/opt/cupola/cupola upgrade --dry-run
+systemctl status cupola-upgrade
+journalctl -u cupola-upgrade -n 50
+```
+
+For a non-standard layout, change the `--bin`/`--web`/`--service`/`--health`
+arguments in `ExecStart` (`cupola upgrade -h` lists them). `EnvironmentFile` in
+the unit only feeds the command's own environment, not its flags.
+
+The agent does not self-upgrade in v1: `install.sh` installs it, and re-running
+that command updates it.
 
 Put TLS in front (Caddy, nginx or Cloudflare). The hub sets CSP, HSTS when it
 sees HTTPS, `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy`.
@@ -163,7 +225,9 @@ git tag v1.0.0 && git push origin v1.0.0
 `.github/workflows/release.yml` then uploads, for linux/darwin × amd64/arm64:
 
 - `cupola_<version>_<os>_<arch>.tar.gz` plus a version-less alias
-  `cupola_<os>_<arch>.tar.gz` under `releases/latest/download/`
+  `cupola_<os>_<arch>.tar.gz` under `releases/latest/download/`. The tarball
+  holds the `cupola` binary and the built PWA in `web/`, so a self-upgrade keeps
+  the UI in step with the binary; `install.sh` still extracts only `cupola`.
 - `checksums.txt` (SHA-256)
 
 and pushes `ghcr.io/abcdlsj/cupola:<version>`/`:latest` and

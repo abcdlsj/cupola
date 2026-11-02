@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Fig } from './Fig';
 
 export function Kv({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
   return (
@@ -6,7 +7,7 @@ export function Kv({ rows }: { rows: Array<{ label: string; value: ReactNode }> 
       {rows.map((row) => (
         <div className="kv-row" key={row.label}>
           <dt>{row.label}</dt>
-          <dd>{row.value || '—'}</dd>
+          <dd>{row.value ? <Fig>{row.value}</Fig> : '—'}</dd>
         </div>
       ))}
     </dl>

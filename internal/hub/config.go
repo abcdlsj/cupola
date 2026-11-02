@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/abcdlsj/cupola/internal/hub/store"
+	"github.com/abcdlsj/cupola/internal/updater"
 )
 
 // Config is the hub's runtime configuration. Environment variables override
@@ -31,6 +32,16 @@ type Config struct {
 	AllowPrivateWebhooks bool
 	CORSOrigins          []string
 	SessionTTL           time.Duration
+
+	// Self-upgrade: the hub only resolves a release and writes a request
+	// file; a root oneshot unit installs it (see docs/DEPLOY.md).
+	//
+	// UpdateEnabled is resolved by normalize from UpdateDisabled and
+	// CUPOLA_UPDATE; callers only set UpdateDisabled.
+	UpdateEnabled  bool
+	UpdateDisabled bool
+	UpdateRepo     string
+	UpdateAPI      string
 }
 
 func (c *Config) normalize() error {
@@ -59,6 +70,13 @@ func (c *Config) normalize() error {
 	}
 	if !c.AllowPrivateWebhooks {
 		c.AllowPrivateWebhooks = os.Getenv("CUPOLA_ALLOW_PRIVATE_WEBHOOKS") == "1"
+	}
+	c.UpdateEnabled = !c.UpdateDisabled && os.Getenv("CUPOLA_UPDATE") != "0"
+	if c.UpdateRepo == "" {
+		c.UpdateRepo = envOr("CUPOLA_UPDATE_REPO", updater.DefaultRepo)
+	}
+	if c.UpdateAPI == "" {
+		c.UpdateAPI = envOr("CUPOLA_UPDATE_API", updater.DefaultAPI)
 	}
 	if len(c.CORSOrigins) == 0 {
 		for _, origin := range strings.Split(os.Getenv("CUPOLA_CORS_ORIGINS"), ",") {

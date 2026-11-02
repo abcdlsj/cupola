@@ -27,6 +27,7 @@ import type {
   NodeView,
   Series,
   TailnetPeers,
+  UpdateStatus,
 } from './types';
 
 export { ApiError };
@@ -51,6 +52,7 @@ export const keys = {
   deliveries: ['deliveries'] as const,
   tokens: ['tokens'] as const,
   settings: ['settings'] as const,
+  update: ['update'] as const,
   joinStatus: (nodeId: string) => ['join-status', nodeId] as const,
   tailnetPeers: ['tailnet-peers'] as const,
 };
@@ -445,6 +447,46 @@ export function useDeleteToken() {
 }
 
 // ---------- settings and join ----------
+
+export function useUpdateStatus() {
+  return useQuery({
+    queryKey: keys.update,
+    queryFn: () => api<UpdateStatus>(`${V1}/update`),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useRefreshUpdate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<UpdateStatus>(`${V1}/update?refresh=1`),
+    onSuccess: (data) => {
+      client.setQueryData(keys.update, data);
+    },
+  });
+}
+
+export function useApplyUpdate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { version: string; force?: boolean }) =>
+      api<{ queued: boolean; version: string }>(`${V1}/update`, { method: 'POST', body: input }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.update });
+    },
+  });
+}
+
+export function useCancelUpdate() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<{ queued: boolean }>(`${V1}/update`, { method: 'DELETE' }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: keys.update });
+    },
+  });
+}
 
 export function useSettings() {
   return useQuery({

@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
@@ -31,17 +32,17 @@ export function AlertsPage() {
       <div className="kpi-row" data-count="3">
         <div className="kpi-cell">
           <div className="kpi-label">Firing</div>
-          <div className="kpi-value">{firing.data?.length ?? 0}</div>
+          <div className="kpi-value"><Fig>{firing.data?.length ?? 0}</Fig></div>
           <div className="kpi-sub">unresolved now</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Rules</div>
-          <div className="kpi-value">{rules.data?.length ?? 0}</div>
+          <div className="kpi-value"><Fig>{rules.data?.length ?? 0}</Fig></div>
           <div className="kpi-sub">metric and event</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Deliveries</div>
-          <div className="kpi-value">{deliveries.data?.length ?? 0}</div>
+          <div className="kpi-value"><Fig>{deliveries.data?.length ?? 0}</Fig></div>
           <div className="kpi-sub">recent attempts</div>
         </div>
       </div>

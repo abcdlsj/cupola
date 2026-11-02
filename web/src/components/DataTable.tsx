@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Fig } from './Fig';
 
 export function Table({ children, label }: { children: ReactNode; label: string }) {
   return (
@@ -51,7 +52,7 @@ export function Td({
       data-cell={cell}
       data-label={label}
     >
-      {children}
+      {num ? <Fig>{children}</Fig> : children}
     </td>
   );
 }

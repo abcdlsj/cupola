@@ -3,13 +3,14 @@ package version
 
 import "strings"
 
-// Version follows semver with the milestone suffix while the product is under
-// construction.
-const Version = "1.0.0"
+// Version follows semver. It is a variable, not a constant, so the release
+// workflow can stamp the tag into the binary; without that the hub could not
+// tell which release it runs and would offer itself an upgrade forever.
+var Version = "1.0.0"
 
 // Commit and Date are overridden at build time:
 //
-//	go build -ldflags "-X github.com/abcdlsj/cupola/internal/version.Commit=$(git rev-parse --short HEAD)"
+//	go build -ldflags "-X github.com/abcdlsj/cupola/internal/version.Version=1.0.1 -X github.com/abcdlsj/cupola/internal/version.Commit=$(git rev-parse --short HEAD)"
 var (
 	Commit = "dev"
 	Date   = "unknown"

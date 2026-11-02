@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
@@ -39,22 +40,22 @@ export function AgentsPage() {
       <div className="kpi-row" data-count="4">
         <div className="kpi-cell">
           <div className="kpi-label">Sessions</div>
-          <div className="kpi-value">{sessions.length}</div>
+          <div className="kpi-value"><Fig>{sessions.length}</Fig></div>
           <div className="kpi-sub">{groups.length} tools</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">CPU</div>
-          <div className="kpi-value">{percent(totalCpu, 1)}</div>
+          <div className="kpi-value"><Fig>{percent(totalCpu, 1)}</Fig></div>
           <div className="kpi-sub">across all sessions</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Memory</div>
-          <div className="kpi-value">{size(totalRam)}</div>
+          <div className="kpi-value"><Fig>{size(totalRam)}</Fig></div>
           <div className="kpi-sub">resident</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Longest session</div>
-          <div className="kpi-value">{duration(longest)}</div>
+          <div className="kpi-value"><Fig>{duration(longest)}</Fig></div>
           <div className="kpi-sub">still running</div>
         </div>
       </div>

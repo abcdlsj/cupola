@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { Fig } from '../../components/Fig';
+import { useId, useState } from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
@@ -12,9 +14,13 @@ import {
   useCreateJoinCode,
   useJoinStatus,
   useTailnetPeers,
+  useApplyUpdate,
+  useCancelUpdate,
   useDeleteChannel,
   useDeleteNode,
   useDeleteToken,
+  useRefreshUpdate,
+  useUpdateStatus,
   useFleet,
   useLogout,
   useMe,
@@ -26,7 +32,7 @@ import {
   useChangePassword,
   useUpdateNode,
 } from '../../data/queries';
-import { clock, relative } from '../../lib/format';
+import { clock, eventTime, relative } from '../../lib/format';
 import { setThemePreference, useResolvedTheme, useThemePreference, type ThemePreference } from '../../lib/theme';
 
 const SECTIONS = [
@@ -856,11 +862,11 @@ export function RetentionSettingsPage() {
         {settings.data ? (
           <div className="panel-body">
             <dl className="kv">
-              <div className="kv-row"><dt>Raw samples</dt><dd>{settings.data.retention_raw_hours} h at the poll interval</dd></div>
-              <div className="kv-row"><dt>1-minute rollups</dt><dd>{settings.data.retention_minute_days} days</dd></div>
-              <div className="kv-row"><dt>1-hour rollups</dt><dd>{settings.data.retention_hour_months} months</dd></div>
-              <div className="kv-row"><dt>Events and action runs</dt><dd>90 days</dd></div>
-              <div className="kv-row"><dt>Poll interval</dt><dd>{settings.data.poll_interval_sec} s</dd></div>
+              <div className="kv-row"><dt>Raw samples</dt><dd><Fig>{settings.data.retention_raw_hours} h at the poll interval</Fig></dd></div>
+              <div className="kv-row"><dt>1-minute rollups</dt><dd><Fig>{settings.data.retention_minute_days} days</Fig></dd></div>
+              <div className="kv-row"><dt>1-hour rollups</dt><dd><Fig>{settings.data.retention_hour_months} months</Fig></dd></div>
+              <div className="kv-row"><dt>Events and action runs</dt><dd><Fig>90 days</Fig></dd></div>
+              <div className="kv-row"><dt>Poll interval</dt><dd><Fig>{settings.data.poll_interval_sec} s</Fig></dd></div>
               <div className="kv-row"><dt>Data directory</dt><dd className="fig">{settings.data.data_dir}</dd></div>
             </dl>
           </div>
@@ -917,11 +923,56 @@ export function AppearanceSettingsPage() {
   );
 }
 
+/** GitHub release bodies are markdown; show the text without the markers. */
+function plainNotes(body: string): string {
+  return body
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/[*_`#>]/g, '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function AboutSettingsPage() {
   const settings = useSettings();
   const me = useMe();
   const logout = useLogout();
   const navigate = useNavigate();
+  const updates = useUpdateStatus();
+  const refresh = useRefreshUpdate();
+  const apply = useApplyUpdate();
+  const cancel = useCancelUpdate();
+  const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState('');
+  const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const fieldId = useId();
+
+  const current = updates.data?.current.version ?? settings.data?.version.version ?? '—';
+  const commit = updates.data?.current.commit ?? settings.data?.version.commit ?? '—';
+  const latest = updates.data?.latest;
+  const target = latest?.version ?? '';
+  const queued = updates.data?.queued;
+  const last = updates.data?.last;
+  const hold = updates.data?.hold;
+  const canUpgrade = Boolean(updates.data?.available && updates.data?.can_apply && target && !queued);
+  const canForce = Boolean(target && updates.data?.can_apply && !queued && (hold?.version === target || !updates.data?.available));
+  const notes = latest?.notes ? plainNotes(latest.notes) : '';
+
+  const submit = async (force: boolean) => {
+    if (!target) return;
+    setMessage(null);
+    try {
+      await apply.mutateAsync({ version: target, force });
+      setConfirming(false);
+      setTyped('');
+      setMessage({ kind: 'ok', text: `Queued ${target}. The root upgrader restarts the hub within a few seconds; this page reconnects on its own.` });
+    } catch (caught) {
+      setMessage({ kind: 'error', text: caught instanceof ApiError ? caught.message : 'The upgrade could not be queued.' });
+    }
+  };
+
   return (
     <>
       <PageHeader title="Settings" finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention." />
@@ -931,8 +982,8 @@ export function AboutSettingsPage() {
           <Panel title="This hub" flush>
             <div className="panel-body">
               <dl className="kv">
-                <div className="kv-row"><dt>Version</dt><dd>{settings.data?.version.version ?? '—'}</dd></div>
-                <div className="kv-row"><dt>Commit</dt><dd className="fig">{settings.data?.version.commit ?? '—'}</dd></div>
+                <div className="kv-row"><dt>Version</dt><dd>{current}</dd></div>
+                <div className="kv-row"><dt>Commit</dt><dd className="fig">{commit}</dd></div>
                 <div className="kv-row"><dt>Nodes</dt><dd>{settings.data?.node_count ?? 0}</dd></div>
                 <div className="kv-row"><dt>Session</dt><dd>{me.data?.mode === 'token' ? `token ${me.data.token_name}` : 'admin'}</dd></div>
                 <div className="kv-row"><dt>Public URL</dt><dd className="fig">{settings.data?.public_url || 'not set'}</dd></div>
@@ -953,9 +1004,138 @@ export function AboutSettingsPage() {
           </Panel>
         </div>
         <div className="span-6">
-          
+          <Panel title="Updates" meta={<span className="quiet fig">{updates.data?.repo ?? ''}</span>}>
+            <dl className="kv" data-testid="update-kv">
+              <div className="kv-row">
+                <dt>Latest</dt>
+                <dd className="fig">
+                  {latest?.version ?? (!updates.data?.enabled ? 'checks disabled' : updates.isLoading ? 'checking' : 'none')}
+                </dd>
+              </div>
+              <div className="kv-row">
+                <dt>Checked</dt>
+                <dd className="fig">{updates.data?.checked_at ? relative(updates.data.checked_at, Date.now()) : 'never'}</dd>
+              </div>
+              <div className="kv-row">
+                <dt>Published</dt>
+                <dd className="fig">{latest?.published_at ? eventTime(Date.parse(latest.published_at), Date.now()) : '—'}</dd>
+              </div>
+              <div className="kv-row">
+                <dt>Source</dt>
+                <dd className="fig">{latest ? (latest.source === 'staged' ? 'staged on the hub' : 'github release') : '—'}</dd>
+              </div>
+              {last ? (
+                <div className="kv-row">
+                  <dt>Last run</dt>
+                  <dd>
+                    <span className="pill" data-tone={last.status === 'ok' ? 'positive' : last.status === 'rolled_back' ? 'warning' : 'negative'}>
+                      {last.status === 'ok' ? 'installed' : last.status === 'rolled_back' ? 'rolled back' : 'failed'}
+                    </span>{' '}
+                    <span className="fig">{last.from} → {last.to}</span>{' '}
+                    <span className="quiet">{relative(last.at, Date.now())}</span>
+                  </dd>
+                </div>
+              ) : null}
+              {queued ? (
+                <div className="kv-row">
+                  <dt>Queued</dt>
+                  <dd className="fig">{queued.version} · {queued.requested_by ?? 'admin'}</dd>
+                </div>
+              ) : null}
+              {hold ? (
+                <div className="kv-row">
+                  <dt>Held</dt>
+                  <dd className="fig">{hold.version} · {hold.reason}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {notes ? <pre className="output update-notes">{notes}</pre> : null}
+            {updates.data?.error ? <p className="form-error">{updates.data.error}</p> : null}
+            {message ? <p className={message.kind === 'ok' ? 'form-ok' : 'form-error'}>{message.text}</p> : null}
+
+            <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => refresh.mutate()}
+                disabled={refresh.isPending || !updates.data?.enabled}
+              >
+                {refresh.isPending ? 'Checking…' : 'Check now'}
+              </button>
+              {queued ? (
+                <button type="button" className="btn btn-quiet" onClick={() => cancel.mutate()} disabled={cancel.isPending}>
+                  Cancel {queued.version}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => {
+                    setMessage(null);
+                    setTyped('');
+                    setConfirming(true);
+                  }}
+                  disabled={!canUpgrade && !canForce}
+                  title={canUpgrade || canForce ? undefined : 'No newer release, or the hub cannot write its data directory'}
+                >
+                  {target ? `Upgrade to ${target}` : 'Upgrade'}
+                </button>
+              )}
+            </div>
+            <p className="quiet update-note">
+              The hub writes a request; the root <span className="fig">cupola-upgrade</span> unit verifies the checksum, swaps the binary
+              and web build, restarts the service and rolls back if the health check fails.
+            </p>
+          </Panel>
         </div>
       </div>
+
+      <Dialog.Root open={confirming} onOpenChange={setConfirming}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="overlay" />
+          <Dialog.Content className="dialog" aria-describedby={`${fieldId}-desc`}>
+            <Dialog.Title className="dialog-title">Upgrade to {target}?</Dialog.Title>
+            <Dialog.Description className="dialog-desc" id={`${fieldId}-desc`}>
+              The hub restarts once. Polling stops for under a second and this page reconnects on its own.
+            </Dialog.Description>
+            <div className="dialog-body">
+              <label className="field-label" htmlFor={fieldId}>
+                Type {target} to confirm
+              </label>
+              <input
+                id={fieldId}
+                className="input"
+                value={typed}
+                onChange={(event) => setTyped(event.target.value)}
+                autoComplete="off"
+                spellCheck={false}
+                placeholder={target}
+              />
+            </div>
+            {message?.kind === 'error' ? (
+              <p className="form-error" role="alert">
+                {message.text}
+              </p>
+            ) : null}
+            <div className="dialog-foot">
+              <Dialog.Close asChild>
+                <button type="button" className="btn btn-quiet">
+                  Cancel
+                </button>
+              </Dialog.Close>
+              <button
+                type="button"
+                className="btn btn-danger"
+                onClick={() => void submit(!updates.data?.available || hold?.version === target)}
+                disabled={typed.trim() !== target || apply.isPending}
+              >
+                {apply.isPending ? 'Queueing…' : `Upgrade to ${target}`}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </>
   );
 }

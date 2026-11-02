@@ -170,6 +170,14 @@ test.describe('settings and tokens', () => {
     await expect(page.locator('tbody tr').filter({ hasText: 'atlas' }).first()).toBeVisible();
   });
 
+  test('about shows the build and the update panel', async ({ page }) => {
+    await page.goto('/settings/about');
+    await expect(page.getByRole('heading', { name: 'Updates' })).toBeVisible();
+    // The e2e hub runs with CUPOLA_UPDATE=0 so the suite never reaches github.
+    await expect(page.getByText('checks disabled')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Check now' })).toBeDisabled();
+  });
+
   test('the password form refuses a wrong current password', async ({ page }) => {
     await page.goto('/settings/account');
     const form = page.getByTestId('password-form');

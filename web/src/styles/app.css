@@ -252,6 +252,11 @@
   gap: var(--gap);
 }
 
+/* cards side by side share one height, so their bottoms line up */
+.row > * > .panel {
+  height: 100%;
+}
+
 .span-4 {
   grid-column: span 4;
 }
@@ -626,11 +631,19 @@
   text-align: right;
 }
 
+/* a right-aligned figure followed by left-aligned text needs air between them */
+.table th.num + th:not(.num),
+.table td.num + td:not(.num) {
+  padding-left: 28px;
+}
+
+/* baseline, not middle: a one-line figure sits on the first line of a
+   two-line neighbour instead of floating between its lines */
 .table td {
   height: var(--row-height);
-  padding: 7px 12px;
+  padding: 10px 12px;
   border-top: 1px solid var(--rule);
-  vertical-align: middle;
+  vertical-align: baseline;
   white-space: nowrap;
 }
 
@@ -648,9 +661,10 @@
   padding-right: 16px;
 }
 
+/* the cell stays in the UI face so a note like "no fill trend" reads as prose;
+   <Fig> sets each figure in mono */
 .table td.num {
   text-align: right;
-  font-family: var(--font-data);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1033,7 +1047,9 @@
   display: flex;
   align-items: center;
   gap: 22px;
-  border-bottom: 1px solid var(--rule);
+  /* a 1 px inset rule instead of a border: the scroller clips anything drawn
+     below its box, so the selection line sits inside and covers this rule */
+  box-shadow: inset 0 -1px 0 var(--rule); /* taste-skill-ignore */
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1064,7 +1080,7 @@
   position: absolute;
   left: 0;
   right: 0;
-  bottom: -1px;
+  bottom: 0;
   height: 1px;
   background: var(--accent);
 }
@@ -1314,6 +1330,17 @@
 
 .output[data-tone="negative"] {
   color: var(--pill-negative-ink);
+}
+
+/* Release notes are markdown-ish text from GitHub; cap the height so the
+   panel keeps its place in the settings grid. */
+.update-notes {
+  max-height: 160px;
+  font-size: 11px;
+}
+
+.update-note {
+  margin: 12px 0 0;
 }
 
 .result-grid {
@@ -2598,6 +2625,23 @@
     row-gap: 2px;
     padding: 10px 16px;
   }
+}
+
+/* Units and connectives inside a figure step back: UI face, muted, slightly
+   smaller, so the digits carry the reading. */
+.n {
+  font-family: var(--font-data);
+}
+
+.unit {
+  font-family: var(--font-ui);
+  font-size: 0.86em;
+  color: var(--muted);
+}
+
+.cell-sub .unit,
+.kpi-sub .unit {
+  font-size: inherit;
 }
 
 /* theme picker reuses the range control; its labels are words, not figures */

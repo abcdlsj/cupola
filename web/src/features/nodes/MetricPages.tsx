@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { useMemo, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
@@ -291,17 +292,17 @@ export function NetworkPage() {
       <div className="kpi-row" data-count="3">
         <div className="kpi-cell">
           <div className="kpi-label">Receive</div>
-          <div className="kpi-value">{netRate(sum('rx_bps'))}</div>
+          <div className="kpi-value"><Fig>{netRate(sum('rx_bps'))}</Fig></div>
           <div className="kpi-sub">all interfaces, loopback excluded</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Transmit</div>
-          <div className="kpi-value">{netRate(sum('tx_bps'))}</div>
+          <div className="kpi-value"><Fig>{netRate(sum('tx_bps'))}</Fig></div>
           <div className="kpi-sub">all interfaces</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Connections</div>
-          <div className="kpi-value">{snap.fd.conntrack || 0}</div>
+          <div className="kpi-value"><Fig>{snap.fd.conntrack || 0}</Fig></div>
           <div className="kpi-sub">conntrack entries</div>
         </div>
       </div>
