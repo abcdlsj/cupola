@@ -81,3 +81,28 @@ func TestInitConfigWrites0600(t *testing.T) {
 		t.Fatalf("unexpected config %+v", cfg)
 	}
 }
+
+// Builds before 1.0.2 wrote a "relay" block into local-agent.json. The field is
+// gone; loading must tolerate it so an upgrade does not stop the hub.
+func TestLoadConfigIgnoresTheRemovedRelayBlock(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "local-agent.json")
+	body := `{"listen":"127.0.0.1:36025","node_id":"local","name":"hub","relay":{},` +
+		`"collect":{"updates":false,"docker":true,"smart":true,"gpu":true,"processes":40}}`
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "agent.token"), []byte("token\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := LoadConfig(path)
+	if err != nil {
+		t.Fatalf("LoadConfig rejected a legacy relay block: %v", err)
+	}
+	if cfg.NodeID != "local" || cfg.Listen != "127.0.0.1:36025" {
+		t.Fatalf("cfg = %+v", cfg)
+	}
+	if cfg.LegacyRelay != nil {
+		t.Fatal("the removed relay block was kept in memory")
+	}
+}
