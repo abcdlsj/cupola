@@ -448,3 +448,18 @@ export interface JoinStatus {
   last_seen: number;
   joined: boolean;
 }
+
+export interface TailnetPeer {
+  name: string;
+  ipv4: string;
+  os: string;
+  online: boolean;
+  dns_name: string;
+}
+
+export interface TailnetPeers {
+  available: boolean;
+  error?: string;
+  peers: TailnetPeer[];
+  checked_at: number;
+}

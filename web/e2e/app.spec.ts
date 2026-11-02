@@ -131,6 +131,30 @@ test.describe('settings and tokens', () => {
     expect(cleanup.ok()).toBeTruthy();
   });
 
+  test('discovers tailnet peers and prepares a tailnet install command', async ({ page }) => {
+    await page.goto('/settings/nodes');
+    const panel = page.locator('.panel').filter({ hasText: 'Add a system' });
+    await panel.getByRole('button', { name: 'Tailnet' }).click();
+    const peers = page.getByTestId('tailnet-peers');
+    await expect(peers).toContainText('kiosk');
+    await expect(peers).toContainText('studio');
+    await expect(peers).toContainText('100.101.102.103');
+    await expect(peers).toContainText('offline');
+
+    await page.getByLabel('Filter peers').fill('kiosk');
+    await expect(peers.locator('.peer-row')).toHaveCount(1);
+    await page.getByTestId('tailnet-peer-kiosk').click();
+
+    const command = page.getByTestId('join-command');
+    await expect(command).toContainText('install.sh');
+    await expect(command).toContainText('--node kiosk');
+    await expect(command).toContainText('--advertise http://100.101.102.103:9797');
+    await expect(panel).toContainText('must reach');
+
+    const cleanup = await page.request.delete('/api/v1/nodes/kiosk');
+    expect(cleanup.ok()).toBeTruthy();
+  });
+
   test('a node can be renamed from Settings', async ({ page }) => {
     await page.goto('/settings/nodes');
     const row = page.locator('tbody tr').filter({ hasText: 'atlas' }).first();

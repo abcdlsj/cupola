@@ -140,7 +140,28 @@ session.
 | GET/POST | `/channels`, `/channels/{id}` | webhook/ntfy/Discord/Slack/Telegram |
 | GET/POST | `/tokens`, `/tokens/{id}` | admin only; the secret is returned once |
 | GET | `/settings` | retention, poll interval, version, data dir |
+| GET | `/tailnet/peers` | other machines in the hub's tailnet; `?refresh=1` skips the 10 s cache |
 | GET | `/stream` | SSE: `node`, `event`, `alert` |
+
+### Tailnet peers
+
+`GET /api/v1/tailnet/peers` runs `tailscale status --json` on the hub (no
+shell, 3 s timeout, path from `CUPOLA_TAILSCALE_BIN`) and returns only what the
+Add-a-system dialog needs. Node keys and tailnet configuration are never
+returned.
+
+```json
+{"available": true, "checked_at": 1793523007000,
+ "peers": [{"name": "kiosk", "ipv4": "100.101.102.103", "os": "linux",
+             "online": true, "dns_name": "kiosk.tailnet-1234.ts.net"}]}
+```
+
+When Tailscale is missing, stopped or logged out, the route still answers 200
+with `{"available": false, "error": "tailscale is not connected to a tailnet",
+"peers": []}`. The result is cached for about 10 s; `refresh=1` forces a new
+read. `POST /join/codes` accepts an optional `advertise` origin (for example
+`http://100.101.102.103:9797`) and appends `--advertise` to the Linux and macOS
+install commands, so the agent binds and advertises its tailnet address.
 
 ### Series
 

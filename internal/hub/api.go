@@ -1141,6 +1141,7 @@ func (h *Hub) routesHandler() http.Handler {
 	mux.HandleFunc("POST /api/v1/join", h.handleJoin)
 	mux.Handle("POST /api/v1/join/codes", h.requireAdmin(http.HandlerFunc(h.handleCreateJoinCode)))
 	mux.Handle("GET /api/v1/join/{id}/status", h.requireRead(http.HandlerFunc(h.handleJoinStatus)))
+	mux.Handle("GET /api/v1/tailnet/peers", h.requireRead(http.HandlerFunc(h.handleTailnetPeers)))
 mux.Handle("POST /api/v1/auth/password", h.requireAdmin(http.HandlerFunc(h.handleChangePassword)))
 	mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.handleLogout)

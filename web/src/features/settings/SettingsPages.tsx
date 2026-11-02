@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { StatusPill } from '../../components/StatusPill';
@@ -11,6 +11,7 @@ import {
   useCreateToken,
   useCreateJoinCode,
   useJoinStatus,
+  useTailnetPeers,
   useDeleteChannel,
   useDeleteNode,
   useDeleteToken,
@@ -62,74 +63,214 @@ function AdminOnly() {
   );
 }
 
+function slugifyPeer(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32)
+    .replace(/-+$/g, '');
+  return slug || 'node';
+}
+
 function JoinPanel() {
   const create = useCreateJoinCode();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const mode: 'manual' | 'tailnet' = searchParams.get('add') === 'tailnet' ? 'tailnet' : 'manual';
+  const setMode = (next: 'manual' | 'tailnet') => {
+    setError(null);
+    if (next === 'tailnet') setOs((current) => (current === 'manual' ? 'linux' : current));
+    setSearchParams(next === 'tailnet' ? { add: 'tailnet' } : {}, { replace: true });
+  };
   const [os, setOs] = useState<'linux' | 'darwin' | 'manual'>('linux');
   const [form, setForm] = useState({ id: '', name: '', labels: '' });
-  const [issued, setIssued] = useState<{ code: string; nodeId: string; commands: Record<string, string>; expires: number } | null>(null);
+  const [filter, setFilter] = useState('');
+  const [selected, setSelected] = useState<string | null>(null);
+  const [issued, setIssued] = useState<{
+    code: string;
+    nodeId: string;
+    commands: Record<string, string>;
+    expires: number;
+    hubUrl: string;
+    tailnet: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const peers = useTailnetPeers(mode === 'tailnet');
   const status = useJoinStatus(issued?.nodeId ?? null);
 
-  const generate = async () => {
+  const generate = async (options: { id: string; name: string; labels: string[]; advertise?: string }) => {
     setError(null);
     setIssued(null);
     try {
-      const result = await create.mutateAsync({
-        id: form.id.trim(),
-        name: form.name.trim() || form.id.trim(),
-        labels: form.labels.split(',').map((label) => label.trim()).filter(Boolean),
+      const result = await create.mutateAsync(options);
+      setIssued({
+        code: result.code,
+        nodeId: result.node_id,
+        commands: result.commands,
+        expires: result.expires_at,
+        hubUrl: result.hub_url,
+        tailnet: Boolean(options.advertise),
       });
-      setIssued({ code: result.code, nodeId: result.node_id, commands: result.commands, expires: result.expires_at });
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : 'The join code could not be created.');
     }
   };
 
-  const command = issued?.commands[os] ?? '';
+  const generateForPeer = async (peer: { name: string; ipv4: string }) => {
+    if (create.isPending) return;
+    setSelected(peer.ipv4);
+    await generate({
+      id: slugifyPeer(peer.name),
+      name: peer.name,
+      labels: [],
+      advertise: `http://${peer.ipv4}:9797`,
+    });
+  };
+
+  const command = issued?.commands[os] ?? (issued ? issued.commands.linux : '');
 
   return (
-    <Panel title="Add a system" meta={issued ? `code expires ${clock(issued.expires)} UTC` : 'one command'} flush>
-      <form
-        className="form"
-        data-testid="join-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void generate();
-        }}
-      >
-        <div className="form-grid">
-          <label className="form-field">
-            <span>Node ID (short slug)</span>
-            <input className="input input-ui" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="studio" required />
-          </label>
-          <label className="form-field">
-            <span>Display name</span>
-            <input className="input input-ui" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="studio" />
-          </label>
-          <label className="form-field">
-            <span>Labels (comma separated)</span>
-            <input className="input input-ui" value={form.labels} onChange={(event) => setForm({ ...form, labels: event.target.value })} placeholder="homelab, gpu" />
-          </label>
-          <label className="form-field">
-            <span>Target OS</span>
-            <select className="select" value={os} onChange={(event) => setOs(event.target.value as typeof os)}>
-              <option value="linux">Linux (systemd)</option>
-              <option value="darwin">macOS (launchd)</option>
-              <option value="manual">Manual / Docker</option>
-            </select>
-          </label>
+    <Panel title="Add a system" meta={issued ? `code expires ${clock(issued.expires)} UTC` : mode === 'tailnet' ? `${peers.data?.peers.length ?? 0} peers` : 'one command'} flush>
+      <div className="join-modes" role="group" aria-label="Add-system mode">
+        <button
+          type="button"
+          className="range-btn"
+          aria-pressed={mode === 'manual'}
+          onClick={() => setMode('manual')}
+        >
+          Manual
+        </button>
+        <button
+          type="button"
+          className="range-btn"
+          aria-pressed={mode === 'tailnet'}
+          onClick={() => setMode('tailnet')}
+        >
+          Tailnet
+        </button>
+      </div>
+
+      {mode === 'manual' ? (
+        <form
+          className="form"
+          data-testid="join-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void generate({
+              id: form.id.trim(),
+              name: form.name.trim() || form.id.trim(),
+              labels: form.labels.split(',').map((label) => label.trim()).filter(Boolean),
+            });
+          }}
+        >
+          <div className="form-grid">
+            <label className="form-field">
+              <span>Node ID (short slug)</span>
+              <input className="input input-ui" value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} placeholder="studio" required />
+            </label>
+            <label className="form-field">
+              <span>Display name</span>
+              <input className="input input-ui" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="studio" />
+            </label>
+            <label className="form-field">
+              <span>Labels (comma separated)</span>
+              <input className="input input-ui" value={form.labels} onChange={(event) => setForm({ ...form, labels: event.target.value })} placeholder="homelab, gpu" />
+            </label>
+            <label className="form-field">
+              <span>Target OS</span>
+              <select className="select" value={os} onChange={(event) => setOs(event.target.value as typeof os)}>
+                <option value="linux">Linux (systemd)</option>
+                <option value="darwin">macOS (launchd)</option>
+                <option value="manual">Manual / Docker</option>
+              </select>
+            </label>
+          </div>
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
+          <div className="form-actions">
+            <button type="submit" className="btn btn-primary" disabled={create.isPending}>
+              {create.isPending ? 'Generating…' : 'Generate command'}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="panel-body" data-testid="tailnet-panel">
+          <div className="tailnet-bar">
+            <input
+              className="input input-ui"
+              aria-label="Filter peers"
+              placeholder="Filter peers"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+            <button type="button" className="btn btn-ghost" onClick={() => void peers.refetch()} disabled={peers.isFetching}>
+              {peers.isFetching ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
+          {peers.isLoading ? <p className="empty">Reading the tailnet…</p> : null}
+          {peers.isError ? (
+            <p className="form-error" role="alert">
+              {peers.error instanceof ApiError ? peers.error.message : 'The tailnet could not be read.'}
+            </p>
+          ) : null}
+          {peers.data && !peers.data.available ? (
+            <p className="empty">
+              {peers.data.error || 'Tailscale is not available on the hub.'} Set CUPOLA_TAILSCALE_BIN if the binary lives elsewhere.
+            </p>
+          ) : null}
+          {peers.data?.available ? (
+            (() => {
+              const needle = filter.trim().toLowerCase();
+              const visible = peers.data.peers.filter(
+                (peer) =>
+                  !needle ||
+                  peer.name.toLowerCase().includes(needle) ||
+                  peer.ipv4.includes(needle) ||
+                  peer.os.toLowerCase().includes(needle),
+              );
+              if (visible.length === 0) {
+                return <p className="empty">{needle ? 'No peer matches that filter.' : 'No other machine is in this tailnet.'}</p>;
+              }
+              return (
+                <div className="peer-list" data-testid="tailnet-peers">
+                  {visible.map((peer) => (
+                    <button
+                      key={peer.dns_name || peer.ipv4}
+                      type="button"
+                      className="peer-row"
+                      aria-pressed={selected === peer.ipv4}
+                      data-testid={`tailnet-peer-${peer.name}`}
+                      onClick={() => void generateForPeer(peer)}
+                    >
+                      <span className="peer-name">{peer.name}</span>
+                      <span className="peer-ip">{peer.ipv4}</span>
+                      <span className="peer-os">{peer.os || '—'}</span>
+                      <span className="peer-state" data-online={peer.online}>
+                        {peer.online ? 'online' : 'offline'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()
+          ) : null}
+          {error ? <p className="form-error" role="alert">{error}</p> : null}
         </div>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <div className="form-actions">
-          <button type="submit" className="btn btn-primary" disabled={create.isPending}>
-            {create.isPending ? 'Generating…' : 'Generate command'}
-          </button>
-        </div>
-      </form>
+      )}
 
       {issued ? (
         <div className="panel-body">
+          {mode === 'tailnet' ? (
+            <div className="form-actions" style={{ justifyContent: 'flex-start', paddingTop: 12 }}>
+              <label className="form-field">
+                <span>Target OS</span>
+                <select className="select" value={os} onChange={(event) => setOs(event.target.value as typeof os)}>
+                  <option value="linux">Linux (systemd)</option>
+                  <option value="darwin">macOS (launchd)</option>
+                </select>
+              </label>
+            </div>
+          ) : null}
           <pre className="output" data-testid="join-command">
             {command}
           </pre>
@@ -159,6 +300,9 @@ function JoinPanel() {
               </span>
             )}
           </div>
+          {issued.tailnet ? (
+            <p className="note">This machine must reach {issued.hubUrl} over the tailnet or the internet.</p>
+          ) : null}
         </div>
       ) : null}
     </Panel>
