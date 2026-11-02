@@ -33,6 +33,7 @@ type Hub struct {
 	keys  *secrets
 
 	transport *transportManager
+	tailnet   tailnetCache
 	bus       *broadcaster
 	notifier  *notifier
 	poller    *poller

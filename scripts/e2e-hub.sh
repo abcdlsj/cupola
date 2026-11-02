@@ -28,6 +28,7 @@ CUPOLA_ADMIN_PASSWORD=e2e-password-123 \
 CUPOLA_DATA_DIR="$DATA" \
 CUPOLA_LISTEN=127.0.0.1:4180 \
 CUPOLA_POLL_INTERVAL=2s \
+CUPOLA_TAILSCALE_BIN="$ROOT/scripts/tailscale-stub.sh" \
 "$BIN" hub --web-dir "$ROOT/web/dist" >"$DATA/hub.log" 2>&1 & pids+=($!)
 
 for _ in $(seq 1 60); do

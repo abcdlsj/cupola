@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,28 @@ import (
 const joinTTL = 30 * time.Minute
 
 var codeEncoding = base32.NewEncoding("ABCDEFGHJKMNPQRSTVWXYZ0123456789").WithPadding(base32.NoPadding)
+
+// advertisePattern keeps the tailnet address the hub injects into the install
+// command to a plain http(s) origin; the generated command is pasted into a
+// shell, so nothing else may slip in.
+var advertisePattern = regexp.MustCompile(`^https?://[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?(?::[0-9]{1,5})?$`)
+
+func validAdvertiseURL(raw string) bool {
+	if !advertisePattern.MatchString(raw) {
+		return false
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+	if port := parsed.Port(); port != "" {
+		number, err := strconv.Atoi(port)
+		if err != nil || number < 1 || number > 65535 {
+			return false
+		}
+	}
+	return true
+}
 
 func newJoinCode() (code, hash string, err error) {
 	buf := make([]byte, 10) // 80 bits -> 16 Crockford base32 characters
@@ -40,9 +64,10 @@ func joinHash(code string) string {
 // code plus the commands the operator pastes into the new machine.
 func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		ID     string   `json:"id"`
-		Name   string   `json:"name"`
-		Labels []string `json:"labels"`
+		ID        string   `json:"id"`
+		Name      string   `json:"name"`
+		Labels    []string `json:"labels"`
+		Advertise string   `json:"advertise"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		apiError(w, http.StatusBadRequest, "json", "invalid body")
@@ -57,6 +82,15 @@ func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Labels == nil {
 		body.Labels = []string{}
+	}
+	advertise := strings.TrimSpace(body.Advertise)
+	if advertise != "" && !validAdvertiseURL(advertise) {
+		apiError(w, http.StatusBadRequest, "advertise", "advertise must be an http(s) URL such as http://100.64.0.5:9797")
+		return
+	}
+	advertiseFlag := ""
+	if advertise != "" {
+		advertiseFlag = " --advertise " + advertise
 	}
 	existing, err := h.store.GetNode(r.Context(), body.ID)
 	if err == nil && existing.LastSeen > 0 {
@@ -91,8 +125,8 @@ func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 		"expires_at": expires,
 		"hub_url":    hubBase,
 		"commands": map[string]string{
-			"linux":   `curl -fsSL ` + hubBase + `/install.sh | sudo sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID,
-			"darwin":  `curl -fsSL ` + hubBase + `/install.sh | sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID,
+			"linux":   `curl -fsSL ` + hubBase + `/install.sh | sudo sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID + advertiseFlag,
+			"darwin":  `curl -fsSL ` + hubBase + `/install.sh | sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID + advertiseFlag,
 			"manual":  `cupola agent --config /etc/cupola/agent.json --join ` + hubBase + ` --join-code ` + code + ` --advertise http://<this-host>:9797`,
 		},
 	})

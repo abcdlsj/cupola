@@ -26,6 +26,7 @@ import type {
   Me,
   NodeView,
   Series,
+  TailnetPeers,
 } from './types';
 
 export { ApiError };
@@ -51,6 +52,7 @@ export const keys = {
   tokens: ['tokens'] as const,
   settings: ['settings'] as const,
   joinStatus: (nodeId: string) => ['join-status', nodeId] as const,
+  tailnetPeers: ['tailnet-peers'] as const,
 };
 
 /** Anything the hub pushed means the cached reads are stale. */
@@ -457,9 +459,18 @@ export function useSettings() {
 export function useCreateJoinCode() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (input: { id: string; name: string; labels: string[] }) =>
+    mutationFn: (input: { id: string; name: string; labels: string[]; advertise?: string }) =>
       api<JoinCode>(`${V1}/join/codes`, { method: 'POST', body: input }),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.fleet }),
+  });
+}
+
+export function useTailnetPeers(enabled = true) {
+  return useQuery({
+    queryKey: keys.tailnetPeers,
+    queryFn: () => api<TailnetPeers>(`${V1}/tailnet/peers`),
+    enabled,
+    staleTime: 10_000,
   });
 }
 

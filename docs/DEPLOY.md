@@ -113,6 +113,7 @@ Environment:
 | `CUPOLA_POLL_INTERVAL` | `5s` | per-node poll cadence |
 | `CUPOLA_ALLOW_PRIVATE_WEBHOOKS` | `0` | allow private webhook targets |
 | `CUPOLA_CORS_ORIGINS` | — | comma-separated origins for a static PWA |
+| `CUPOLA_TAILSCALE_BIN` | `tailscale` | binary used by `GET /api/v1/tailnet/peers` |
 
 `secret.key` is generated in the data directory (0600) when `CUPOLA_SECRET` is
 not set. Back it up with the database: without it, node tokens and webhook URLs
