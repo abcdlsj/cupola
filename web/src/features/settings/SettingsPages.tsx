@@ -33,6 +33,7 @@ import {
   useUpdateNode,
 } from '../../data/queries';
 import { clock, eventTime, relative } from '../../lib/format';
+import { setThemePreference, useResolvedTheme, useThemePreference, type ThemePreference } from '../../lib/theme';
 
 const SECTIONS = [
   { to: '/settings/nodes', label: 'Nodes' },
@@ -877,15 +878,45 @@ export function RetentionSettingsPage() {
   );
 }
 
+const THEMES: Array<{ id: ThemePreference; label: string }> = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+];
+
 export function AppearanceSettingsPage() {
+  const preference = useThemePreference();
+  const theme = useResolvedTheme();
   return (
     <>
       <PageHeader title="Settings" finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention." />
       <SettingsNav />
       <Panel title="Appearance">
+        <dl className="kv">
+          <div className="kv-row">
+            <dt>Theme</dt>
+            <dd>
+              <div className="range" role="group" aria-label="Theme">
+                {THEMES.map((option) => (
+                  <button
+                    type="button"
+                    key={option.id}
+                    className="range-btn"
+                    aria-pressed={option.id === preference}
+                    onClick={() => setThemePreference(option.id)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </dd>
+          </div>
+        </dl>
         <p className="empty">
-          One theme: the dark data terminal from the approved sheet (seed 956138436). Public Sans for UI, IBM Plex Mono for every figure.
-          A light theme is not in v1.
+          {preference === 'system'
+            ? `Following the system, which is ${theme} now.`
+            : `Always ${theme}, whatever the system says.`}{' '}
+          Saved in this browser only.
         </p>
       </Panel>
     </>

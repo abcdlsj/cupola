@@ -188,6 +188,22 @@ test.describe('settings and tokens', () => {
     await expect(page.locator('.form-error')).toContainText('current password is wrong');
   });
 
+  test('appearance switches between system, light and dark and remembers it', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.goto('/settings/appearance');
+    const ground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    await expect(page.getByRole('button', { name: 'System' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await ground()).toBe('rgb(12, 13, 15)');
+    await page.getByRole('button', { name: 'Light' }).click();
+    expect(await ground()).toBe('rgb(242, 245, 248)');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'Light' })).toHaveAttribute('aria-pressed', 'true');
+    expect(await ground()).toBe('rgb(242, 245, 248)');
+    await page.getByRole('button', { name: 'System' }).click();
+    await page.emulateMedia({ colorScheme: 'light' });
+    expect(await ground()).toBe('rgb(242, 245, 248)');
+  });
+
   test('channels can be added and tested', async ({ page }, testInfo) => {
     await page.goto('/settings/alerts');
     await page.getByLabel('Name').fill(`e2e hook ${testInfo.project.name}`);

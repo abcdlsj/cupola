@@ -493,29 +493,29 @@
   font-size: 12px;
   padding: 6px 8px;
   border-radius: 3px;
-  background: rgba(74, 138, 214, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
   color: var(--text);
 }
 
 .fleet-cell[data-level='0'] {
-  background: rgba(74, 138, 214, 0.04);
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
   color: var(--muted);
 }
 
 .fleet-cell[data-level='1'] {
-  background: rgba(74, 138, 214, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .fleet-cell[data-level='2'] {
-  background: rgba(74, 138, 214, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .fleet-cell[data-level='3'] {
-  background: rgba(74, 138, 214, 0.26);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .fleet-cell[data-level='4'] {
-  background: rgba(74, 138, 214, 0.36);
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
 }
 
 .fleet-cell[data-tone='warning'] {
@@ -582,23 +582,23 @@
   width: 18px;
   height: 6px;
   border-radius: 1px;
-  background: rgba(74, 138, 214, 0.06);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
 }
 
 .fleet-scale-step[data-level='1'] {
-  background: rgba(74, 138, 214, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .fleet-scale-step[data-level='2'] {
-  background: rgba(74, 138, 214, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .fleet-scale-step[data-level='3'] {
-  background: rgba(74, 138, 214, 0.26);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
 }
 
 .fleet-scale-step[data-level='4'] {
-  background: rgba(74, 138, 214, 0.36);
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
 }
 
 
@@ -996,7 +996,7 @@
 }
 
 .u-select {
-  background: rgba(74, 138, 214, 0.12);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .uplot .u-cursor-x {
@@ -1169,7 +1169,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(9, 9, 10, 0.62);
+  background: var(--scrim);
 }
 
 .dialog {
@@ -1279,7 +1279,7 @@
 }
 
 .btn-primary:hover {
-  background: #e9e9ea;
+  background: color-mix(in srgb, var(--text) 88%, var(--ground));
 }
 
 .btn-danger {
@@ -1288,7 +1288,7 @@
 }
 
 .btn-danger:hover {
-  background: #ef6a80;
+  background: color-mix(in srgb, var(--negative) 88%, var(--text));
 }
 
 .btn-quiet {
@@ -1325,7 +1325,7 @@
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
-  color: #d6d6d9;
+  color: color-mix(in srgb, var(--text) 85%, var(--muted));
 }
 
 .output[data-tone="negative"] {
@@ -2642,4 +2642,10 @@
 .cell-sub .unit,
 .kpi-sub .unit {
   font-size: inherit;
+}
+
+/* theme picker reuses the range control; its labels are words, not figures */
+.kv dd .range-btn {
+  font-family: var(--font-ui);
+  font-size: 13px;
 }
