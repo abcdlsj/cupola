@@ -220,9 +220,37 @@ include the node (when set). The call is synchronous (60 s cap), rate limited pe
 token/action and audited (`action_runs`) with actor, source, exit code and
 duration. The token is never logged.
 
-## Relay
+## Ingest (agent → hub, push mode)
 
-With `agent --relay` and `hub`, the hub reaches the agent through Bolthole. The
-dashboard can also connect to a hub over Bolthole through the `bolthole` npm
-client (PLAN §2.3); the static PWA in this release uses HTTPS plus a read token
-or the hub-served build.
+A node the hub cannot dial reports instead of being polled. Identity comes from
+the agent token, never from the body.
+
+```
+POST /api/v1/ingest
+Authorization: Bearer <agent token>
+Content-Encoding: gzip
+X-Cupola-Seq: 4187
+X-Cupola-Agent-Ts: 1793523007000
+X-Cupola-Agent: 1.2.0
+
+{"snapshot": { ... }, "actions": [...]}
+```
+
+| Status | Meaning |
+| --- | --- |
+| 200 | stored; body `{ok, next_poll_sec}` |
+| 401 | unknown or missing agent token |
+| 409 | the node is not in push mode, or the sequence is not newer |
+| 413 | body over 1 MiB |
+| 429 | over 10 samples/second for that node |
+
+The sample timestamp is the hub's receive time, so rollups and retention match
+pull. A skew over 60 s between the agent clock and the hub clock adds a
+`warnings` entry. Replaying a sequence is a no-op, which makes retries safe.
+Push nodes have no action surface: `POST /nodes/{id}/actions/{a}/run` returns
+409 for them.
+
+## Modes
+
+`NodeRecord.mode` is `pull` or `push`. A pull node needs `url`; a push node does
+not. Both are created the same way (`POST /api/v1/nodes` or the join flow).

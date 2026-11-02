@@ -187,8 +187,7 @@ export function useCreateNode() {
       name: string;
       url?: string;
       token: string;
-      transport: 'direct' | 'bolthole';
-      conn?: string;
+      mode: 'pull' | 'push';
       labels: string[];
     }) => api<NodeView>(`${V1}/nodes`, { method: 'POST', body: input }),
     onSuccess: () => client.invalidateQueries({ queryKey: keys.fleet }),
@@ -208,8 +207,7 @@ export function useUpdateNode() {
         labels?: string[];
         url?: string;
         token?: string;
-        transport?: string;
-        conn?: string;
+        mode?: string;
       };
     }) =>
       api<NodeView>(`${V1}/nodes/${encodeURIComponent(id)}`, { method: 'PATCH', body: input }),

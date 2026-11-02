@@ -344,7 +344,7 @@ type NodeRecord struct {
 	ID           string   `json:"id"`
 	Name         string   `json:"name"`
 	Labels       []string `json:"labels"`
-	Transport    string   `json:"transport"` // direct | bolthole
+	Mode         string   `json:"mode"` // pull | push
 	URL          string   `json:"url,omitempty"`
 	AgentVersion string   `json:"agent_version"`
 	OS           string   `json:"os"`

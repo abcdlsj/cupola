@@ -63,7 +63,8 @@ export function AppsPage() {
       {all.length === 0 ? (
         <div className="panel">
           <Empty>
-            No action is configured. Actions live in the agent config (0600) on each host; the hub cannot create them.{' '}
+            No action is configured. Actions live in the agent config (0600) on each host; the hub cannot create them.
+            A push-mode node reports samples only, so actions need a pull node.{' '}
             <Link className="link" to="/settings/nodes">See the nodes</Link>.
           </Empty>
         </div>

@@ -410,13 +410,12 @@ func (h *Hub) handleListNodes(w http.ResponseWriter, r *http.Request) {
 }
 
 type nodeRequest struct {
-	ID        string   `json:"id"`
-	Name      string   `json:"name"`
-	Labels    []string `json:"labels"`
-	Transport string   `json:"transport"`
-	URL       string   `json:"url"`
-	Token     string   `json:"token"`
-	Conn      string   `json:"conn"`
+	ID     string   `json:"id"`
+	Name   string   `json:"name"`
+	Labels []string `json:"labels"`
+	Mode   string   `json:"mode"`
+	URL    string   `json:"url"`
+	Token  string   `json:"token"`
 }
 
 func (h *Hub) handleCreateNode(w http.ResponseWriter, r *http.Request) {
@@ -435,13 +434,17 @@ func (h *Hub) handleCreateNode(w http.ResponseWriter, r *http.Request) {
 	if body.Labels == nil {
 		body.Labels = []string{}
 	}
-	if body.Transport == "" {
-		body.Transport = "direct"
+	if body.Mode == "" {
+		body.Mode = "pull"
 	}
-	if body.Transport == "direct" {
+	if body.Mode != "pull" && body.Mode != "push" {
+		apiError(w, http.StatusBadRequest, "mode", "mode must be pull or push")
+		return
+	}
+	if body.Mode == "pull" {
 		parsed, err := url.Parse(body.URL)
 		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-			apiError(w, http.StatusBadRequest, "url", "a direct node needs an http(s) URL")
+			apiError(w, http.StatusBadRequest, "url", "a pull node needs an http(s) URL")
 			return
 		}
 	}
@@ -454,23 +457,14 @@ func (h *Hub) handleCreateNode(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "encrypt", err.Error())
 		return
 	}
-	var connEnc []byte
-	if body.Conn != "" {
-		connEnc, err = encrypt(h.keys.key, []byte(body.Conn))
-		if err != nil {
-			apiError(w, http.StatusInternalServerError, "encrypt", err.Error())
-			return
-		}
-	}
 	record := model.NodeRecord{
-		ID: body.ID, Name: body.Name, Labels: body.Labels, Transport: body.Transport, URL: body.URL,
+		ID: body.ID, Name: body.Name, Labels: body.Labels, Mode: body.Mode, URL: body.URL,
 		CreatedAt: time.Now().UnixMilli(), Status: "unknown",
 	}
-	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, connEnc); err != nil {
+	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, tokenHash(body.Token)); err != nil {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
-	h.transport.forget(body.ID)
 	writeJSON(w, http.StatusCreated, h.nodeView(r.Context(), record, false))
 }
 
@@ -489,8 +483,12 @@ func (h *Hub) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
 	if body.Name == "" {
 		body.Name = secret.Node.Name
 	}
-	if body.Transport == "" {
-		body.Transport = secret.Node.Transport
+	if body.Mode == "" {
+		body.Mode = secret.Node.Mode
+	}
+	if body.Mode != "pull" && body.Mode != "push" {
+		apiError(w, http.StatusBadRequest, "mode", "mode must be pull or push")
+		return
 	}
 	if body.URL == "" {
 		body.URL = secret.Node.URL
@@ -499,31 +497,25 @@ func (h *Hub) handleUpdateNode(w http.ResponseWriter, r *http.Request) {
 	if body.Labels != nil {
 		labels = body.Labels
 	}
-	var tokenEnc, connEnc []byte
+	var tokenEnc []byte
+	tokenHashValue := ""
 	if body.Token != "" {
 		tokenEnc, err = encrypt(h.keys.key, []byte(body.Token))
 		if err != nil {
 			apiError(w, http.StatusInternalServerError, "encrypt", err.Error())
 			return
 		}
-	}
-	if body.Conn != "" {
-		connEnc, err = encrypt(h.keys.key, []byte(body.Conn))
-		if err != nil {
-			apiError(w, http.StatusInternalServerError, "encrypt", err.Error())
-			return
-		}
+		tokenHashValue = tokenHash(body.Token)
 	}
 	record := secret.Node
 	record.Name = body.Name
 	record.Labels = labels
-	record.Transport = body.Transport
+	record.Mode = body.Mode
 	record.URL = body.URL
-	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, connEnc); err != nil {
+	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, tokenHashValue); err != nil {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
-	h.transport.forget(id)
 	writeJSON(w, http.StatusOK, h.nodeView(r.Context(), record, false))
 }
 
@@ -533,7 +525,6 @@ func (h *Hub) handleDeleteNode(w http.ResponseWriter, r *http.Request) {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
-	h.transport.forget(id)
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
@@ -542,6 +533,24 @@ func (h *Hub) handleTestNode(w http.ResponseWriter, r *http.Request) {
 	secret, err := h.store.GetNodeSecret(r.Context(), id)
 	if err != nil {
 		apiError(w, http.StatusNotFound, "not_found", "no such node")
+		return
+	}
+	if secret.Node.Mode == "push" {
+		// Nothing to dial: the node's own reports are the only evidence.
+		fresh := secret.Node.LastSeen > 0 && time.Since(time.UnixMilli(secret.Node.LastSeen)) < 30*time.Second
+		if !fresh {
+			apiError(w, http.StatusBadGateway, "agent", "this node pushes samples and has not reported recently")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok":      true,
+			"mode":    "push",
+			"ts":      secret.Node.LastSeen,
+			"node_id": secret.Node.ID,
+			"os":      secret.Node.OS,
+			"kernel":  secret.Node.Kernel,
+			"agent":   secret.Node.AgentVersion,
+		})
 		return
 	}
 	endpoint, err := h.transport.endpoint(r.Context(), secret)
@@ -621,6 +630,10 @@ func (h *Hub) handleRunAction(w http.ResponseWriter, r *http.Request) {
 	secret, err := h.store.GetNodeSecret(r.Context(), nodeID)
 	if err != nil {
 		apiError(w, http.StatusNotFound, "not_found", "no such node")
+		return
+	}
+	if secret.Node.Mode == "push" {
+		apiError(w, http.StatusConflict, "mode", "this node pushes samples; actions need a pull node")
 		return
 	}
 	endpoint, err := h.transport.endpoint(r.Context(), secret)
@@ -1139,6 +1152,7 @@ func (h *Hub) routesHandler() http.Handler {
 		mux.HandleFunc("GET /install.sh", h.handleInstallScript)
 	mux.HandleFunc("GET /install/cupola", h.handleInstallBinary)
 	mux.HandleFunc("POST /api/v1/join", h.handleJoin)
+	mux.HandleFunc("POST /api/v1/ingest", h.handleIngest)
 	mux.Handle("POST /api/v1/join/codes", h.requireAdmin(http.HandlerFunc(h.handleCreateJoinCode)))
 	mux.Handle("GET /api/v1/join/{id}/status", h.requireRead(http.HandlerFunc(h.handleJoinStatus)))
 	mux.Handle("GET /api/v1/tailnet/peers", h.requireRead(http.HandlerFunc(h.handleTailnetPeers)))

@@ -96,9 +96,15 @@ func (s *Store) migrate(ctx context.Context) error {
 
 // ---------- nodes ----------
 
-func (s *Store) UpsertNode(ctx context.Context, node model.NodeRecord, tokenEnc, connEnc []byte) error {
+// UpsertNode writes a node record. tokenEnc is the sealed agent token and
+// tokenHash its SHA-256, which is the only index an ingest request can use;
+// empty values keep what is stored.
+func (s *Store) UpsertNode(ctx context.Context, node model.NodeRecord, tokenEnc []byte, tokenHash string) error {
 	if node.Labels == nil {
 		node.Labels = []string{}
+	}
+	if node.Mode == "" {
+		node.Mode = "pull"
 	}
 	labels, _ := json.Marshal(node.Labels)
 	now := time.Now().UnixMilli()
@@ -106,23 +112,86 @@ func (s *Store) UpsertNode(ctx context.Context, node model.NodeRecord, tokenEnc,
 		node.CreatedAt = now
 	}
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO nodes(id, name, labels, transport, url, token_enc, conn_enc, agent_version, os, kernel, arch, created_at, last_seen, status)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO nodes(id, name, labels, transport, mode, url, token_enc, token_hash, agent_version, os, kernel, arch, created_at, last_seen, status)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			name=excluded.name,
 			labels=excluded.labels,
 			transport=excluded.transport,
+			mode=excluded.mode,
 			url=excluded.url,
 			token_enc=COALESCE(excluded.token_enc, nodes.token_enc),
-			conn_enc=COALESCE(excluded.conn_enc, nodes.conn_enc)`,
-		node.ID, node.Name, string(labels), node.Transport, node.URL, tokenEnc, connEnc,
+			token_hash=CASE WHEN excluded.token_hash <> '' THEN excluded.token_hash ELSE nodes.token_hash END`,
+		node.ID, node.Name, string(labels), node.Mode, node.Mode, node.URL, tokenEnc, tokenHash,
 		node.AgentVersion, node.OS, node.Kernel, node.Arch, node.CreatedAt, node.LastSeen, node.Status)
 	return err
 }
 
+// NodeByTokenHash resolves an agent token hash to its node. Ingest identity
+// comes from the token, never from the request body.
+func (s *Store) NodeByTokenHash(ctx context.Context, hash string) (model.NodeRecord, error) {
+	if hash == "" {
+		return model.NodeRecord{}, sql.ErrNoRows
+	}
+	row := s.db.QueryRowContext(ctx, `
+		SELECT id, name, labels, mode, url, agent_version, os, kernel, arch, created_at, last_seen, status
+		FROM nodes WHERE token_hash = ?`, hash)
+	return scanNode(row)
+}
+
+// RecordIngest advances the node's sequence and agent clock. It reports false
+// when the sequence is not newer, which makes retries and replays no-ops.
+func (s *Store) RecordIngest(ctx context.Context, id string, seq, agentTs int64) (bool, error) {
+	result, err := s.db.ExecContext(ctx, `UPDATE nodes SET last_seq=?, agent_ts=? WHERE id=? AND last_seq < ?`,
+		seq, agentTs, id, seq)
+	if err != nil {
+		return false, err
+	}
+	changed, err := result.RowsAffected()
+	return changed > 0, err
+}
+
+// BackfillTokenHashes seals an index of the existing agent tokens so push nodes
+// keep working after the migration. hash decrypts the stored token.
+func (s *Store) BackfillTokenHashes(ctx context.Context, hash func(tokenEnc []byte) (string, error)) error {
+	rows, err := s.db.QueryContext(ctx, `SELECT id, token_enc FROM nodes WHERE token_hash = '' AND token_enc IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	type pending struct {
+		id    string
+		hash  string
+		token []byte
+	}
+	var work []pending
+	for rows.Next() {
+		var id string
+		var tokenEnc []byte
+		if err := rows.Scan(&id, &tokenEnc); err != nil {
+			rows.Close()
+			return err
+		}
+		work = append(work, pending{id: id, token: tokenEnc})
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, item := range work {
+		sum, err := hash(item.token)
+		if err != nil {
+			continue // an undecryptable token is left for the operator to reset
+		}
+		if _, err := s.db.ExecContext(ctx, `UPDATE nodes SET token_hash=? WHERE id=?`, sum, item.id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) ListNodeRecords(ctx context.Context) ([]model.NodeRecord, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, labels, transport, url, agent_version, os, kernel, arch, created_at, last_seen, status
+		SELECT id, name, labels, mode, url, agent_version, os, kernel, arch, created_at, last_seen, status
 		FROM nodes ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -141,7 +210,7 @@ func (s *Store) ListNodeRecords(ctx context.Context) ([]model.NodeRecord, error)
 
 func (s *Store) GetNode(ctx context.Context, id string) (model.NodeRecord, error) {
 	row := s.db.QueryRowContext(ctx, `
-		SELECT id, name, labels, transport, url, agent_version, os, kernel, arch, created_at, last_seen, status
+		SELECT id, name, labels, mode, url, agent_version, os, kernel, arch, created_at, last_seen, status
 		FROM nodes WHERE id = ?`, id)
 	return scanNode(row)
 }
@@ -153,7 +222,7 @@ type scanner interface {
 func scanNode(row scanner) (model.NodeRecord, error) {
 	var node model.NodeRecord
 	var labels string
-	err := row.Scan(&node.ID, &node.Name, &labels, &node.Transport, &node.URL,
+	err := row.Scan(&node.ID, &node.Name, &labels, &node.Mode, &node.URL,
 		&node.AgentVersion, &node.OS, &node.Kernel, &node.Arch, &node.CreatedAt, &node.LastSeen, &node.Status)
 	if err != nil {
 		return node, err
@@ -167,20 +236,19 @@ func scanNode(row scanner) (model.NodeRecord, error) {
 
 // NodeSecret is what the transport needs; it never leaves the hub process.
 type NodeSecret struct {
-	Node      model.NodeRecord
-	Token     []byte
-	Conn      []byte
+	Node  model.NodeRecord
+	Token []byte
 }
 
 func (s *Store) GetNodeSecret(ctx context.Context, id string) (NodeSecret, error) {
 	var out NodeSecret
 	var labels string
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, name, labels, transport, url, agent_version, os, kernel, arch, created_at, last_seen, status, token_enc, conn_enc
+		SELECT id, name, labels, mode, url, agent_version, os, kernel, arch, created_at, last_seen, status, token_enc
 		FROM nodes WHERE id = ?`, id).Scan(
-		&out.Node.ID, &out.Node.Name, &labels, &out.Node.Transport, &out.Node.URL,
+		&out.Node.ID, &out.Node.Name, &labels, &out.Node.Mode, &out.Node.URL,
 		&out.Node.AgentVersion, &out.Node.OS, &out.Node.Kernel, &out.Node.Arch,
-		&out.Node.CreatedAt, &out.Node.LastSeen, &out.Node.Status, &out.Token, &out.Conn)
+		&out.Node.CreatedAt, &out.Node.LastSeen, &out.Node.Status, &out.Token)
 	if err != nil {
 		return out, err
 	}

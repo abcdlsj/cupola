@@ -61,7 +61,8 @@ func joinHash(code string) string {
 }
 
 // handleCreateJoinCode (admin) prepares a pending node and returns the one-time
-// code plus the commands the operator pastes into the new machine.
+// code plus the commands the operator pastes into the new machine. Without an
+// advertised URL the installer joins in push mode.
 func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		ID        string   `json:"id"`
@@ -98,10 +99,10 @@ func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record := model.NodeRecord{
-		ID: body.ID, Name: body.Name, Labels: body.Labels, Transport: "direct",
+		ID: body.ID, Name: body.Name, Labels: body.Labels, Mode: "pull",
 		CreatedAt: time.Now().UnixMilli(), Status: "pending",
 	}
-	if err := h.store.UpsertNode(r.Context(), record, nil, nil); err != nil {
+	if err := h.store.UpsertNode(r.Context(), record, nil, ""); err != nil {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
@@ -127,7 +128,8 @@ func (h *Hub) handleCreateJoinCode(w http.ResponseWriter, r *http.Request) {
 		"commands": map[string]string{
 			"linux":   `curl -fsSL ` + hubBase + `/install.sh | sudo sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID + advertiseFlag,
 			"darwin":  `curl -fsSL ` + hubBase + `/install.sh | sh -s -- --hub ` + hubBase + ` --code ` + code + ` --node ` + body.ID + advertiseFlag,
-			"manual":  `cupola agent --config /etc/cupola/agent.json --join ` + hubBase + ` --join-code ` + code + ` --advertise http://<this-host>:9797`,
+			"manual":  `cupola agent --config /etc/cupola/agent.json --join ` + hubBase + ` --join-code ` + code + ` --push ` + hubBase,
+			"pull":    `cupola agent --config /etc/cupola/agent.json --join ` + hubBase + ` --join-code ` + code + ` --advertise http://<this-host>:9797`,
 		},
 	})
 }
@@ -146,8 +148,7 @@ func (h *Hub) handleJoin(w http.ResponseWriter, r *http.Request) {
 		URL       string `json:"url"`
 		Advertise string `json:"advertise"`
 		Token     string `json:"token"`
-		Transport string `json:"transport"`
-		Conn      string `json:"conn"`
+		Mode      string `json:"mode"`
 		OS        string `json:"os"`
 		Arch      string `json:"arch"`
 		Agent     string `json:"agent_version"`
@@ -160,19 +161,18 @@ func (h *Hub) handleJoin(w http.ResponseWriter, r *http.Request) {
 	if advertise == "" {
 		advertise = body.Advertise
 	}
-	transport := body.Transport
-	if transport == "" {
-		transport = "direct"
+	mode := body.Mode
+	if mode == "" {
+		mode = "pull"
 	}
-	if transport == "bolthole" {
-		if body.Conn == "" {
-			apiError(w, http.StatusBadRequest, "conn", "a relay join needs the connection string")
-			return
-		}
-	} else {
+	if mode != "pull" && mode != "push" {
+		apiError(w, http.StatusBadRequest, "mode", "mode must be pull or push")
+		return
+	}
+	if mode == "pull" {
 		parsed, err := url.Parse(advertise)
 		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-			apiError(w, http.StatusBadRequest, "url", "the agent must advertise an http(s) URL")
+			apiError(w, http.StatusBadRequest, "url", "a pull agent must advertise an http(s) URL")
 			return
 		}
 	}
@@ -192,24 +192,16 @@ func (h *Hub) handleJoin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	record.URL = advertise
-	record.Transport = transport
-	var connEnc []byte
-	if transport == "bolthole" {
-		connEnc, err = encrypt(h.keys.key, []byte(body.Conn))
-		if err != nil {
-			apiError(w, http.StatusInternalServerError, "encrypt", err.Error())
-			return
-		}
-	}
+	record.Mode = mode
 	if body.OS != "" {
 		record.OS = body.OS
 	}
-	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, connEnc); err != nil {
+	if err := h.store.UpsertNode(r.Context(), record, tokenEnc, tokenHash(body.Token)); err != nil {
 		apiError(w, http.StatusInternalServerError, "store", err.Error())
 		return
 	}
 	_ = h.store.SetNodeStatus(r.Context(), nodeID, "unknown", 0)
-	h.log.Info("agent joined", "node", nodeID, "os", body.OS, "arch", body.Arch, "agent", body.Agent)
+	h.log.Info("agent joined", "node", nodeID, "mode", mode, "os", body.OS, "arch", body.Arch, "agent", body.Agent)
 	hubBase := h.cfg.PublicURL
 	if hubBase == "" {
 		hubBase = "http://" + r.Host

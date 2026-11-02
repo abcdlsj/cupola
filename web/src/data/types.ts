@@ -10,7 +10,7 @@ export interface NodeRecord {
   id: string;
   name: string;
   labels: string[];
-  transport: 'direct' | 'bolthole';
+  mode: 'pull' | 'push';
   url?: string;
   agent_version: string;
   os: string;

@@ -17,15 +17,15 @@ import (
 // place actions may be defined. JSON is used instead of YAML so the binary
 // needs no extra dependency; the schema is documented in docs/DEPLOY.md.
 type Config struct {
-	Listen      string           `json:"listen"`
-	NodeID      string           `json:"node_id"`
-	Name        string           `json:"name"`
-	Labels      []string         `json:"labels,omitempty"`
-	TokenFile   string           `json:"token_file,omitempty"`
-	AllowRemote bool             `json:"allow_remote,omitempty"`
-	Relay       RelayConfig      `json:"relay,omitempty"`
-	Collect     CollectConfig    `json:"collect,omitempty"`
-	Actions     []ActionConfig   `json:"actions,omitempty"`
+	Listen      string        `json:"listen"`
+	NodeID      string        `json:"node_id"`
+	Name        string        `json:"name"`
+	Labels      []string      `json:"labels,omitempty"`
+	TokenFile   string        `json:"token_file,omitempty"`
+	AllowRemote bool          `json:"allow_remote,omitempty"`
+	Push        PushConfig    `json:"push,omitempty"`
+	Collect     CollectConfig `json:"collect,omitempty"`
+	Actions     []ActionConfig `json:"actions,omitempty"`
 
 	// Runtime-only join settings, never written to the config file.
 	JoinHub       string `json:"-"`
@@ -34,9 +34,12 @@ type Config struct {
 	JoinMarker    string `json:"-"`
 }
 
-type RelayConfig struct {
-	URL      string `json:"url,omitempty"`
-	CodeFile string `json:"code_file,omitempty"`
+// PushConfig makes the agent report to the hub instead of waiting to be polled.
+// It is the mode for hosts the hub cannot dial (NAT, CGNAT).
+type PushConfig struct {
+	Enabled  bool   `json:"enabled,omitempty"`
+	HubURL   string `json:"hub_url,omitempty"`
+	Interval string `json:"interval,omitempty"`
 }
 
 type CollectConfig struct {
@@ -113,6 +116,15 @@ func LoadConfig(path string) (*Config, error) {
 	if cfg.TokenFile == "" {
 		cfg.TokenFile = filepath.Join(filepath.Dir(path), "agent.token")
 	}
+	if cfg.Push.Enabled && cfg.Push.HubURL == "" {
+		return nil, errors.New("config: push.hub_url is required when push is enabled")
+	}
+	if cfg.Push.Interval == "" {
+		cfg.Push.Interval = "5s"
+	}
+	if _, err := cfg.Push.interval(); err != nil {
+		return nil, fmt.Errorf("config: push.interval: %w", err)
+	}
 	if !cfg.AllowRemote {
 		host, _, err := net.SplitHostPort(cfg.Listen)
 		if err != nil {
@@ -128,6 +140,24 @@ func LoadConfig(path string) (*Config, error) {
 		}
 	}
 	return &cfg, nil
+}
+
+// interval is the push cadence, defaulting to 5 s.
+func (p PushConfig) interval() (time.Duration, error) {
+	if p.Interval == "" {
+		return 5 * time.Second, nil
+	}
+	d, err := time.ParseDuration(p.Interval)
+	if err != nil {
+		return 0, err
+	}
+	if d < time.Second {
+		d = time.Second
+	}
+	if d > 5*time.Minute {
+		d = 5 * time.Minute
+	}
+	return d, nil
 }
 
 func (a *ActionConfig) validate() error {

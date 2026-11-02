@@ -15,9 +15,8 @@ dense, fast PWA.
   script from a phone.
 - **Alerts that fit your stack.** Metric rules and event rules that POST to
   your own webhook; ntfy, Discord, Slack and Telegram too.
-- **No public server required.** Run the hub at home and reach it through a
-  [Bolthole](https://github.com/abcdlsj/bolthole) relay: end-to-end encrypted,
-  no ports opened, no accounts.
+- **Zero-config for NATed hosts.** A hub with a public address is polled from,
+  or agents report to it: no inbound port, no relay, no connection string.
 - **Every view has a URL.** Copy and share a node, process, agent session,
   service, container, app, alert or event, with its time range intact.
 
@@ -29,18 +28,15 @@ dense, fast PWA.
 ## Shape
 
 ```
-                    ┌──────────── public HTTPS (optional) ────────────┐
-   phone / browser ─┤                                                 │
-                    ▼                                                 ▼
-             static PWA  ──Bolthole E2E──▶  relay  ◀──Bolthole E2E──  hub  ──HTTP/WS──▶ agents
-                    │                                                 │
-                    └──────────── direct HTTPS (self-hosted) ─────────┘
+   phone / browser ──HTTPS──▶ hub ──HTTP (pull)──▶ agents   LAN, same host, VPN
+                              ▲
+                              └──── HTTP (push) ── agents   NAT, CGNAT
 ```
 
 | Role | Runs on | Does |
 | --- | --- | --- |
 | `cupola agent` | every monitored host | collects metrics, serves a read-only local API, runs configured actions |
-| `cupola hub` | one box / VPS / homelab | polls agents, stores history, evaluates alerts, serves the PWA |
+| `cupola hub` | one box / VPS / homelab | pulls reachable agents, receives pushed samples, stores history, evaluates alerts, serves the PWA |
 | `cupola serve` | one box | hub + embedded agent, for the single-server case |
 
 ## Design

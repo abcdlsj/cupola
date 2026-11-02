@@ -15,17 +15,17 @@ import (
 	"github.com/abcdlsj/cupola/internal/model"
 )
 
-// poller pulls each node's snapshot, stores it, derives the change events and
-// evaluates alert rules. One poll per node at a time; a failing node backs off
-// on its own without slowing the fleet.
+// poller owns the sample pipeline and the pull source. Push nodes (see
+// ingest.go) share processSnapshot but are never dialled from here.
 type poller struct {
 	hub      *Hub
 	interval time.Duration
 
-	mu        sync.Mutex
-	failures  map[string]int
+	mu         sync.Mutex
+	failures   map[string]int
+	nextTry    map[string]time.Time
 	wasOffline map[string]bool
-	prev      map[string]*model.Snapshot
+	prev       map[string]*model.Snapshot
 }
 
 func newPoller(h *Hub, interval time.Duration) *poller {
@@ -33,6 +33,7 @@ func newPoller(h *Hub, interval time.Duration) *poller {
 		hub:        h,
 		interval:   interval,
 		failures:   make(map[string]int),
+		nextTry:    make(map[string]time.Time),
 		wasOffline: make(map[string]bool),
 		prev:       make(map[string]*model.Snapshot),
 	}
@@ -55,6 +56,7 @@ func (p *poller) Run(ctx context.Context) {
 			return
 		case <-ticker.C:
 			p.pollAll(ctx)
+			p.sweepOffline(ctx)
 		case <-rollup.C:
 			if err := p.hub.store.Rollup(ctx, time.Now().UnixMilli()); err != nil {
 				p.hub.log.Warn("rollup failed", "error", err.Error())
@@ -75,6 +77,12 @@ func (p *poller) pollAll(ctx context.Context) {
 		if ctx.Err() != nil {
 			break
 		}
+		if node.Mode != "" && node.Mode != "pull" {
+			continue // push nodes report on their own schedule
+		}
+		if !p.due(node.ID) {
+			continue
+		}
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(node model.NodeRecord) {
@@ -86,6 +94,33 @@ func (p *poller) pollAll(ctx context.Context) {
 	wg.Wait()
 }
 
+// due reports whether a failing node has finished its backoff window.
+func (p *poller) due(id string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	at, ok := p.nextTry[id]
+	return !ok || time.Now().After(at)
+}
+
+// noteFailure grows a per-node backoff (5 s doubling to 5 min) so a dead node
+// cannot occupy the poll semaphore every tick.
+func (p *poller) noteFailure(id string) {
+	p.mu.Lock()
+	p.failures[id]++
+	failures := p.failures[id]
+	p.mu.Unlock()
+	delay := p.interval
+	for i := 1; i < failures && delay < 5*time.Minute; i++ {
+		delay *= 2
+	}
+	if delay > 5*time.Minute {
+		delay = 5 * time.Minute
+	}
+	p.mu.Lock()
+	p.nextTry[id] = time.Now().Add(delay)
+	p.mu.Unlock()
+}
+
 func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 	secret, err := p.hub.store.GetNodeSecret(ctx, node.ID)
 	if err != nil {
@@ -94,7 +129,8 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 	}
 	endpoint, err := p.hub.transport.endpoint(ctx, secret)
 	if err != nil {
-		p.markFailure(ctx, node, err)
+		p.hub.log.Warn("node endpoint", "node", node.ID, "error", err.Error())
+		p.noteFailure(node.ID)
 		return
 	}
 	pollCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
@@ -102,7 +138,8 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 
 	snap, err := fetchSnapshot(pollCtx, endpoint)
 	if err != nil {
-		p.markFailure(ctx, node, err)
+		p.hub.log.Warn("poll failed", "node", node.ID, "error", sanitizeError(err))
+		p.noteFailure(node.ID)
 		return
 	}
 	if snap.Node.ID == "" {
@@ -114,47 +151,37 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 			actions = previous
 		}
 	}
+	p.processSnapshot(ctx, node, snap, actions)
+}
 
-	now := time.Now().UnixMilli()
-	if err := p.hub.store.SaveSnapshot(ctx, snap, actions); err != nil {
-		p.hub.log.Warn("save snapshot", "node", node.ID, "error", err.Error())
+// sweepOffline marks a node offline when nothing has arrived for three
+// intervals, whatever the mode. last_seen stays at the last good sample.
+func (p *poller) sweepOffline(ctx context.Context) {
+	nodes, err := p.hub.store.ListNodeRecords(ctx)
+	if err != nil {
 		return
 	}
-	if err := p.hub.store.UpdateNodeMeta(ctx, node.ID, snap.Node.AgentVersion, snap.Node.Platform, snap.Node.Kernel, snap.Node.Arch); err != nil {
-		p.hub.log.Warn("update node", "node", node.ID, "error", err.Error())
+	now := time.Now().UnixMilli()
+	limit := int64(3 * p.interval / time.Millisecond)
+	for _, node := range nodes {
+		if node.LastSeen == 0 || node.Status == "offline" {
+			continue
+		}
+		if now-node.LastSeen <= limit {
+			continue
+		}
+		p.mu.Lock()
+		already := p.wasOffline[node.ID]
+		p.wasOffline[node.ID] = true
+		p.mu.Unlock()
+		if already {
+			continue
+		}
+		_ = p.hub.store.SetNodeStatus(ctx, node.ID, "offline", node.LastSeen)
+		p.emit(ctx, model.Event{NodeID: node.ID, Ts: now, Kind: "node", Severity: "critical",
+			Message: "Agent stopped reporting"})
+		p.hub.bus.send("node", map[string]any{"node_id": node.ID, "status": "offline", "ts": now})
 	}
-	status := snapshotStatus(snap)
-	if err := p.hub.store.SetNodeStatus(ctx, node.ID, status, now); err != nil {
-		p.hub.log.Warn("set status", "node", node.ID, "error", err.Error())
-	}
-
-	p.mu.Lock()
-	wasOffline := p.wasOffline[node.ID]
-	previous := p.prev[node.ID]
-	p.wasOffline[node.ID] = false
-	p.failures[node.ID] = 0
-	p.prev[node.ID] = snap
-	p.mu.Unlock()
-
-	if wasOffline {
-		p.emit(ctx, model.Event{
-			NodeID: node.ID, Ts: now, Kind: "node", Severity: "info",
-			Message: "Agent is reporting again",
-		})
-	}
-
-	for _, event := range diffEvents(previous, snap, node.ID, now) {
-		p.emit(ctx, event)
-	}
-	p.evaluateMetricRules(ctx, node, snap, now)
-
-	health := p.health(ctx, node.ID, status, snap)
-	p.hub.bus.send("node", map[string]any{
-		"node_id": node.ID,
-		"status":  status,
-		"health":  health,
-		"ts":      now,
-	})
 }
 
 func (p *poller) health(ctx context.Context, nodeID, status string, snap *model.Snapshot) model.NodeHealth {
@@ -174,29 +201,6 @@ func (p *poller) health(ctx context.Context, nodeID, status string, snap *model.
 	record, _ := p.hub.store.GetNode(ctx, nodeID)
 	record.Status = status
 	return nodeHealth(record, snap, days, attention)
-}
-
-func (p *poller) markFailure(ctx context.Context, node model.NodeRecord, err error) {
-	p.mu.Lock()
-	p.failures[node.ID]++
-	failures := p.failures[node.ID]
-	already := p.wasOffline[node.ID]
-	if failures >= 3 && !already {
-		p.wasOffline[node.ID] = true
-	}
-	p.mu.Unlock()
-	if failures < 3 || already {
-		return
-	}
-	now := time.Now().UnixMilli()
-	_ = p.hub.store.SetNodeStatus(ctx, node.ID, "offline", node.LastSeen)
-	message := "Agent stopped reporting: " + sanitizeError(err)
-	p.emit(ctx, model.Event{NodeID: node.ID, Ts: now, Kind: "node", Severity: "critical", Message: message})
-	p.hub.bus.send("node", map[string]any{
-		"node_id": node.ID,
-		"status":  "offline",
-		"ts":      now,
-	})
 }
 
 func (p *poller) emit(ctx context.Context, event model.Event) {

@@ -24,7 +24,7 @@ added. The agent serves loopback only unless `allow_remote` is set.
   "labels": ["prod", "vps"],
   "token_file": "/etc/cupola/agent.token",
   "allow_remote": false,
-  "relay": {"url": "https://relay.example.net", "code_file": "/etc/cupola/agent.code"},
+  "push": {"enabled": true, "hub_url": "https://hub.example.com", "interval": "5s"},
   "collect": {"updates": false, "docker": true, "smart": true, "gpu": true, "processes": 40},
   "actions": [
     {
@@ -109,7 +109,7 @@ Environment:
 | `CUPOLA_WEB_DIR` | `web/dist` | built PWA; `assisted` fallback page if missing |
 | `CUPOLA_PUBLIC_URL` | — | links in webhook payloads |
 | `CUPOLA_ADMIN_PASSWORD` | — | first start; re-set to rotate, then remove |
-| `CUPOLA_SECRET` | generated | 32 bytes base64; encrypts tokens, relay strings, webhook URLs |
+| `CUPOLA_SECRET` | generated | 32 bytes base64; encrypts node tokens, webhook URLs and secrets |
 | `CUPOLA_POLL_INTERVAL` | `5s` | per-node poll cadence |
 | `CUPOLA_ALLOW_PRIVATE_WEBHOOKS` | `0` | allow private webhook targets |
 | `CUPOLA_CORS_ORIGINS` | — | comma-separated origins for a static PWA |
@@ -117,8 +117,8 @@ Environment:
 
 `secret.key` is generated in the data directory (0600) when `CUPOLA_SECRET` is
 not set. Back it up with the database: without it, node tokens and webhook URLs
-cannot be decrypted. The hub stores node tokens, Bolthole connection strings,
-webhook URLs and channel secrets encrypted (AES-256-GCM); admin passwords are
+cannot be decrypted. The hub stores node tokens, webhook URLs and channel
+secrets encrypted (AES-256-GCM); admin passwords are
 Argon2id; API tokens are SHA-256 hashes.
 
 Storage: SQLite in WAL mode, one writer. Raw 5 s samples for 48 h, 1-minute
@@ -202,49 +202,40 @@ read-only `/proc`, `/sys`, `/etc/os-release`, `/etc/passwd`, `/etc/group` and th
 Docker socket; mount the agent config and token at `/etc/cupola` (0600). The
 socket is root-equivalent: remove it if you do not need container metrics.
 
-## Relay (Bolthole)
+## Push vs pull
+
+`pull` (default): the hub dials `http://agent:9797`. Use it when the hub can
+reach the agent — same host, same LAN, VPN, port map. Actions only work here.
+
+`push`: the agent posts its snapshot to the hub. Use it for NATed hosts, where
+no inbound port is wanted. Actions do not work on push nodes, and the agent's
+listener can stay on loopback.
 
 ```bash
-# agent on a NATed host
-cupola agent --config /etc/cupola/agent.json    # relay.url + relay.code_file set
-# it prints: relay: https://relay.example.net/#k=…
+# Join in push mode (the installer default)
+cupola agent --config /etc/cupola/agent.json --join https://hub.example.com \
+  --join-code ABC123 --push https://hub.example.com
 ```
 
-Add the node with `"transport":"bolthole"` and the printed connection string as
-`conn` (stored encrypted). No inbound port is opened. A local relay for testing:
+The agent needs outbound HTTPS to the hub and nothing else. The hub needs no
+port mapping for it. Switch a node's mode in Settings → Nodes; the form asks for
+a URL only in pull mode.
 
-```bash
-git clone https://github.com/abcdlsj/bolthole && cd bolthole
-go run ./cmd/relay      # see its README for the flag; default 127.0.0.1:8787
-```
+## Static PWA
 
-## GitHub Pages PWA
+The hub serves the build itself; that is the default deployment and needs no
+extra host. A static host (GitHub Pages, any CDN) also works: build with
+`VITE_BASE` set to the prefix, serve `web/dist`, and let the app ask for a hub
+URL plus a read token on first load (or accept `#hub=…&token=…` in the fragment,
+which is stored in localStorage and removed from the address bar). The hub must
+allow that origin in `CUPOLA_CORS_ORIGINS`. The token only needs `read`; actions
+from a static PWA need `actions:run` and agent `allow_api: true` on a pull node.
 
-The static PWA is deployed to Cloudflare Workers (`deploy/cloudflare/`). To host
-it on another static host, build with `VITE_BASE` set to the prefix and serve
-`web/dist`; the app asks for a hub URL and a read token on first load. On first load the static build asks for a hub URL and a read
-token (or accepts `#hub=…&token=…` in the fragment, which is stored in
-localStorage and removed from the address bar). The hub must allow the Pages
-origin in `CUPOLA_CORS_ORIGINS`. The token only gets `read`; actions from a
-static PWA need a token with `actions:run` and agent `allow_api: true`.
+## Reaching a private hub
 
-## Cloudflare
-
-What runs there: the static PWA (Workers Assets) and the Bolthole relay (a
-Worker in the Bolthole repository). The hub and the agent do not: the hub needs
-SQLite, a long-lived poller and a persistent key, the agent needs host access.
-
-```bash
-cd web && VITE_BASE=/ npm run build
-npx wrangler deploy --config ../deploy/cloudflare/wrangler.jsonc
-```
-
-The config declares no route, so the Worker lives at
-`<name>.<account>.workers.dev`; the deployed URL is recorded in
-`deploy/cloudflare/README.md` (never the account ID). Add a custom domain only
-with the operator's exact zone and two-digit subdomain, and remove the route and
-DNS record when done. A static PWA talks to a hub over HTTPS with a read token;
-set `CUPOLA_CORS_ORIGINS` to the Worker origin.
+The hub is expected to have a public address. If it does not, put it on the
+operator's own tunnel (Tailscale, WireGuard, Cloudflare Tunnel) and point the
+PWA at the tunnel URL. Cupola ships no relay.
 
 ## Backups and rotation
 

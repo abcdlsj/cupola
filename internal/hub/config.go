@@ -90,8 +90,7 @@ type secrets struct {
 }
 
 // loadSecrets creates or loads the hub key and the admin password hash. The
-// key encrypts node tokens, Bolthole connection strings, webhook URLs and
-// channel secrets at rest.
+// key encrypts node tokens, webhook URLs and channel secrets at rest.
 func loadSecrets(ctx context.Context, cfg *Config, st *store.Store) (*secrets, error) {
 	key, err := loadKey(cfg)
 	if err != nil {

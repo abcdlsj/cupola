@@ -17,7 +17,7 @@ expand or shrink scope; update the plan when a decision changes.
   conventional message, and continue. Do not stop for milestone review.
 - Final acceptance requires the complete v1: agent, hub, all collectors,
   actions/WOL, alerts + event webhooks, scoped curl API, URL routes, PWA,
-  relay, Docker, systemd, docs and the Linux/beelink verification.
+  push mode, Docker, systemd, docs and the Linux/beelink verification.
 - Keep `/nodes` as the table (option A). Do not redesign it in this pass.
 
 ## Language
@@ -34,7 +34,8 @@ expand or shrink scope; update the plan when a decision changes.
 - React 19 + TypeScript + Vite + Tailwind v4 + uPlot + Radix primitives +
   Phosphor icons + TanStack Query + React Router + Zod; `vite-plugin-pwa`.
 - Public Sans (UI) + IBM Plex Mono (all figures/IDs), self-hosted.
-- Bolthole (`github.com/abcdlsj/bolthole`, npm `bolthole`) for relay transport.
+- Transport is per node: `pull` (hub dials the agent) or `push` (agent posts to
+  `/api/v1/ingest`). No relay dependency; see `docs/design/pull-vs-push.md`.
 
 Justify every new dependency. Prefer the standard library.
 
@@ -143,8 +144,8 @@ Every object and view has a route; nothing important lives only in memory.
 - Never execute shell commands from an HTTP request.
 - Never collect env vars, prompts or file contents.
 - Redact command-line arguments by default.
-- Treat Bolthole codes and agent tokens as passwords: never log, store node
-  transports encrypted.
+- Treat agent tokens as passwords: never log them; store them encrypted and
+  index only their SHA-256 for ingest lookups.
 - Agent targets: < 30 MB RSS, < 1 % CPU at 5 s cadence on 4 cores.
 - Hub targets: < 150 MB RSS for 50 nodes with 13 months of rollups.
 - SQLite WAL, one writer, batched inserts; raw 5 s/48 h, 1 m/30 d, 1 h/13 mo.
@@ -171,11 +172,9 @@ Every object and view has a route; nothing important lives only in memory.
 - Linux host `beelink` over SSH: build `linux/amd64`, install the agent, run a
   hub, verify metrics/processes/agents/systemd/containers/sensors/SMART/GPU as
   available, WOL if possible.
-- Relay: local Bolthole relay first. Cloudflare Worker only after asking the
-  user for the exact zone and two-digit subdomain; prefer `wrangler dev`; if
-  deployed, delete the Worker, route and DNS record afterwards. Never commit
-  Cloudflare credentials/account IDs.
-- Install the PWA on a phone and test over relay.
+- Push: verify an agent behind NAT reports to a public hub, that a replayed
+  sequence is rejected and that an action run on a push node returns 409.
+- Install the PWA on a phone.
 
 ## Commands
 

@@ -40,6 +40,7 @@ type Hub struct {
 	routes    http.Handler
 	limiter   *rateLimiter
 	runLimiter *rateLimiter
+	ingestLimiter *rateLimiter
 
 	agentCancel context.CancelFunc
 	mu          sync.Mutex
@@ -67,6 +68,19 @@ func New(ctx context.Context, cfg Config) (*Hub, error) {
 		keys:  keys,
 		limiter:    newRateLimiter(5, time.Minute),
 		runLimiter: newRateLimiter(12, time.Minute),
+		ingestLimiter: newRateLimiter(10, time.Second),
+	}
+	// Older rows carry only the sealed token; index its hash so push nodes
+	// authenticate without a scan.
+	if err := st.BackfillTokenHashes(ctx, func(tokenEnc []byte) (string, error) {
+		token, err := decrypt(keys.key, tokenEnc)
+		if err != nil {
+			return "", err
+		}
+		return tokenHash(string(token)), nil
+	}); err != nil {
+		st.Close()
+		return nil, fmt.Errorf("backfill node tokens: %w", err)
 	}
 	h.transport = newTransportManager(keys.key)
 	h.bus = newBroadcaster()
@@ -183,7 +197,7 @@ func (h *Hub) startEmbeddedAgent(ctx context.Context) error {
 		ID:        cfg.NodeID,
 		Name:      cfg.Name,
 		Labels:    cfg.Labels,
-		Transport: "direct",
+		Mode:      "pull",
 		URL:       "http://" + cfg.Listen,
 		CreatedAt: time.Now().UnixMilli(),
 		Status:    "unknown",
@@ -199,7 +213,7 @@ func (h *Hub) startEmbeddedAgent(ctx context.Context) error {
 		}
 		record.CreatedAt = existing.CreatedAt
 	}
-	if err := h.store.UpsertNode(ctx, record, tokenEnc, nil); err != nil {
+	if err := h.store.UpsertNode(ctx, record, tokenEnc, tokenHash(token)); err != nil {
 		return err
 	}
 	h.log.Info("embedded agent", "node", cfg.NodeID, "addr", cfg.Listen, "config", configPath)

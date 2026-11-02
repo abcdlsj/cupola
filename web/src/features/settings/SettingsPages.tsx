@@ -316,9 +316,9 @@ export function NodesSettingsPage() {
   const update = useUpdateNode();
   const test = useTestNode();
   const remove = useDeleteNode();
-  const [form, setForm] = useState({ id: '', name: '', url: 'http://127.0.0.1:9797', token: '', transport: 'direct', conn: '', labels: '' });
+  const [form, setForm] = useState({ id: '', name: '', url: 'http://127.0.0.1:9797', token: '', mode: 'pull', labels: '' });
   const [editing, setEditing] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', labels: '', url: '', token: '', transport: 'direct', conn: '' });
+  const [editForm, setEditForm] = useState({ name: '', labels: '', url: '', token: '', mode: 'pull' });
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const admin = Boolean(me.data?.admin);
   const now = Date.now();
@@ -331,12 +331,11 @@ export function NodesSettingsPage() {
         name: form.name.trim() || form.id.trim(),
         url: form.url.trim(),
         token: form.token.trim(),
-        transport: form.transport as 'direct' | 'bolthole',
-        conn: form.conn.trim() || undefined,
+        mode: form.mode as 'pull' | 'push',
         labels: form.labels.split(',').map((label) => label.trim()).filter(Boolean),
       });
       setMessage({ kind: 'ok', text: `Node ${form.id} added. The first poll runs within a few seconds.` });
-      setForm({ id: '', name: '', url: 'http://127.0.0.1:9797', token: '', transport: 'direct', conn: '', labels: '' });
+      setForm({ id: '', name: '', url: 'http://127.0.0.1:9797', token: '', mode: 'pull', labels: '' });
     } catch (caught) {
       setMessage({ kind: 'error', text: caught instanceof ApiError ? caught.message : 'The node could not be added.' });
     }
@@ -357,7 +356,7 @@ export function NodesSettingsPage() {
           <Table label="Registered nodes">
             <THead>
               <Th>Node</Th>
-              <Th>Transport</Th>
+              <Th>Mode</Th>
               <Th>Status</Th>
               <Th num>Last seen</Th>
               <Th>Actions</Th>
@@ -369,7 +368,7 @@ export function NodesSettingsPage() {
                     <Link className="row-name" to={`/nodes/${view.node.id}`}>{view.node.name}</Link>
                     <span className="cell-sub fig">{view.node.id}</span>
                   </Td>
-                  <Td cell="field" label="Transport">{view.node.transport}</Td>
+                  <Td cell="field" label="Mode">{view.node.mode}</Td>
                   <Td cell="field" label="Status"><StatusPill status={view.health.status} /></Td>
                   <Td num cell="field" label="Last seen">{relative(view.node.last_seen, now)}</Td>
                   <Td cell="field" label="Actions">
@@ -385,8 +384,7 @@ export function NodesSettingsPage() {
                             labels: view.node.labels.join(', '),
                             url: view.node.url ?? '',
                             token: '',
-                            transport: view.node.transport,
-                            conn: '',
+                            mode: view.node.mode === 'push' ? 'push' : 'pull',
                           });
                           setMessage(null);
                         }}
@@ -443,8 +441,7 @@ export function NodesSettingsPage() {
                     labels: editForm.labels.split(',').map((label) => label.trim()).filter(Boolean),
                     url: editForm.url.trim(),
                     token: editForm.token.trim() || undefined,
-                    transport: editForm.transport as 'direct' | 'bolthole',
-                    conn: editForm.conn.trim() || undefined,
+                    mode: editForm.mode as 'pull' | 'push',
                   },
                 });
                 setMessage({ kind: 'ok', text: `${editForm.name || editing} saved.` });
@@ -464,21 +461,21 @@ export function NodesSettingsPage() {
                 <input className="input input-ui" value={editForm.labels} onChange={(event) => setEditForm({ ...editForm, labels: event.target.value })} />
               </label>
               <label className="form-field">
-                <span>Transport</span>
-                <select className="select" value={editForm.transport} onChange={(event) => setEditForm({ ...editForm, transport: event.target.value })}>
-                  <option value="direct">Direct HTTP</option>
-                  <option value="bolthole">Bolthole relay</option>
+                <span>Mode</span>
+                <select className="select" value={editForm.mode} onChange={(event) => setEditForm({ ...editForm, mode: event.target.value })}>
+                  <option value="pull">Pull (the hub can reach this agent)</option>
+                  <option value="push">Push (the agent reports out)</option>
                 </select>
               </label>
-              {editForm.transport === 'direct' ? (
+              {editForm.mode === 'pull' ? (
                 <label className="form-field">
                   <span>Agent URL</span>
                   <input className="input input-ui" value={editForm.url} onChange={(event) => setEditForm({ ...editForm, url: event.target.value })} required />
                 </label>
               ) : (
                 <label className="form-field">
-                  <span>New connection string (blank keeps the stored one)</span>
-                  <input className="input input-ui" value={editForm.conn} onChange={(event) => setEditForm({ ...editForm, conn: event.target.value })} />
+                  <span>URL is unused in push mode</span>
+                  <input className="input input-ui" value={editForm.url} disabled />
                 </label>
               )}
               <label className="form-field">
@@ -517,21 +514,21 @@ export function NodesSettingsPage() {
                 <input className="input input-ui" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
               </label>
               <label className="form-field">
-                <span>Transport</span>
-                <select className="select" value={form.transport} onChange={(event) => setForm({ ...form, transport: event.target.value })}>
-                  <option value="direct">Direct HTTP</option>
-                  <option value="bolthole">Bolthole relay</option>
+                <span>Mode</span>
+                <select className="select" value={form.mode} onChange={(event) => setForm({ ...form, mode: event.target.value })}>
+                  <option value="pull">Pull (the hub can reach this agent)</option>
+                  <option value="push">Push (the agent reports out)</option>
                 </select>
               </label>
-              {form.transport === 'direct' ? (
+              {form.mode === 'pull' ? (
                 <label className="form-field">
                   <span>Agent URL</span>
                   <input className="input input-ui" value={form.url} onChange={(event) => setForm({ ...form, url: event.target.value })} required />
                 </label>
               ) : (
                 <label className="form-field">
-                  <span>Bolthole connection string</span>
-                  <input className="input input-ui" value={form.conn} onChange={(event) => setForm({ ...form, conn: event.target.value })} required />
+                  <span>URL is unused in push mode</span>
+                  <input className="input input-ui" value={form.url} disabled />
                 </label>
               )}
               <label className="form-field">

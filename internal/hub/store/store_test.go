@@ -36,8 +36,8 @@ func testSnapshot(nodeID string, ts int64) *model.Snapshot {
 func TestNodeAndSnapshotRoundTrip(t *testing.T) {
 	ctx := context.Background()
 	st := openTest(t)
-	node := model.NodeRecord{ID: "atlas", Name: "Atlas", Labels: []string{"prod"}, Transport: "direct", URL: "http://127.0.0.1:1"}
-	if err := st.UpsertNode(ctx, node, []byte("sealed-token"), nil); err != nil {
+	node := model.NodeRecord{ID: "atlas", Name: "Atlas", Labels: []string{"prod"}, Mode: "pull", URL: "http://127.0.0.1:1"}
+	if err := st.UpsertNode(ctx, node, []byte("sealed-token"), "hash-atlas"); err != nil {
 		t.Fatal(err)
 	}
 	got, err := st.GetNode(ctx, "atlas")
@@ -109,7 +109,7 @@ func TestRollupMovesOldSamples(t *testing.T) {
 	ctx := context.Background()
 	st := openTest(t)
 	now := time.Now().UnixMilli()
-	if err := st.UpsertNode(ctx, model.NodeRecord{ID: "atlas", Name: "Atlas"}, nil, nil); err != nil {
+	if err := st.UpsertNode(ctx, model.NodeRecord{ID: "atlas", Name: "Atlas"}, nil, ""); err != nil {
 		t.Fatal(err)
 	}
 	old := now - 49*3600*1000

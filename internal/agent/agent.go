@@ -14,9 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abcdlsj/bolthole"
-	bhagent "github.com/abcdlsj/bolthole/agent"
-
 	"github.com/abcdlsj/cupola/internal/agent/collect"
 	"github.com/abcdlsj/cupola/internal/model"
 	"github.com/abcdlsj/cupola/internal/version"
@@ -235,8 +232,8 @@ func (a *Agent) handleStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Run serves the loopback API and, when configured, exposes it through a
-// Bolthole relay.
+// Run serves the loopback API and, when configured, pushes snapshots to the
+// hub. There is no relay: an agent either waits to be polled or reports out.
 func (a *Agent) Run(ctx context.Context) error {
 	handler := a.Handler()
 	server := &http.Server{
@@ -252,41 +249,20 @@ func (a *Agent) Run(ctx context.Context) error {
 		}
 	}()
 
-	var exposure *bhagent.Agent
-	if a.cfg.Relay.URL != "" {
-		codeFile := a.cfg.Relay.CodeFile
-		if codeFile == "" {
-			codeFile = "~/.config/cupola/agent.code"
-		}
-		code, err := bolthole.LoadOrCreateCode(codeFile)
+	if a.cfg.Push.Enabled && a.cfg.Push.HubURL != "" {
+		pusher, err := newPusher(a)
 		if err != nil {
-			return fmt.Errorf("relay code: %w", err)
+			return err
 		}
-		exposure = bolthole.Expose(a.cfg.Relay.URL, code, handler)
-		conn, err := exposure.ConnString()
-		if err != nil {
-			return fmt.Errorf("relay: %w", err)
-		}
-		// The connection string is a password: stdout for the operator, never the
-		// application log.
-		fmt.Println("relay:", conn)
-		go func() {
-			if err := exposure.Run(ctx); err != nil {
-				errCh <- fmt.Errorf("relay: %w", err)
-			}
-		}()
+		go pusher.Run(ctx)
 	}
 
-	// Register with the hub that issued the join code, now that the listener
-	// and the relay (if any) are up.
+	// Register with the hub that issued the join code, now that the listener is
+	// up. Pull agents advertise their URL; push agents need none.
 	if a.cfg.JoinHub != "" {
-		conn := ""
-		if exposure != nil {
-			conn, _ = exposure.ConnString()
-		}
 		go func() {
 			time.Sleep(300 * time.Millisecond)
-			if err := a.join(ctx, conn); err != nil {
+			if err := a.join(ctx); err != nil {
 				a.log.Warn("join failed", "error", err.Error())
 			}
 		}()

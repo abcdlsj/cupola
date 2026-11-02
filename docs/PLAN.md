@@ -18,8 +18,8 @@ It must be:
   containers, ports, sensors, SMART, GPU, pressure stalls;
 - **better on a phone than most dashboards** — installable PWA, iOS-safe
   layout, touch-first tables, offline last-known state;
-- **usable without a public server** — Bolthole relay is a first-class
-  deployment, not an add-on;
+- **trivial to add a host** — a NATed agent reports out; no inbound port, no
+  relay, no connection string;
 - **read-only by default** — the only write action is an explicitly configured
   local script, never an arbitrary shell.
 
@@ -40,49 +40,46 @@ development only), arbitrary remote command execution.
 One binary, three subcommands. Packages are split by role; Docker images use
 the same binary with different entrypoints.
 
-### 2.2 Transport: pull, with two dialers
+### 2.2 Transport: pull or push, per node
 
-The hub **pulls** each agent. Agents do not need to know where the hub is.
+Each node has a `mode`, chosen by reachability. Full rationale and the wire
+protocol: `docs/design/pull-vs-push.md`.
 
 ```
-hub ── direct HTTP ──────────────▶ agent   (LAN / VPN / public VPS)
-hub ── Bolthole client ──▶ relay ──▶ agent (NAT, CGNAT, homelab)
+pull: hub ── HTTP ──▶ agent        (LAN, same host, VPN, port map, public VPS)
+push: agent ── HTTP ──▶ hub        (NAT, CGNAT, homelab behind a router)
 ```
 
-- `internal/transport.Dialer` returns an HTTP client; implementations `direct`
-  and `bolthole` (Go client).
-- Node transports (URL or connection string, including tokens/codes) are
-  encrypted at rest with a hub key.
-- The agent serves loopback HTTP plus an optional Bolthole exposure.
+- **pull** is the default. The hub dials `GET /v1/snapshot` every 5 s and owns
+  cadence, backoff and the downward channel. Actions and every future
+  hub-initiated call exist only here.
+- **push** is for agents the hub cannot dial. The agent posts the same snapshot
+  to `POST /api/v1/ingest` every 5 s with its agent token; the hub stores the
+  same rows and runs the same pipeline. Push nodes cannot run actions.
+- Both modes end in one function (`processSnapshot`), so events, alert rules,
+  rollups, health and SSE cannot drift.
+- Node tokens are stored encrypted and indexed by SHA-256 so an ingest request
+  can resolve its node without a scan. There is no relay and no second
+  credential type.
 
-Pull wins because the agent stays stateless, the hub controls cadence/backoff,
-and onboarding is “paste a connection string into the hub”.
+Pull wins where it is possible because the hub controls cadence and owns the
+only downward channel; push wins where it is not, because the agent is a
+client and needs no inbound port.
 
 ### 2.3 Dashboard transport
 
-One PWA, two API clients behind one interface:
-
-- `HttpApiClient` — same-origin when the hub serves the UI, or any HTTPS hub.
-- `BoltholeApiClient` — the `bolthole` npm package, for a hub that only exposes
-  itself through a relay. The connection string lives in the URL fragment.
-
-Deployment follows:
-
-1. **Self-hosted:** hub on a VPS/homelab with HTTPS; PWA served by the hub.
-2. **Relay:** hub anywhere, exposed via Bolthole; static PWA on GitHub Pages
-   connects with the dashboard connection string. No inbound port, no public
-   server.
-
-The same PWA build is used in both cases.
+One PWA, one API client: HTTPS to the hub, same-origin when the hub serves the
+UI, or any HTTPS hub with a read token. The hub is expected to have a public
+address; a private hub is reached through the operator's own tunnel
+(Tailscale, WireGuard, Cloudflare Tunnel), not through Cupola code.
 
 ### 2.4 Deployment matrix
 
-| Mode | Hub | Agents | Dashboard | Public server? |
-| --- | --- | --- | --- | --- |
-| VPS / Docker | Docker, public HTTPS | direct or relay | hub URL | yes |
-| Homelab + relay | `cupola hub --relay` | `cupola agent --relay` | static PWA + code | no |
-| All-in-one | `cupola serve` | embedded | localhost or relay | optional |
-| LAN only | `cupola hub` | direct HTTP | `http://hub:8080` | no |
+| Shape | Hub | Agents | Dashboard |
+| --- | --- | --- | --- |
+| VPS / Docker | Docker, public HTTPS | push (NATed hosts) or pull (neighbours) | hub URL |
+| Homelab hub, homelab hosts | LAN | pull | `http://hub:8080` or a tunnel |
+| All-in-one | `cupola serve` | embedded, pull | localhost or tunnel |
 
 ## 3. Metric collection: use libraries
 
@@ -102,7 +99,6 @@ need. The dependency budget is deliberate; these are the chosen libraries.
 | SMART / NVMe health | `github.com/anatol/smart.go` | ATA/NVMe health, temperature, wear; fallback to `smartctl --json` for USB/SAS |
 | SQLite | `modernc.org/sqlite` | pure Go, no CGO |
 | Password hashing | `golang.org/x/crypto/argon2` | admin password |
-| Relay | `github.com/abcdlsj/bolthole` | agent exposure and hub dialer |
 | Process enumeration | `gopsutil/process` + `procfs` | process list; `procfs` only for cgroup/port mapping |
 | AI agent detection | small in-repo registry | no library exists; parse `cmdline`/`exe` basename |
 | Pending updates | `apt`/`dnf` exec, cached | no reliable cross-distro library; opt-in |
@@ -458,7 +454,6 @@ internal/
   hub/                      poller, API, auth, alerts, actions proxy, store
     store/                  schema, migrations, rollups
   model/                    shared types
-  transport/                direct + bolthole dialers
   version/
 web/
   src/{app,features,components,lib,styles}
@@ -478,9 +473,8 @@ docs/
 - systemd units for hub and agent; agent needs read access to `/proc` and
   optional capabilities for SMART/NVML.
 - GitHub Releases static binaries; install script with checksum.
-- Relay quick start: `cupola agent --relay …` prints a connection string;
-  `cupola hub --relay …` prints a dashboard link; static PWA connects with the
-  code in the fragment.
+- Push quick start: `cupola agent --push <hub> --join <hub> --join-code <code>`
+  reports out from behind NAT; `--advertise <url>` keeps the node in pull mode.
 - PWA static build deployed to GitHub Pages; hub embeds the same build.
 
 ## 14. Security and repository hygiene
@@ -509,14 +503,10 @@ docs/
 3. **Linux host `beelink`** over SSH: build `linux/amd64`, install agent, run a
    hub locally or on the host; verify CPU/mem/disk/net/PSI/processes/AI roster/
    systemd/containers/sensors/SMART/GPU as available; install the PWA on a
-   phone and test over relay.
-4. Relay: local Bolthole relay first; then optionally Cloudflare Worker.
-5. **Cloudflare Worker:** allowed, but the route constraint is ambiguous
-   (“2 个纯数字域名”). Ask the user for the exact zone and two-digit
-   subdomain before creating a route. Prefer `wrangler dev`; if deployed,
-   delete the Worker, route and DNS record afterwards. Never commit
-   `wrangler.toml` account IDs, API tokens or `.dev.vars`.
-6. WOL: if the target LAN and MAC are available, verify wake end-to-end; do not
+   phone.
+4. Push: an agent in push mode reports from a host the hub cannot dial; ingest
+   rejects a replayed sequence and an action run on that node returns 409.
+5. WOL: if the target LAN and MAC are available, verify wake end-to-end; do not
    commit the MAC/broadcast.
 
 ## 16. Milestones
@@ -528,7 +518,7 @@ docs/
 | M2 | Hub: SQLite, poller, history API, events, auth/tokens, URL routes | 3 d |
 | M3 | UI: all screens, charts, processes, agents, apps, mobile/PWA | 4 d |
 | M4 | Services/containers/ports/sensors/GPU/SMART, alerts + webhook event rules, action audit | 3 d |
-| M5 | Relay, Docker, systemd, GitHub Pages, docs, Linux/beelink verification | 2 d |
+| M5 | Push mode, Docker, systemd, GitHub Pages, docs, Linux/beelink verification | 2 d |
 
 M0 is approved. The user asked for continuous delivery: implement M1–M5 end to
 end without intermediate approval, then a single unified acceptance. Each
@@ -544,7 +534,8 @@ Keep `/nodes` as the table (option A).
 - Event webhook rule fires and can be tested.
 - Every object/view has a URL; copy link works; back/forward works on iOS.
 - PWA installs on iOS Safari and Android Chrome; offline shows last state.
-- Relay mode works with no inbound ports.
+- Push mode works with no inbound port on the agent and no relay process;
+  pull nodes still run actions.
 - Docker compose and systemd units documented and tested.
 - Taste-skill `inspect --app`: 0 FAIL at 390/768/1440.
 - `go test ./...`, frontend tests and build pass.

@@ -15,9 +15,9 @@ import (
 )
 
 // join registers this agent with the hub that issued the code: it sends the
-// advertised URL (or the relay connection string) and the agent token, then
+// mode, the advertised URL when it can be polled, and the agent token, then
 // prints the node's URL so the operator can jump back to the dashboard.
-func (a *Agent) join(ctx context.Context, connString string) error {
+func (a *Agent) join(ctx context.Context) error {
 	if a.cfg.JoinHub == "" || a.cfg.JoinCode == "" {
 		return nil
 	}
@@ -26,18 +26,19 @@ func (a *Agent) join(ctx context.Context, connString string) error {
 			return nil
 		}
 	}
+	mode := "push"
+	if a.cfg.JoinAdvertise != "" || !a.cfg.Push.Enabled {
+		mode = "pull"
+	}
 	payload := map[string]any{
 		"code":          a.cfg.JoinCode,
 		"token":         a.token,
+		"mode":          mode,
 		"os":            runtime.GOOS,
 		"arch":          runtime.GOARCH,
 		"agent_version": version.Version,
 	}
-	if connString != "" {
-		payload["transport"] = "bolthole"
-		payload["conn"] = connString
-	} else {
-		payload["transport"] = "direct"
+	if mode == "pull" {
 		payload["url"] = a.cfg.JoinAdvertise
 	}
 	body, _ := json.Marshal(payload)

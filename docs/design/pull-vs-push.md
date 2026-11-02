@@ -1,6 +1,6 @@
 # Transport design: pull vs push
 
-Status: decided. Supersedes PLAN §2.2 ("pull, with two dialers") and removes
+Status: implemented. Supersedes PLAN §2.2 ("pull, with two dialers") and removes
 Bolthole from v1.
 
 ## 1. Decision
@@ -121,7 +121,7 @@ Rules:
 | --- | --- | --- |
 | `internal/hub/store/migrations/00X_push.sql` | `nodes.mode TEXT NOT NULL DEFAULT 'pull'`, `nodes.token_hash TEXT UNIQUE`, `nodes.last_seq INTEGER NOT NULL DEFAULT 0`, `nodes.agent_ts INTEGER NOT NULL DEFAULT 0`; Go migration hook backfills `token_hash` by decrypting `token_enc` with the hub key, then drops `conn_enc` | 60 |
 | `internal/agent/push.go` | `Pusher`: interval with ±10 % jitter, gzip, token auth, `seq`, in-memory last snapshot, exponential backoff 5 s → 60 s, honours `next_poll_sec` | 300 |
-| `internal/hub/ingest.go` | `POST /api/v1/ingest`: token-hash lookup, size cap, rate limit (1/s per node), `seq` check, then `pipeline.processSnapshot` | 250 |
+| `internal/hub/ingest.go` | `POST /api/v1/ingest`: token-hash lookup, size cap, rate limit (10/s per node), `seq` check, then `pipeline.processSnapshot` | 250 |
 | `internal/hub/pipeline.go` | `processSnapshot(ctx, node, snap, actions)` extracted verbatim from `pollNode`: save, meta, status, offline transition, `diffEvents`, `evaluateMetricRules`, bus, health, plus the new janitor-facing offline path | 150 (moved) |
 | `internal/hub/poller.go` | Only polls `mode='pull'`; adds real exponential backoff (5 s doubling to 5 min, reset on success) | −50 net |
 | `internal/hub/janitor.go` | Single loop: `last_seen` older than 3 × that node's expected interval → `offline` + critical event; back → "reporting again". Replaces the `failures` map for both modes | 80 |
@@ -200,7 +200,7 @@ Removal list:
 ## 8. Effects on API, storage and the PWA
 
 - **New public write surface**: `POST /api/v1/ingest`, bearer agent token,
-  gzip, 1 MiB cap, 1/s per node, no redirects, not reachable by API tokens
+  gzip, 1 MiB cap, 10/s per node, no redirects, not reachable by API tokens
   (agent tokens only). Add to `docs/API.md` as its own section and to the
   security review.
 - **Storage**: 3 columns added, 1 dropped (`conn_enc`); no new table. Rollups,
@@ -221,3 +221,21 @@ Removal list:
    push slightly bidirectional in spirit; not needed while push has no actions.
 3. Node onboarding copy: push nodes only need "hub URL + token", so the join
    code flow becomes the primary path and manual URL entry the fallback.
+
+## 10. As built
+
+Deviations from the plan above, all deliberate:
+
+- The offline janitor lives in `poller.sweepOffline` (same ticker, both modes)
+  rather than a separate `janitor.go` file; `last_seen` is the only liveness
+  signal and `poller.markFailure` is gone.
+- The pipeline is a method on `*poller` (`pipeline.go`), because the puller also
+  owns the per-node backoff state that both modes reset.
+- The ingest rate limit is 10 samples/second per node, not 1: a retry burst
+  after a brief hop failure is normal, and the `seq` check is the real
+  duplicate guard.
+- `nodes.conn_enc` is left in the schema as a dead column instead of a table
+  rebuild; `mode` supersedes the old `transport` values and the migration maps
+  `bolthole` rows to `push`.
+- The node form keeps one field for the token; the mode selector replaces the
+  old transport selector, and the URL field is disabled in push mode.

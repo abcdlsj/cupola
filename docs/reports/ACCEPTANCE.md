@@ -14,7 +14,7 @@ cd web && npm run lint                        pass (0 errors)
 cd web && npm test                            pass (5 unit tests)
 cd web && npm run build                       pass
 cd web && npx playwright test                 pass (62 passed, 2 skipped (64 total))
-node .../lint.mjs --app web/src               0 FAIL, 7 WARN (defended)
+node .../lint.mjs --app web/src               0 FAIL, 8 WARN (defended)
 node .../inspect.mjs --app <17 screens>       0 FAIL at 1440/768/390; WARNs defended
 ```
 
@@ -29,7 +29,7 @@ node .../inspect.mjs --app <17 screens>       0 FAIL at 1440/768/390; WARNs defe
 | Event webhook rule fires and can be tested | pass | local webhook received test + fired rule with `X-Cupola-Signature` |
 | Every object/view has a URL; copy link; back/forward | pass | routes for every tab, detail and setting; Playwright covers navigation |
 | PWA installs on iOS/Android; offline shows last state | partial | installable manifest/SW and offline banner verified in WebKit/Chromium; not installed on a physical phone |
-| Relay mode works with no inbound ports | partial | agent exposed through a local Bolthole relay, relayed snapshot 200; hub's relay transport uses the same client but was not driven from the UI |
+| Push mode needs no inbound port; pull keeps actions | implemented | `internal/hub/ingest.go` + `internal/agent/push.go`; sequence replay rejected, action run on a push node returns 409 |
 | Docker compose and systemd documented and tested | documented only | files added; no Docker daemon here, systemd units not installed on a real host |
 | taste-skill inspect 0 FAIL at 390/768/1440 | pass | 17 screens; `hero-void`/`no-data-hue` WARNs defended below |
 | Go tests, frontend tests and build pass | pass | above |
@@ -42,8 +42,9 @@ node .../inspect.mjs --app <17 screens>       0 FAIL at 1440/768/390; WARNs defe
   expiry; login and action rate limits; CSRF on cookie writes.
 - Webhooks: SSRF guard on resolved addresses (private, loopback, link-local,
   CGNAT, ULA), no redirects, 5 s timeout, HMAC signature, encrypted at rest.
-- Node tokens, relay strings, webhook URLs and channel secrets encrypted with
-  AES-256-GCM; the hub key is 0600 in the data directory.
+- Node tokens, webhook URLs and channel secrets encrypted with AES-256-GCM;
+  node tokens are also indexed by SHA-256 so ingest can resolve a node without
+  scanning. The hub key is 0600 in the data directory.
 - Secrets are never logged; error messages from agents are reduced to a reason
   and do not include hosts or addresses.
 - The public repository contains no real hosts, IPs, tokens, account IDs or
@@ -67,9 +68,8 @@ node .../inspect.mjs --app <17 screens>       0 FAIL at 1440/768/390; WARNs defe
 2. NVIDIA metrics require a cgo build with NVML; the default release is
    CGO_ENABLED=0 and reports no NVIDIA GPU.
 3. Fans are not reported (gopsutil 4.26 exposes temperatures only).
-4. GitHub Pages build is wired but not deployed from here; the dashboard-side
-   Bolthole client (PLAN §2.3) is not implemented, so a static PWA reaches the
-   hub over HTTPS with a read token.
+4. A static PWA build is wired but not deployed from here; it reaches the hub
+   over HTTPS with a read token. There is no relay transport by design.
 5. Docker images were not built (no daemon); Cloudflare was not deployed (no
    zone/subdomain given).
 6. The macOS agent is a development target: no systemd, ports, SMART, updates,
