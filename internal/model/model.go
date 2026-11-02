@@ -19,6 +19,7 @@ type Snapshot struct {
 	Ports    []Port            `json:"ports"`
 	Services []Service         `json:"services"`
 	Containers []Container     `json:"containers"`
+	Images     []Image         `json:"images"`
 	Sensors  []Sensor          `json:"sensors"`
 	GPUs     []GPU             `json:"gpus"`
 	SMART    []SMARTDevice     `json:"smart"`
@@ -194,6 +195,19 @@ type Container struct {
 	MemLimit   uint64  `json:"mem_limit"`
 	Restarts   int     `json:"restarts"`
 	Ports      []string `json:"ports"`
+}
+
+// Image is one entry of the Docker image cache. Size counts every layer the
+// image is built from; SharedSize is the part other images use too, so the
+// bytes this image costs on disk are Size - SharedSize.
+type Image struct {
+	ID         string `json:"id"`
+	RepoTag    string `json:"repo_tag"`
+	Size       int64  `json:"size"`
+	SharedSize int64  `json:"shared_size"`
+	Containers int64  `json:"containers"`
+	Dangling   bool   `json:"dangling"`
+	CreatedAt  int64  `json:"created_at"`
 }
 
 type Sensor struct {

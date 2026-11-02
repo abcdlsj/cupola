@@ -46,6 +46,11 @@ test.describe('nodes', () => {
     await page.getByRole('link', { name: 'jellyfin.service' }).click();
     await expect(page).toHaveURL(/\/nodes\/studio\/services\/jellyfin/);
     await page.goto('/nodes/studio/containers');
+    // The images chart ranks what the image cache holds down on disk.
+    const images = page.locator('.panel', { has: page.getByRole('heading', { name: 'Images' }) });
+    await expect(images.locator('.image-row')).toHaveCount(3);
+    await expect(images).toContainText('ollama/ollama:0.5.4');
+    await expect(images.locator('.image-row').first().locator('.bar-value')).toContainText('GB');
     await page.getByRole('link', { name: 'ollama' }).click();
     await expect(page).toHaveURL(/\/nodes\/studio\/containers\//);
   });
@@ -224,6 +229,22 @@ test.describe('keyboard and shell', () => {
     await expect(page.locator('.palette-item', { hasText: 'beelink' })).toBeVisible();
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/nodes\/beelink$/);
+  });
+
+  test('the installed app pins the shell to the screen edges', async ({ page, viewport }) => {
+    await page.goto('/nodes');
+    const size = page.viewportSize();
+    if (!size || (viewport?.width ?? 1440) > 640) test.skip(true, 'the standalone pin is a mobile layout');
+    // iOS sets this from theme-init.js when it launches the home-screen app.
+    await page.evaluate(() => {
+      document.documentElement.dataset.standalone = '';
+    });
+    const shell = await page.locator('.shell').boundingBox();
+    expect(shell).not.toBeNull();
+    expect(Math.round(shell!.y)).toBe(0);
+    expect(Math.round(shell!.height)).toBe(size!.height);
+    const bar = await page.locator('.bottom-bar').boundingBox();
+    expect(Math.round(bar!.y + bar!.height)).toBe(size!.height);
   });
 
   test('phone shows the bottom bar, desktop shows the rail', async ({ page, viewport }) => {

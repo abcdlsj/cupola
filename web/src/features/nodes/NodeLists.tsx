@@ -18,7 +18,7 @@ import { Kv } from '../../components/Kv';
 import { RunActionDialog } from '../apps/RunActionDialog';
 import { useActions, useNode, useRuns } from '../../data/queries';
 import { agentTypeInfo } from '../../data/registry';
-import type { Action, AgentSession, NodeView, ProcessInfo } from '../../data/types';
+import type { Action, AgentSession, DockerImage, NodeView, ProcessInfo } from '../../data/types';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 
@@ -364,12 +364,62 @@ export function ServiceDetailPage() {
   );
 }
 
+const IMAGE_ROWS = 8;
+
+/**
+ * Docker images ranked by size. The bar is the image's own size (every layer it
+ * is built from, so shared layers count once per image); the header figure is
+ * the bytes those images actually hold on disk, where each layer counts once.
+ */
+function ImageChart({ images }: { images: DockerImage[] }) {
+  const ranked = [...images].sort((a, b) => b.size - a.size);
+  const top = ranked.slice(0, IMAGE_ROWS);
+  const rest = ranked.slice(IMAGE_ROWS);
+  const largest = top[0]?.size || 1;
+  const onDisk = images.reduce((sum, image) => sum + Math.max(0, image.size - image.shared_size), 0);
+  const restBytes = rest.reduce((sum, image) => sum + image.size, 0);
+  return (
+    <Panel
+      title="Images"
+      meta={`${images.length} images · ${size(onDisk)} on disk`}
+      flush
+    >
+      {images.length === 0 ? (
+        <Empty>The image list is empty or the Docker socket is not readable by the agent.</Empty>
+      ) : (
+        <div className="bar-list image-bars">
+          {top.map((image) => (
+            <div className="bar-row image-row" key={image.id}>
+              <span className="bar-label image-label" title={`${image.repo_tag} · ${image.containers} containers · ${image.id}`}>
+                {image.repo_tag}
+              </span>
+              <span className="bar-track">
+                <span className="bar-fill" style={{ width: `${Math.max(2, (image.size / largest) * 100)}%` }} />
+              </span>
+              <span className="bar-value fig">{size(image.size)}</span>
+            </div>
+          ))}
+          {rest.length > 0 ? (
+            <div className="bar-row image-row" key="rest">
+              <span className="bar-label image-label">{rest.length} more</span>
+              <span className="bar-track" />
+              <span className="bar-value fig">{size(restBytes)}</span>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 export function ContainersPage() {
   const view = useSnap();
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
   if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
   return (
+    <>
+    <ImageChart images={snap.images ?? []} />
     <Panel title="Containers" meta={`${snap.containers.length} containers`} flush>
       {snap.containers.length === 0 ? (
         <Empty>No container or the Docker socket is not readable by the agent.</Empty>
@@ -416,6 +466,7 @@ export function ContainersPage() {
         </Table>
       )}
     </Panel>
+    </>
   );
 }
 

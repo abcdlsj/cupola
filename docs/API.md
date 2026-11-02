@@ -32,7 +32,7 @@ agent token from `agent.token` (0600). There is no write route except actions.
 | GET | `/v1/processes` | `{ts, processes}` |
 | GET | `/v1/agents` | `{ts, agents}` |
 | GET | `/v1/services` | `{ts, services}` |
-| GET | `/v1/containers` | `{ts, containers}` |
+| GET | `/v1/containers` | `{ts, containers, images}` |
 | GET | `/v1/ports` | `{ts, ports}` |
 | GET | `/v1/actions` | `{actions}` — never script paths, MACs or broadcasts |
 | POST | `/v1/actions/{id}/run` | `{run_id, exit_code, duration_ms, stdout, stderr, truncated}` |
@@ -85,6 +85,9 @@ agent token from `agent.token` (0600). There is no write route except actions.
                    "cpu_percent": 12.4, "mem_bytes": 1929379840,
                    "mem_limit": 8589934592, "restarts": 0,
                    "ports": ["0.0.0.0:8096->8096/tcp"]}],
+  "images": [{"id": "9d3f21ac4b8e", "repo_tag": "jellyfin/jellyfin:10.10.3",
+              "size": 1237319680, "shared_size": 650117120, "containers": 1,
+              "dangling": false, "created_at": 1793000000000}],
   "sensors": [{"chip": "k10temp", "label": "CPU package", "kind": "temperature",
                 "value": 48, "unit": "°C"}],
   "gpus": [{"index": 0, "vendor": "nvidia", "name": "RTX 4080", "util_percent": 38,
@@ -125,7 +128,7 @@ session.
 | POST | `/nodes/{id}/test` | polls once and reports the result |
 | GET | `/nodes/{id}/snapshot` | latest snapshot |
 | GET | `/nodes/{id}/series?metric=&range=` | min/avg/max points; `range` is `1h`, `6h`, `24h`, `7d`, `30d`, `13mo`, or `from`/`to` RFC 3339 |
-| GET | `/nodes/{id}/{processes,agents,services,containers,ports}` | from the latest snapshot |
+| GET | `/nodes/{id}/{processes,agents,services,containers,ports}` | from the latest snapshot; `containers` also carries `images` |
 | GET | `/nodes/{id}/actions` | advertised actions |
 | POST | `/nodes/{id}/actions/{action}/run` | `read`+`actions:run`; agent `allow_api` and allowlists apply |
 | GET | `/nodes/{id}/action-runs`, `/action-runs` | audit rows |

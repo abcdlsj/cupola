@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 
 	"github.com/abcdlsj/cupola/internal/model"
@@ -16,12 +17,13 @@ import (
 // collectContainers uses the official Docker client over the unix socket.
 // Podman works through its Docker-compatible socket (DOCKER_HOST). The Docker
 // socket is root-equivalent; docs/DEPLOY.md says so.
-func (c *Collector) collectContainers(ctx context.Context, out *[]model.Container, warn func(string, error)) {
+func (c *Collector) collectContainers(ctx context.Context, out *[]model.Container, images *[]model.Image, warn func(string, error)) {
 	if !c.opts.Docker {
 		return
 	}
 	if time.Since(c.containersAt) < 15*time.Second {
 		*out = append(*out, c.containers...)
+		*images = append(*images, c.images...)
 		return
 	}
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -77,7 +79,51 @@ func (c *Collector) collectContainers(ctx context.Context, out *[]model.Containe
 	c.containerPids = pids
 	c.containers = containers
 	c.containersAt = time.Now()
+	*images = append(*images, c.collectImages(ctx, cli, warn)...)
 	*out = append(*out, containers...)
+}
+
+// collectImages lists the image cache. The list is slower than the container
+// list on a big host, so it is cached for a minute; the disk cost does not move
+// between two five-second polls anyway.
+func (c *Collector) collectImages(ctx context.Context, cli *client.Client, warn func(string, error)) []model.Image {
+	if time.Since(c.imagesAt) < time.Minute {
+		return c.images
+	}
+	list, err := cli.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		c.dockerWarning(warn, err)
+		return c.images
+	}
+	c.images = imagesFrom(list)
+	c.imagesAt = time.Now()
+	return c.images
+}
+
+// imagesFrom maps the Docker client's summaries to the snapshot rows. It is
+// separate from the client so the mapping is testable without a daemon.
+func imagesFrom(list []image.Summary) []model.Image {
+	out := make([]model.Image, 0, len(list))
+	for _, item := range list {
+		repoTag := "<none>"
+		if len(item.RepoTags) > 0 && item.RepoTags[0] != "" {
+			repoTag = item.RepoTags[0]
+		}
+		containers := item.Containers
+		if containers < 0 {
+			containers = 0
+		}
+		out = append(out, model.Image{
+			ID:         shortID(strings.TrimPrefix(item.ID, "sha256:")),
+			RepoTag:    repoTag,
+			Size:       item.Size,
+			SharedSize: item.SharedSize,
+			Containers: containers,
+			Dangling:   repoTag == "<none>",
+			CreatedAt:  item.Created * 1000,
+		})
+	}
+	return out
 }
 
 func (c *Collector) dockerWarning(warn func(string, error), err error) {

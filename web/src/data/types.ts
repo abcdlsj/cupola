@@ -199,6 +199,17 @@ export interface Container {
   ports: string[];
 }
 
+/** One Docker image: what it weighs and how much of that is shared. */
+export interface DockerImage {
+  id: string;
+  repo_tag: string;
+  size: number;
+  shared_size: number;
+  containers: number;
+  dangling: boolean;
+  created_at: number;
+}
+
 export interface Sensor {
   chip: string;
   label: string;
@@ -253,6 +264,7 @@ export interface Snapshot {
   ports: PortInfo[];
   services: Service[];
   containers: Container[];
+  images?: DockerImage[];
   sensors: Sensor[];
   gpus: GPU[];
   smart: SMARTDevice[];

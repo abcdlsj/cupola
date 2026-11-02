@@ -297,7 +297,7 @@ func (h *Hub) handleNodePart(part string) http.Handler {
 		case "services":
 			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "services": snap.Services})
 		case "containers":
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "containers": snap.Containers})
+			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "containers": snap.Containers, "images": snap.Images})
 		case "ports":
 			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "ports": snap.Ports})
 		default:

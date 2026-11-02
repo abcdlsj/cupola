@@ -157,6 +157,7 @@ func (d *demo) build() *model.Snapshot {
 	snap.Agents = []model.AgentSession{}
 	snap.Services = []model.Service{}
 	snap.Containers = []model.Container{}
+	snap.Images = []model.Image{}
 	snap.Sensors = []model.Sensor{}
 	snap.GPUs = []model.GPU{}
 	snap.SMART = []model.SMARTDevice{}
@@ -202,6 +203,12 @@ func (d *demo) build() *model.Snapshot {
 		snap.Network = []model.NetStats{{Iface: "enp1s0", Up: true, RxBps: 7_800_000, TxBps: 1_850_000, SpeedMbps: 1000, Driver: "r8169"}}
 		snap.Services = []model.Service{{Name: "jellyfin.service", Description: "Jellyfin media server", ActiveState: "active", SubState: "running", Enabled: "enabled"}, {Name: "docker.service", Description: "Docker", ActiveState: "active", SubState: "running", Enabled: "enabled"}}
 		snap.Containers = []model.Container{{ID: "c11a9d3e8f21", Name: "jellyfin", Image: "jellyfin/jellyfin:10.10.3", State: "running", Status: "Up 3 days", UptimeSec: 260000, CPUPercent: 12.4, MemBytes: 1_840 << 20, MemLimit: 8 << 30, Ports: []string{"0.0.0.0:8096->8096/tcp"}}}
+		snap.Images = []model.Image{
+			{ID: "9d3f21ac4b8e", RepoTag: "jellyfin/jellyfin:10.10.3", Size: 1_180 << 20, SharedSize: 620 << 20, Containers: 1, CreatedAt: now - 21*24*3600*1000},
+			{ID: "4c81be07a2dd", RepoTag: "postgres:16-alpine", Size: 402 << 20, SharedSize: 388 << 20, Containers: 1, CreatedAt: now - 96*24*3600*1000},
+			{ID: "b20e4a55c9f1", RepoTag: "traefik:v3.2", Size: 268 << 20, SharedSize: 210 << 20, Containers: 1, CreatedAt: now - 40*24*3600*1000},
+			{ID: "77ba11c0d3a4", RepoTag: "ghcr.io/immich-app/immich-server:v1.120.3", Size: 1_640 << 20, SharedSize: 900 << 20, Containers: 1, CreatedAt: now - 12*24*3600*1000},
+		}
 		snap.Ports = []model.Port{{Proto: "tcp", Address: "0.0.0.0", Port: 8096, State: "LISTEN", PID: 1102, Process: "docker-proxy"}, {Proto: "tcp", Address: "0.0.0.0", Port: 22, State: "LISTEN", PID: 900, Process: "sshd"}}
 		snap.Sensors = []model.Sensor{{Chip: "k10temp", Label: "CPU package", Kind: "temperature", Value: 48, Unit: "°C"}, {Chip: "nvme", Label: "NVMe composite", Kind: "temperature", Value: 39, Unit: "°C"}}
 		snap.SMART = []model.SMARTDevice{{Device: "/dev/nvme0n1", Model: "Samsung SSD 980 PRO 1TB", Type: "nvme", Health: "passed", TemperatureC: 39, WearPercent: 2, PowerOnHours: 8210}}
@@ -234,6 +241,11 @@ func (d *demo) build() *model.Snapshot {
 		snap.Network = []model.NetStats{{Iface: "enp5s0", Up: true, RxBps: 23_000_000, TxBps: 5_320_000, SpeedMbps: 2500, Driver: "r8169"}}
 		snap.Services = []model.Service{{Name: "ssh.service", Description: "OpenSSH Daemon", ActiveState: "active", SubState: "running", Enabled: "enabled"}, {Name: "jellyfin.service", Description: "Jellyfin", ActiveState: "failed", SubState: "failed", Enabled: "enabled", Restarts: 4}}
 		snap.Containers = []model.Container{{ID: "c92b1f7a3d40", Name: "ollama", Image: "ollama/ollama:0.5.4", State: "restarting", Status: "Restarting (137) 12 seconds ago", UptimeSec: 30, CPUPercent: 34.6, MemBytes: 4_910 << 20, MemLimit: 16 << 30, Restarts: 4}}
+		snap.Images = []model.Image{
+			{ID: "ac30b7e1f902", RepoTag: "ollama/ollama:0.5.4", Size: 4_920 << 20, SharedSize: 3_100 << 20, Containers: 1, CreatedAt: now - 6*24*3600*1000},
+			{ID: "1f70c9a4b21c", RepoTag: "ghcr.io/ggerganov/llama.cpp:server-cuda", Size: 3_210 << 20, SharedSize: 2_640 << 20, Containers: 0, CreatedAt: now - 30*24*3600*1000},
+			{ID: "5c2e88b0aa37", RepoTag: "<none>", Size: 890 << 20, SharedSize: 0, Containers: 0, Dangling: true, CreatedAt: now - 9*24*3600*1000},
+		}
 		snap.Ports = []model.Port{{Proto: "tcp", Address: "127.0.0.1", Port: 11434, State: "LISTEN", PID: 39221, Process: "ollama"}, {Proto: "tcp", Address: "127.0.0.1", Port: 5173, State: "LISTEN", PID: 47210, Process: "node"}}
 		snap.Sensors = []model.Sensor{{Chip: "k10temp", Label: "CPU package", Kind: "temperature", Value: 74, Unit: "°C"}, {Chip: "amdgpu", Label: "GPU edge", Kind: "temperature", Value: 61, Unit: "°C"}, {Chip: "nvme", Label: "NVMe composite", Kind: "temperature", Value: 52, Unit: "°C"}}
 		snap.GPUs = []model.GPU{{Index: 0, Vendor: "nvidia", Name: "NVIDIA GeForce RTX 4080", UtilPercent: 38, MemUsed: 6 << 30, MemTotal: 16 << 30, TempC: 61, PowerW: 120, PowerLimitW: 320}}

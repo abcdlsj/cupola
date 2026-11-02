@@ -1923,14 +1923,27 @@
   }
 }
 
-/* In the installed iOS app 100dvh comes up short of the screen (by the status
-   bar), leaving a strip under the bottom bar. Pin the shell to the screen
-   edges instead; the browser tab keeps the 100dvh shell. */
+/* In the installed app 100dvh comes up short of the screen by the bottom safe
+   area, which leaves a strip of ground under the bottom bar. Pin the shell to
+   the real screen edges instead; the bar keeps env(safe-area-inset-bottom) as
+   padding, so its labels stay above the home indicator and its background runs
+   to the edge. The attribute is set from theme-init.js because iOS does not
+   always match the display-mode query; both selectors are kept. */
+@media (max-width: 640px) {
+  html[data-standalone] .shell {
+    position: fixed;
+    inset: 0;
+    height: auto;
+    min-height: 0;
+  }
+}
+
 @media (max-width: 640px) and (display-mode: standalone) {
   .shell {
     position: fixed;
     inset: 0;
     height: auto;
+    min-height: 0;
   }
 }
 
@@ -2311,6 +2324,25 @@
   font-size: 13px;
   text-align: right;
   color: var(--muted);
+}
+
+/* Docker images: the reference is the label, so the column is wider and
+   truncated; the track keeps the same weight as the per-core bars. */
+.image-row {
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 76px;
+}
+
+.image-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+@media (max-width: 480px) {
+  .image-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 64px;
+  }
 }
 
 .form {

@@ -61,6 +61,8 @@ type Collector struct {
 	servicesAt time.Time
 	containers []model.Container
 	containersAt time.Time
+	images     []model.Image
+	imagesAt   time.Time
 	ports      []model.Port
 	portsAt    time.Time
 	sensors    []model.Sensor
@@ -164,7 +166,7 @@ func (c *Collector) Snapshot(ctx context.Context) (*model.Snapshot, error) {
 	snap.Agents = c.collectAgents(snap.Processes, now)
 	c.collectPorts(&snap.Ports, warn)
 	c.collectServices(&snap.Services, warn)
-	c.collectContainers(ctx, &snap.Containers, warn)
+	c.collectContainers(ctx, &snap.Containers, &snap.Images, warn)
 	c.collectSensors(&snap.Sensors, warn)
 	c.collectGPUs(&snap.GPUs, warn)
 	c.collectSMART(&snap.SMART, warn)
