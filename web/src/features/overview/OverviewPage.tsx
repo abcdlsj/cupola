@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Power } from '@phosphor-icons/react';
@@ -127,29 +128,29 @@ export function OverviewPage() {
       <div className="kpi-row" data-count="4">
         <div className="kpi-cell">
           <div className="kpi-label">Boxes</div>
-          <div className="kpi-value">{nodes.length}</div>
+          <div className="kpi-value"><Fig>{nodes.length}</Fig></div>
           <div className="kpi-sub">{needAttention} {needAttention === 1 ? 'needs' : 'need'} attention</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Agent sessions</div>
-          <div className="kpi-value">{sessions}</div>
+          <div className="kpi-value"><Fig>{sessions}</Fig></div>
           <div className="kpi-sub">across the fleet</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Apps</div>
-          <div className="kpi-value">{appCount}</div>
+          <div className="kpi-value"><Fig>{appCount}</Fig></div>
           <div className="kpi-sub">configured actions</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Findings</div>
-          <div className="kpi-value">{attention.length}</div>
-          <div className="kpi-sub">warnings in the last 24 h</div>
+          <div className="kpi-value"><Fig>{attention.length}</Fig></div>
+          <div className="kpi-sub">{attention.length === 1 ? 'warning' : 'warnings'} in the last 24 h</div>
         </div>
       </div>
 
       <div className="row">
         <div className="span-5">
-          <Panel title="Attention" meta={`${attention.length} findings`} flush>
+          <Panel title="Attention" meta={attention.length === 1 ? '1 finding' : `${attention.length} findings`} flush>
             {attention.length === 0 ? (
               <Empty>Nothing needs attention. Units, containers, disks and thresholds are quiet.</Empty>
             ) : (

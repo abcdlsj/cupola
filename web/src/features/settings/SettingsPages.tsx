@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { useState } from 'react';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
 import { PageHeader, Panel } from '../../components/Panel';
@@ -855,11 +856,11 @@ export function RetentionSettingsPage() {
         {settings.data ? (
           <div className="panel-body">
             <dl className="kv">
-              <div className="kv-row"><dt>Raw samples</dt><dd>{settings.data.retention_raw_hours} h at the poll interval</dd></div>
-              <div className="kv-row"><dt>1-minute rollups</dt><dd>{settings.data.retention_minute_days} days</dd></div>
-              <div className="kv-row"><dt>1-hour rollups</dt><dd>{settings.data.retention_hour_months} months</dd></div>
-              <div className="kv-row"><dt>Events and action runs</dt><dd>90 days</dd></div>
-              <div className="kv-row"><dt>Poll interval</dt><dd>{settings.data.poll_interval_sec} s</dd></div>
+              <div className="kv-row"><dt>Raw samples</dt><dd><Fig>{settings.data.retention_raw_hours} h at the poll interval</Fig></dd></div>
+              <div className="kv-row"><dt>1-minute rollups</dt><dd><Fig>{settings.data.retention_minute_days} days</Fig></dd></div>
+              <div className="kv-row"><dt>1-hour rollups</dt><dd><Fig>{settings.data.retention_hour_months} months</Fig></dd></div>
+              <div className="kv-row"><dt>Events and action runs</dt><dd><Fig>90 days</Fig></dd></div>
+              <div className="kv-row"><dt>Poll interval</dt><dd><Fig>{settings.data.poll_interval_sec} s</Fig></dd></div>
               <div className="kv-row"><dt>Data directory</dt><dd className="fig">{settings.data.data_dir}</dd></div>
             </dl>
           </div>

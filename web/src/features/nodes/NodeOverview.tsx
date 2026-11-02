@@ -1,3 +1,4 @@
+import { Fig } from '../../components/Fig';
 import { useMemo, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
@@ -47,33 +48,33 @@ export function NodeOverview() {
       <div className="kpi-row" data-count="5">
         <div className="kpi-cell">
           <div className="kpi-label">CPU</div>
-          <div className="kpi-value">{percent(snap.cpu.percent)}</div>
+          <div className="kpi-value"><Fig>{percent(snap.cpu.percent)}</Fig></div>
           <div className="kpi-sub">
             load {snap.cpu.load1.toFixed(2)} · {snap.node.cores} cores
           </div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Memory</div>
-          <div className="kpi-value">{size(snap.memory.used)}</div>
+          <div className="kpi-value"><Fig>{size(snap.memory.used)}</Fig></div>
           <div className="kpi-sub">
             of {size(snap.memory.total)} · {percent(snap.memory.used_percent)}
           </div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Root disk</div>
-          <div className="kpi-value">{rootDisk ? percent(rootDisk.used_pct) : '—'}</div>
+          <div className="kpi-value"><Fig>{rootDisk ? percent(rootDisk.used_pct) : '—'}</Fig></div>
           <div className="kpi-sub">
             {rootDisk ? `${size(rootDisk.used)} of ${size(rootDisk.total)}` : 'no disk mounted'}
           </div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Network</div>
-          <div className="kpi-value">{netRate(netRx)}</div>
+          <div className="kpi-value"><Fig>{netRate(netRx)}</Fig></div>
           <div className="kpi-sub">rx · {netRate(netTx)} tx</div>
         </div>
         <div className="kpi-cell">
           <div className="kpi-label">Uptime</div>
-          <div className="kpi-value">{uptime(snap.node.uptime_sec)}</div>
+          <div className="kpi-value"><Fig>{uptime(snap.node.uptime_sec)}</Fig></div>
           <div className="kpi-sub">
             {view.health.days_to_full ? `root full in ${days(view.health.days_to_full)}` : 'no disk growth trend'}
           </div>
@@ -104,7 +105,7 @@ export function NodeOverview() {
               {sensors.map((sensor) => (
                 <div className="kv-row" key={sensor.label}>
                   <dt>{sensor.label}</dt>
-                  <dd>{sensor.value}</dd>
+                  <dd><Fig>{sensor.value}</Fig></dd>
                 </div>
               ))}
             </dl>

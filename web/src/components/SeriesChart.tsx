@@ -120,7 +120,7 @@ export function SeriesChart({
     const options: uPlot.Options = {
       width,
       height: element.clientHeight || height,
-      padding: [14, 14, 0, 8],
+      padding: [14, 28, 0, 8],
       legend: { show: false },
       cursor: {
         show: true,
@@ -140,7 +140,7 @@ export function SeriesChart({
           ticks: { stroke: GRID_INK, width: 1, size: 4 },
           gap: 8,
           size: 30,
-          space: 96,
+          space: 120,
           values: (_u, splits) =>
             splits.map((value) =>
               spanHours <= 0.5 ? clockSeconds(value * 1000) : spanHours <= 26 ? clock(value * 1000) : day(value * 1000),
