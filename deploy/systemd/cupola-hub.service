@@ -7,10 +7,12 @@ Wants=network-online.target
 Type=simple
 User=cupola
 Group=cupola
-ExecStart=/usr/local/bin/cupola hub --web-dir /usr/local/share/cupola/web
+ExecStart=/opt/cupola/cupola hub --web-dir /opt/cupola/web
 EnvironmentFile=-/etc/cupola/hub.env
 Restart=on-failure
 RestartSec=3
+# /opt/cupola stays read-only for the hub: the privileged cupola-upgrade unit
+# owns upgrades (deploy/systemd/cupola-upgrade.path).
 StateDirectory=cupola
 ReadWritePaths=/var/lib/cupola
 NoNewPrivileges=true

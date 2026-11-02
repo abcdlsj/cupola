@@ -29,6 +29,7 @@ CUPOLA_DATA_DIR="$DATA" \
 CUPOLA_LISTEN=127.0.0.1:4180 \
 CUPOLA_POLL_INTERVAL=2s \
 CUPOLA_TAILSCALE_BIN="$ROOT/scripts/tailscale-stub.sh" \
+CUPOLA_UPDATE=0 \
 "$BIN" hub --web-dir "$ROOT/web/dist" >"$DATA/hub.log" 2>&1 & pids+=($!)
 
 for _ in $(seq 1 60); do

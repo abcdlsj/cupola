@@ -1332,6 +1332,17 @@
   color: var(--pill-negative-ink);
 }
 
+/* Release notes are markdown-ish text from GitHub; cap the height so the
+   panel keeps its place in the settings grid. */
+.update-notes {
+  max-height: 160px;
+  font-size: 11px;
+}
+
+.update-note {
+  margin: 12px 0 0;
+}
+
 .result-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

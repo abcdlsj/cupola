@@ -38,6 +38,7 @@ dense, fast PWA.
 | `cupola agent` | every monitored host | collects metrics, serves a read-only local API, runs configured actions |
 | `cupola hub` | one box / VPS / homelab | pulls reachable agents, receives pushed samples, stores history, evaluates alerts, serves the PWA |
 | `cupola serve` | one box | hub + embedded agent, for the single-server case |
+| `cupola upgrade` | the hub box, as root | installs the release the hub queued: verifies checksums, swaps binary and PWA, restarts, rolls back on failure |
 
 ## Design
 

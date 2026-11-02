@@ -37,6 +37,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26'
+      # The tarball ships the built PWA too: a self-upgrade that replaced only
+      # the binary would leave the UI at the old version.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Web build
+        run: |
+          cd web && npm ci && npm run build
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
@@ -46,13 +56,14 @@ jobs:
         run: |
           set -euo pipefail
           out="cupola_${TAG#v}_${GOOS}_${GOARCH}"
-          mkdir -p dist
+          mkdir -p dist/stage
           go build -trimpath \
-            -ldflags "-s -w -X github.com/abcdlsj/cupola/internal/version.Commit=${GITHUB_SHA} -X github.com/abcdlsj/cupola/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o "dist/cupola" ./cmd/cupola
-          tar -C dist -czf "dist/${out}.tar.gz" cupola
+            -ldflags "-s -w -X github.com/abcdlsj/cupola/internal/version.Version=${TAG#v} -X github.com/abcdlsj/cupola/internal/version.Commit=${GITHUB_SHA} -X github.com/abcdlsj/cupola/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -o "dist/stage/cupola" ./cmd/cupola
+          cp -R web/dist dist/stage/web
+          tar -C dist/stage -czf "dist/${out}.tar.gz" cupola web
           cp "dist/${out}.tar.gz" "dist/cupola_${GOOS}_${GOARCH}.tar.gz"
-          rm dist/cupola
+          rm -rf dist/stage
           echo "ASSET=dist/${out}.tar.gz" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:

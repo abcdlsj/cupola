@@ -334,7 +334,8 @@ Agent (bearer): `/healthz`, `/v1/snapshot`, `/v1/processes`, `/v1/agents`,
 Hub (bearer): `/api/v1/auth/login|me`, `/fleet/summary`, `/nodes` CRUD + test,
 `/nodes/{id}/snapshot|series|processes|agents|services|containers|ports|events|actions`,
 `/nodes/{id}/actions/{action}/run`, `/events`, `/alerts`, `/alerts/rules`,
-`/alerts/deliveries`, `/alerts/test`, `/tokens`, `/stream` (SSE).
+`/alerts/deliveries`, `/alerts/test`, `/tokens`, `/update` (GET status, POST
+queue, DELETE cancel), `/stream` (SSE).
 
 JSON, Unix milliseconds, units labeled, errors `{error:{code,message}}`.
 
@@ -473,6 +474,14 @@ docs/
 - systemd units for hub and agent; agent needs read access to `/proc` and
   optional capabilities for SMART/NVML.
 - GitHub Releases static binaries; install script with checksum.
+- Self-upgrade (decided after v1.0.1): the hub resolves the newest release from
+  GitHub and writes a request file; the root `cupola upgrade` oneshot — started
+  by a path unit — verifies `checksums.txt`, swaps `/opt/cupola/cupola` and
+  `/opt/cupola/web`, restarts the hub and rolls back on a failed health check.
+  The hub never replaces its own binary: `/opt/cupola` is read-only for it.
+  Offline hosts stage a tarball in `<data-dir>/updates/`. No zero-downtime
+  socket handover: the restart costs under a second and SQLite has one writer.
+  Agents are updated by re-running `install.sh`, not by themselves.
 - Push quick start: `cupola agent --push <hub> --join <hub> --join-code <code>`
   reports out from behind NAT; `--advertise <url>` keeps the node in pull mode.
 - PWA static build deployed to GitHub Pages; hub embeds the same build.

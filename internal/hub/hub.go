@@ -18,6 +18,7 @@ import (
 	"github.com/abcdlsj/cupola/internal/agent"
 	"github.com/abcdlsj/cupola/internal/hub/store"
 	"github.com/abcdlsj/cupola/internal/model"
+	"github.com/abcdlsj/cupola/internal/updater"
 	"github.com/abcdlsj/cupola/internal/version"
 )
 
@@ -37,6 +38,7 @@ type Hub struct {
 	bus       *broadcaster
 	notifier  *notifier
 	poller    *poller
+	updates   *updater.Checker
 	routes    http.Handler
 	limiter   *rateLimiter
 	runLimiter *rateLimiter
@@ -85,6 +87,13 @@ func New(ctx context.Context, cfg Config) (*Hub, error) {
 	h.transport = newTransportManager(keys.key)
 	h.bus = newBroadcaster()
 	h.notifier = newNotifier(&cfg, st, keys.key, log)
+	h.updates = updater.New(updater.Options{
+		Repo:      cfg.UpdateRepo,
+		API:       cfg.UpdateAPI,
+		Token:     os.Getenv("CUPOLA_UPDATE_TOKEN"),
+		StagedDir: filepath.Join(cfg.DataDir, "updates"),
+		Enabled:   cfg.UpdateEnabled,
+	})
 	h.poller = newPoller(h, cfg.PollInterval)
 	h.routes = h.routesHandler()
 

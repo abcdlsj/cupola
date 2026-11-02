@@ -463,3 +463,52 @@ export interface TailnetPeers {
   peers: TailnetPeer[];
   checked_at: number;
 }
+
+export interface UpdateRelease {
+  version: string;
+  tag: string;
+  published_at?: string;
+  notes?: string;
+  asset: string;
+  base_url: string;
+  source: 'github' | 'staged';
+}
+
+export interface UpdateResult {
+  status: 'ok' | 'rolled_back' | 'failed';
+  from: string;
+  to: string;
+  at: number;
+  web: boolean;
+  detail?: string;
+}
+
+export interface UpdateHold {
+  version: string;
+  reason: string;
+  at: number;
+}
+
+export interface UpdateRequest {
+  version: string;
+  asset: string;
+  base_url: string;
+  source: string;
+  force?: boolean;
+  requested_at: number;
+  requested_by?: string;
+}
+
+export interface UpdateStatus {
+  current: { version: string; commit: string; date?: string };
+  enabled: boolean;
+  repo: string;
+  can_apply: boolean;
+  checked_at: number;
+  available: boolean;
+  latest?: UpdateRelease;
+  error?: string;
+  last?: UpdateResult;
+  hold?: UpdateHold;
+  queued?: UpdateRequest;
+}
