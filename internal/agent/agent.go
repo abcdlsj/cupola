@@ -23,9 +23,9 @@ import (
 // Agent is the per-host process: it collects a snapshot, serves a read-only
 // API and runs the actions from its config.
 type Agent struct {
-	cfg    *Config
-	log    *slog.Logger
-	token  string
+	cfg       *Config
+	log       *slog.Logger
+	token     string
 	collector *collect.Collector
 	actions   *Actions
 	events    *EventRing
@@ -191,6 +191,16 @@ func (a *Agent) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 	snap, err := a.Snapshot(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "collect", err.Error())
+		return
+	}
+	// ?slim=1 drops the two sections the hub refreshes on its own schedule.
+	// Services alone were 84 % of a 115 KB snapshot, and the hub was asking for
+	// them every five seconds.
+	if r.URL.Query().Get("slim") == "1" {
+		slim := *snap
+		slim.Services = nil
+		slim.Ports = nil
+		writeJSON(w, http.StatusOK, &slim)
 		return
 	}
 	writeJSON(w, http.StatusOK, snap)

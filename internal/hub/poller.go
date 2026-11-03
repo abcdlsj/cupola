@@ -26,6 +26,9 @@ type poller struct {
 	nextTry    map[string]time.Time
 	wasOffline map[string]bool
 	prev       map[string]*model.Snapshot
+
+	slowMu sync.Mutex
+	slow   map[string]slowSections
 }
 
 func newPoller(h *Hub, interval time.Duration) *poller {
@@ -36,6 +39,7 @@ func newPoller(h *Hub, interval time.Duration) *poller {
 		nextTry:    make(map[string]time.Time),
 		wasOffline: make(map[string]bool),
 		prev:       make(map[string]*model.Snapshot),
+		slow:       make(map[string]slowSections),
 	}
 }
 
@@ -146,6 +150,7 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 		p.noteFailure(node.ID)
 		return
 	}
+	p.mergeSlowSections(pollCtx, node.ID, endpoint, snap)
 	if snap.Node.ID == "" {
 		snap.Node.ID = node.ID
 	}
@@ -462,8 +467,10 @@ func comparatorSymbol(comparator string) string {
 
 // ---------- agent HTTP ----------
 
+// fetchSnapshot asks for the slim form: services and ports are 90 % of the
+// payload and change on a much slower clock, so mergeSlowSections fills them in.
 func fetchSnapshot(ctx context.Context, endpoint nodeEndpoint) (*model.Snapshot, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.Base+"/v1/snapshot", nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.Base+"/v1/snapshot?slim=1", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -505,4 +512,80 @@ func fetchActions(ctx context.Context, endpoint nodeEndpoint) ([]model.Action, e
 		return nil, err
 	}
 	return body.Actions, nil
+}
+
+// ---------- slow sections ----------
+
+// Services and ports change far more slowly than CPU and memory, and together
+// they are about 90 % of the snapshot's bytes. The hub asks for them on their
+// own clock and splices them into each poll, which cut the tailnet payload from
+// ~115 KB to ~10 KB per poll.
+const (
+	servicesRefresh = 60 * time.Second
+	portsRefresh    = 30 * time.Second
+)
+
+type slowSections struct {
+	services   []model.Service
+	servicesAt time.Time
+	ports      []model.Port
+	portsAt    time.Time
+}
+
+func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint nodeEndpoint, snap *model.Snapshot) {
+	p.slowMu.Lock()
+	cached := p.slow[nodeID]
+	p.slowMu.Unlock()
+
+	if len(cached.services) == 0 || time.Since(cached.servicesAt) >= servicesRefresh {
+		if services, err := fetchPart[model.Service](ctx, endpoint, "services", "services"); err == nil {
+			cached.services, cached.servicesAt = services, time.Now()
+		}
+	}
+	if len(cached.ports) == 0 || time.Since(cached.portsAt) >= portsRefresh {
+		if ports, err := fetchPart[model.Port](ctx, endpoint, "ports", "ports"); err == nil {
+			cached.ports, cached.portsAt = ports, time.Now()
+		}
+	}
+
+	p.slowMu.Lock()
+	if p.slow == nil {
+		p.slow = make(map[string]slowSections)
+	}
+	p.slow[nodeID] = cached
+	p.slowMu.Unlock()
+
+	snap.Services = append([]model.Service(nil), cached.services...)
+	snap.Ports = append([]model.Port(nil), cached.ports...)
+}
+
+// fetchPart reads one of the agent's part endpoints, which answer
+// {"ts":…,"<key>":[…]}.
+func fetchPart[T any](ctx context.Context, endpoint nodeEndpoint, part, key string) ([]T, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.Base+"/v1/"+part, nil)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Authorization", "Bearer "+endpoint.Token)
+	response, err := endpoint.HTTP.Do(request)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("agent returned %d for /v1/%s", response.StatusCode, part)
+	}
+	var payload map[string]json.RawMessage
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return nil, err
+	}
+	body, ok := payload[key]
+	if !ok {
+		return nil, fmt.Errorf("/v1/%s did not return %q", part, key)
+	}
+	var out []T
+	if err := json.Unmarshal(body, &out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
