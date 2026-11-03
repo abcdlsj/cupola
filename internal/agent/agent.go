@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"compress/gzip"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -130,7 +131,48 @@ func (a *Agent) Handler() http.Handler {
 	mux.Handle("POST /v1/actions/{id}/run", a.auth(http.HandlerFunc(a.handleRun)))
 	mux.Handle("GET /v1/events", a.auth(http.HandlerFunc(a.handleEvents)))
 	mux.Handle("GET /v1/stream", a.auth(http.HandlerFunc(a.handleStream)))
-	return mux
+	return compressJSON(mux)
+}
+
+// compressJSON gzips the API responses. A snapshot is about 115 KB of plain
+// JSON, and the hub asks for it every few seconds; over a cross-border or
+// relayed path that is the difference between a 2.5 s poll and a 0.5 s one.
+// SSE is left alone: it must flush every event.
+func compressJSON(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/stream" || !acceptsGzip(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		w.Header().Add("Vary", "Accept-Encoding")
+		w.Header().Set("Content-Encoding", "gzip")
+		next.ServeHTTP(&gzipWriter{ResponseWriter: w, gz: gz}, r)
+	})
+}
+
+func acceptsGzip(r *http.Request) bool {
+	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		if strings.EqualFold(strings.TrimSpace(strings.SplitN(part, ";", 2)[0]), "gzip") {
+			return true
+		}
+	}
+	return false
+}
+
+type gzipWriter struct {
+	http.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (g *gzipWriter) Write(body []byte) (int, error) { return g.gz.Write(body) }
+
+func (g *gzipWriter) Flush() {
+	_ = g.gz.Flush()
+	if flusher, ok := g.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 func (a *Agent) auth(next http.Handler) http.Handler {

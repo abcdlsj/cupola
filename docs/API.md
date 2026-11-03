@@ -28,7 +28,7 @@ agent token from `agent.token` (0600). There is no write route except actions.
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | `/healthz` | `{ok, version}` (no token) |
-| GET | `/v1/snapshot` | the full snapshot (see below) |
+| GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size) |
 | GET | `/v1/processes` | `{ts, processes}` |
 | GET | `/v1/agents` | `{ts, agents}` |
 | GET | `/v1/services` | `{ts, services}` |

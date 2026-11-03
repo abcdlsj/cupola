@@ -102,19 +102,20 @@ func (p *poller) due(id string) bool {
 	return !ok || time.Now().After(at)
 }
 
-// noteFailure grows a per-node backoff (5 s doubling to 5 min) so a dead node
-// cannot occupy the poll semaphore every tick.
+// noteFailure grows a per-node backoff (5 s doubling to a minute) so a dead node
+// cannot occupy the poll semaphore every tick. The cap stays at a minute: a
+// slow link that misses one poll should not look like an outage.
 func (p *poller) noteFailure(id string) {
 	p.mu.Lock()
 	p.failures[id]++
 	failures := p.failures[id]
 	p.mu.Unlock()
 	delay := p.interval
-	for i := 1; i < failures && delay < 5*time.Minute; i++ {
+	for i := 1; i < failures && delay < time.Minute; i++ {
 		delay *= 2
 	}
-	if delay > 5*time.Minute {
-		delay = 5 * time.Minute
+	if delay > time.Minute {
+		delay = time.Minute
 	}
 	p.mu.Lock()
 	p.nextTry[id] = time.Now().Add(delay)
@@ -133,7 +134,10 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 		p.noteFailure(node.ID)
 		return
 	}
-	pollCtx, cancel := context.WithTimeout(ctx, 12*time.Second)
+	// A snapshot is ~115 KB (gzipped on the agent since 1.3.1). Nodes reached
+	// across borders or through DERP take seconds, so the budget is generous;
+	// the poll semaphore, not this timeout, is what keeps the hub honest.
+	pollCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	snap, err := fetchSnapshot(pollCtx, endpoint)
