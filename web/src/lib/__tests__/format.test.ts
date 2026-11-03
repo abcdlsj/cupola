@@ -38,6 +38,13 @@ describe('byte figures', () => {
   it('formats bytes, small bytes and rates', () => {
     expect(size(52 * 1024 ** 3)).toBe('52.0 GB');
     expect(size(2 * 1024 ** 4)).toBe('2.00 TB');
+    // A small volume must not collapse into "0.0 GB" — the h2nexus Docker card
+    // read that way for every container.
+    expect(size(40 * 1024 ** 2)).toBe('40.0 MB');
+    expect(size(214 * 1024 ** 2)).toBe('214 MB');
+    expect(size(14 * 1024 ** 2)).toBe('14.0 MB');
+    expect(size(1536)).toBe('2 kB');
+    expect(size(0)).toBe('0 B');
     expect(sizeSmall(1536)).toBe('2 kB');
     expect(rate(1024 * 1024)).toBe('1 MB/s');
     expect(netRate(1_000_000)).toBe('8.0 Mbit/s');

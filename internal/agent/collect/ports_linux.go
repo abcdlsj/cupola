@@ -22,7 +22,7 @@ const (
 // to name each listener. The join has no library, so it is done here and
 // cached with the other 15s collectors.
 func (c *Collector) collectPorts(out *[]model.Port, warn func(string, error)) {
-	if time.Since(c.portsAt) < 15*time.Second {
+	if time.Since(c.portsAt) < 30*time.Second {
 		*out = append(*out, c.ports...)
 		return
 	}

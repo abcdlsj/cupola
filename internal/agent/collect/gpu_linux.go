@@ -20,20 +20,42 @@ func (c *Collector) collectGPUsPlatform(out *[]model.GPU, _ func(string, error))
 	}
 }
 
-// amdGPUs reads sysfs; there is no stable Go library for amdgpu.
+// isCardName reports whether a /sys/class/drm entry is a card device rather
+// than a connector (card0-DP-1, renderD128, version).
+func isCardName(name string) bool {
+	rest, ok := strings.CutPrefix(name, "card")
+	if !ok || rest == "" {
+		return false
+	}
+	for _, r := range rest {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// amdGPUs reads sysfs; there is no stable Go library for amdgpu. It lists the
+// directory once and filters names, which is much cheaper than a glob: the
+// pattern walk was visible in profiles even when the host had no card.
 func amdGPUs() []model.GPU {
-	entries, err := filepath.Glob("/sys/class/drm/card[0-9]*")
+	entries, err := os.ReadDir("/sys/class/drm")
 	if err != nil {
 		return nil
 	}
 	var out []model.GPU
-	for _, entry := range entries {
+	for _, item := range entries {
+		name := item.Name()
+		if !isCardName(name) {
+			continue
+		}
+		entry := filepath.Join("/sys/class/drm", name)
 		device := filepath.Join(entry, "device")
 		vendor := readTrim(filepath.Join(device, "vendor"))
 		if vendor != "0x1002" {
 			continue
 		}
-		index, _ := strconv.Atoi(strings.TrimPrefix(filepath.Base(entry), "card"))
+		index, _ := strconv.Atoi(strings.TrimPrefix(name, "card"))
 		gpu := model.GPU{
 			Index:  index,
 			Vendor: "amd",

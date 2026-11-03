@@ -57,11 +57,21 @@ export function uptime(seconds: number): string {
   return seconds > 0 ? duration(seconds) : '—';
 }
 
+/**
+ * Byte figures with the unit the magnitude deserves: a 40 MB container must not
+ * read "0.0 GB". One decimal below 100 of a unit, none above.
+ */
 export function size(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 GB';
-  const gib = bytes / 1024 ** 3;
-  if (gib >= 1024) return `${(gib / 1024).toFixed(2)} TB`;
-  return `${gib.toFixed(gib >= 100 ? 0 : 1)} GB`;
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  const kib = 1024;
+  const mib = kib ** 2;
+  const gib = kib ** 3;
+  const tib = kib ** 4;
+  if (bytes >= tib) return `${(bytes / tib).toFixed(2)} TB`;
+  if (bytes >= gib) return `${(bytes / gib).toFixed(bytes / gib >= 100 ? 0 : 1)} GB`;
+  if (bytes >= mib) return `${(bytes / mib).toFixed(bytes / mib >= 100 ? 0 : 1)} MB`;
+  if (bytes >= kib) return `${Math.round(bytes / kib)} kB`;
+  return `${Math.round(bytes)} B`;
 }
 
 export function sizeSmall(bytes: number): string {

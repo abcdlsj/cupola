@@ -4,6 +4,7 @@ package collect
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ import (
 // unavailable (containers), it falls back to `systemctl list-units`; both are
 // fixed invocations, never a shell.
 func (c *Collector) collectServices(out *[]model.Service, warn func(string, error)) {
-	if time.Since(c.servicesAt) < 15*time.Second {
+	if time.Since(c.servicesAt) < 60*time.Second {
 		*out = append(*out, c.services...)
 		return
 	}
@@ -109,14 +110,21 @@ func listUnitsSystemctl() ([]model.Service, error) {
 // unitEnabled inspects the .wants/.requires links; there is no cheap D-Bus
 // property for hundreds of units.
 func unitEnabled(name string) string {
-	patterns := []string{
-		"/etc/systemd/system/*.wants/" + name,
-		"/etc/systemd/system/*.requires/" + name,
-		"/usr/lib/systemd/system/*.wants/" + name,
-	}
-	for _, pattern := range patterns {
-		if matches, _ := filepath.Glob(pattern); len(matches) > 0 {
-			return "enabled"
+	roots := []string{"/etc/systemd/system", "/usr/lib/systemd/system"}
+	for _, root := range roots {
+		for _, kind := range []string{".wants", ".requires"} {
+			dirs, err := os.ReadDir(root)
+			if err != nil {
+				continue
+			}
+			for _, dir := range dirs {
+				if !strings.HasSuffix(dir.Name(), kind) {
+					continue
+				}
+				if _, err := os.Stat(filepath.Join(root, dir.Name(), name)); err == nil {
+					return "enabled"
+				}
+			}
 		}
 	}
 	return "disabled"

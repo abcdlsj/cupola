@@ -57,18 +57,18 @@ type Collector struct {
 	updates   *model.Updates
 	updatesAt time.Time
 
-	services   []model.Service
-	servicesAt time.Time
-	containers []model.Container
+	services     []model.Service
+	servicesAt   time.Time
+	containers   []model.Container
 	containersAt time.Time
-	images     []model.Image
-	imagesAt   time.Time
-	ports      []model.Port
-	portsAt    time.Time
-	sensors    []model.Sensor
-	sensorsAt  time.Time
-	gpus       []model.GPU
-	gpusAt     time.Time
+	images       []model.Image
+	imagesAt     time.Time
+	ports        []model.Port
+	portsAt      time.Time
+	sensors      []model.Sensor
+	sensorsAt    time.Time
+	gpus         []model.GPU
+	gpusAt       time.Time
 
 	prevCPU   []cpu.TimesStat
 	prevCPUAt time.Time
@@ -88,6 +88,7 @@ type procDelta struct {
 	at         time.Time
 	read       uint64
 	write      uint64
+	hasIO      bool
 }
 
 type netDelta struct {
@@ -111,8 +112,8 @@ func New(opts Options) (*Collector, error) {
 		opts.Processes = 40
 	}
 	return &Collector{
-		opts:      opts,
-		log:       opts.Logger,
+		opts:          opts,
+		log:           opts.Logger,
 		prevProcs:     make(map[int32]procDelta),
 		prevNet:       make(map[string]netDelta),
 		prevDisk:      make(map[string]diskDelta),
@@ -324,19 +325,67 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 		return
 	}
 	now := time.Now()
-	all := make([]model.Process, 0, len(procs))
-	next := make(map[int32]procDelta, len(procs))
 
+	// Pass one: the cheap read every process needs, /proc/<pid>/stat through
+	// gopsutil's Times. Everything else (status, cmdline, cwd, io, cgroup) is
+	// read in pass two, for the processes the snapshot keeps plus anything that
+	// looks like an AI agent. Reading all of it for every process on a box with
+	// a few hundred of them was the second largest cost in the profile.
+	type candidate struct {
+		proc       *process.Process
+		pid        int32
+		name       string
+		cpuSeconds float64
+		cpuPercent float64
+	}
+	candidates := make([]candidate, 0, len(procs))
 	for _, p := range procs {
 		if err := ctx.Err(); err != nil {
 			return
 		}
-		pid := p.Pid
 		name, _ := p.NameWithContext(ctx)
 		if name == "" {
-			name = fmt.Sprintf("pid %d", pid)
+			name = fmt.Sprintf("pid %d", p.Pid)
 		}
-		modelProc := model.Process{PID: pid, Name: name}
+		var cpuSeconds, cpuPercent float64
+		if times, err := p.TimesWithContext(ctx); err == nil {
+			cpuSeconds = times.User + times.System
+		}
+		if prev, ok := c.prevProcs[p.Pid]; ok {
+			if elapsed := now.Sub(prev.at).Seconds(); elapsed > 0 && cpuSeconds >= prev.cpuSeconds {
+				cpuPercent = (cpuSeconds - prev.cpuSeconds) / elapsed * 100
+			}
+		}
+		candidates = append(candidates, candidate{proc: p, pid: p.Pid, name: name, cpuSeconds: cpuSeconds, cpuPercent: cpuPercent})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].cpuPercent == candidates[j].cpuPercent {
+			return candidates[i].pid < candidates[j].pid
+		}
+		return candidates[i].cpuPercent > candidates[j].cpuPercent
+	})
+
+	keep := make(map[int32]bool, c.opts.Processes+8)
+	for index, cand := range candidates {
+		if index >= c.opts.Processes && !looksLikeAgent(cand.name) {
+			continue
+		}
+		keep[cand.pid] = true
+	}
+
+	next := make(map[int32]procDelta, len(candidates))
+	all := make([]model.Process, 0, len(keep))
+	for _, cand := range candidates {
+		pid := cand.pid
+		delta := procDelta{cpuSeconds: cand.cpuSeconds, at: now}
+		if !keep[pid] {
+			// Keep the CPU baseline for every process so the next percentage is
+			// right when one of them climbs into the snapshot.
+			next[pid] = delta
+			continue
+		}
+		p := cand.proc
+		modelProc := model.Process{PID: pid, Name: cand.name, CPUPercent: cand.cpuPercent}
 		modelProc.PPID, _ = p.PpidWithContext(ctx)
 		modelProc.User, _ = p.UsernameWithContext(ctx)
 		modelProc.Threads, _ = p.NumThreadsWithContext(ctx)
@@ -349,42 +398,32 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 		if rss, err := p.MemoryInfoWithContext(ctx); err == nil && rss != nil {
 			modelProc.RSSBytes = rss.RSS
 		}
-		if tty, err := p.Terminal(); err == nil {
+		if tty := processTTY(pid); tty != "" {
 			modelProc.TTY = tty
 		}
 		if cwd, err := p.CwdWithContext(ctx); err == nil {
 			modelProc.Cwd = cwd
 		}
 		if cmdline, err := p.CmdlineSlice(); err == nil {
-			modelProc.Command = redactCommand(name, cmdline)
+			modelProc.Command = redactCommand(cand.name, cmdline)
 		} else {
-			modelProc.Command = redactCommand(name, nil)
+			modelProc.Command = redactCommand(cand.name, nil)
 		}
-
-		var cpuSeconds float64
-		if times, err := p.TimesWithContext(ctx); err == nil {
-			cpuSeconds = times.User + times.System
-		}
-		var readBytes, writeBytes uint64
 		if io, err := p.IOCounters(); err == nil && io != nil {
-			readBytes, writeBytes = io.ReadBytes, io.WriteBytes
+			delta.read, delta.write = io.ReadBytes, io.WriteBytes
+			delta.hasIO = true
 		}
-		if prev, ok := c.prevProcs[pid]; ok {
-			elapsed := now.Sub(prev.at).Seconds()
-			if elapsed > 0 {
-				modelProc.CPUPercent = (cpuSeconds - prev.cpuSeconds) / elapsed * 100
-				if modelProc.CPUPercent < 0 {
-					modelProc.CPUPercent = 0
+		if prev, ok := c.prevProcs[pid]; ok && prev.hasIO && delta.hasIO {
+			if elapsed := now.Sub(prev.at).Seconds(); elapsed > 0 {
+				if delta.read >= prev.read {
+					modelProc.ReadBps = float64(delta.read-prev.read) / elapsed
 				}
-				if readBytes >= prev.read {
-					modelProc.ReadBps = float64(readBytes-prev.read) / elapsed
-				}
-				if writeBytes >= prev.write {
-					modelProc.WriteBps = float64(writeBytes-prev.write) / elapsed
+				if delta.write >= prev.write {
+					modelProc.WriteBps = float64(delta.write-prev.write) / elapsed
 				}
 			}
 		}
-		next[pid] = procDelta{cpuSeconds: cpuSeconds, at: now, read: readBytes, write: writeBytes}
+		next[pid] = delta
 
 		if container := c.containerForPID(pid); container != "" {
 			modelProc.Container = container
@@ -410,6 +449,24 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 		limit = len(all)
 	}
 	*out = append(*out, all[:limit]...)
+}
+
+// looksLikeAgent is the cheap pass-one test: the process name enough to keep a
+// session in the snapshot. ComfyUI needs the command line, so a Python process
+// is kept too and decided properly in pass two.
+func looksLikeAgent(name string) bool {
+	base := strings.ToLower(filepath.Base(name))
+	if strings.HasPrefix(base, "python") {
+		return true
+	}
+	for _, def := range agentRegistry {
+		for _, candidate := range def.names {
+			if base == candidate || strings.HasPrefix(base, candidate+"-") {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // redactCommand keeps the executable name and the argument count. Arguments
