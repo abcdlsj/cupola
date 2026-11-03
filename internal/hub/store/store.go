@@ -3,12 +3,15 @@
 package store
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"database/sql"
 	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"time"
@@ -360,14 +363,14 @@ func (s *Store) SaveSnapshot(ctx context.Context, snap *model.Snapshot, actions 
 		return err
 	}
 
-	payload, err := json.Marshal(snap)
+	payload, err := encodeState(snap)
 	if err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO node_state(node_id, ts, payload) VALUES(?, ?, ?)
 		ON CONFLICT(node_id) DO UPDATE SET ts=excluded.ts, payload=excluded.payload`,
-		snap.Node.ID, ts, string(payload)); err != nil {
+		snap.Node.ID, ts, payload); err != nil {
 		return err
 	}
 	actionPayload, _ := json.Marshal(actions)
@@ -381,7 +384,7 @@ func (s *Store) SaveSnapshot(ctx context.Context, snap *model.Snapshot, actions 
 }
 
 func (s *Store) GetState(ctx context.Context, nodeID string) (*model.Snapshot, error) {
-	var payload string
+	var payload []byte
 	err := s.db.QueryRowContext(ctx, `SELECT payload FROM node_state WHERE node_id = ?`, nodeID).Scan(&payload)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -389,8 +392,47 @@ func (s *Store) GetState(ctx context.Context, nodeID string) (*model.Snapshot, e
 		}
 		return nil, err
 	}
+	return decodeState(payload)
+}
+
+// encodeState stores the latest snapshot gzipped at the fastest level: the full
+// JSON is ~100 KB and it is rewritten every poll for every node, so this is the
+// difference between roughly 1 MB/s and 150 KB/s of writes.
+func encodeState(snap *model.Snapshot) ([]byte, error) {
+	raw, err := json.Marshal(snap)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	writer, err := gzip.NewWriterLevel(&buf, gzip.BestSpeed)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := writer.Write(raw); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// decodeState reads both formats: gzip (magic 1f 8b) and the plain JSON rows
+// written before 1.4.2.
+func decodeState(payload []byte) (*model.Snapshot, error) {
+	raw := payload
+	if len(payload) > 2 && payload[0] == 0x1f && payload[1] == 0x8b {
+		reader, err := gzip.NewReader(bytes.NewReader(payload))
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		if raw, err = io.ReadAll(reader); err != nil {
+			return nil, err
+		}
+	}
 	var snap model.Snapshot
-	if err := json.Unmarshal([]byte(payload), &snap); err != nil {
+	if err := json.Unmarshal(raw, &snap); err != nil {
 		return nil, err
 	}
 	return &snap, nil
@@ -415,18 +457,18 @@ func (s *Store) GetActions(ctx context.Context, nodeID string) ([]model.Action, 
 // ---------- series ----------
 
 type seriesColumns struct {
-	table   string
+	table         string
 	min, avg, max string
 }
 
 var seriesMetrics = map[string]seriesColumns{
-	"cpu":    {"samples", "cpu", "cpu", "cpu"},
-	"mem":    {"samples", "mem", "mem", "mem"},
-	"load":   {"samples", "load1", "load1", "load1"},
-	"net_rx": {"samples", "net_rx", "net_rx", "net_rx"},
-	"net_tx": {"samples", "net_tx", "net_tx", "net_tx"},
-	"disk_r": {"samples", "disk_r", "disk_r", "disk_r"},
-	"disk_w": {"samples", "disk_w", "disk_w", "disk_w"},
+	"cpu":     {"samples", "cpu", "cpu", "cpu"},
+	"mem":     {"samples", "mem", "mem", "mem"},
+	"load":    {"samples", "load1", "load1", "load1"},
+	"net_rx":  {"samples", "net_rx", "net_rx", "net_rx"},
+	"net_tx":  {"samples", "net_tx", "net_tx", "net_tx"},
+	"disk_r":  {"samples", "disk_r", "disk_r", "disk_r"},
+	"disk_w":  {"samples", "disk_w", "disk_w", "disk_w"},
 	"psi_cpu": {"samples", "psi_cpu", "psi_cpu", "psi_cpu"},
 	"psi_io":  {"samples", "psi_io", "psi_io", "psi_io"},
 	"procs":   {"samples", "procs", "procs", "procs"},

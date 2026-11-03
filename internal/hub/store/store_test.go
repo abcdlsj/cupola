@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -21,15 +22,15 @@ func openTest(t *testing.T) *Store {
 
 func testSnapshot(nodeID string, ts int64) *model.Snapshot {
 	return &model.Snapshot{
-		Ts: ts,
-		Node: model.NodeInfo{ID: nodeID, Name: nodeID, Platform: "Ubuntu", Kernel: "6.8", Arch: "amd64", UptimeSec: 1000},
-		CPU: model.CPUStats{Percent: 42, Load1: 1.2, Load5: 1.1, Load15: 0.9, Procs: 120},
-		Memory: model.MemoryStats{Total: 16 << 30, Used: 8 << 30, UsedPercent: 50},
-		Pressure: model.PressureStats{CPU: model.PressureStat{Some: 3}, IO: model.PressureStat{Some: 2}, Mem: model.PressureStat{Some: 1}},
-		Disks: []model.DiskStats{{Mount: "/", Device: "/dev/vda1", FsType: "ext4", Total: 100 << 30, Used: 90 << 30, UsedPct: 90, InodePct: 10}},
-		Network: []model.NetStats{{Iface: "eth0", RxBps: 1000, TxBps: 500}},
+		Ts:        ts,
+		Node:      model.NodeInfo{ID: nodeID, Name: nodeID, Platform: "Ubuntu", Kernel: "6.8", Arch: "amd64", UptimeSec: 1000},
+		CPU:       model.CPUStats{Percent: 42, Load1: 1.2, Load5: 1.1, Load15: 0.9, Procs: 120},
+		Memory:    model.MemoryStats{Total: 16 << 30, Used: 8 << 30, UsedPercent: 50},
+		Pressure:  model.PressureStats{CPU: model.PressureStat{Some: 3}, IO: model.PressureStat{Some: 2}, Mem: model.PressureStat{Some: 1}},
+		Disks:     []model.DiskStats{{Mount: "/", Device: "/dev/vda1", FsType: "ext4", Total: 100 << 30, Used: 90 << 30, UsedPct: 90, InodePct: 10}},
+		Network:   []model.NetStats{{Iface: "eth0", RxBps: 1000, TxBps: 500}},
 		Processes: []model.Process{{PID: 1, Name: "systemd", CPUPercent: 1, RSSBytes: 1024}},
-		Agents: []model.AgentSession{{ID: nodeID + "-42", Type: "codex", Label: "Codex", PID: 42}},
+		Agents:    []model.AgentSession{{ID: nodeID + "-42", Type: "codex", Label: "Codex", PID: 42}},
 	}
 }
 
@@ -149,5 +150,52 @@ func TestRollupMovesOldSamples(t *testing.T) {
 	}
 	if state, _ := st.GetState(ctx, "atlas"); state != nil {
 		t.Fatal("state kept after delete")
+	}
+}
+
+func TestStateIsStoredCompressedAndReadsOldRows(t *testing.T) {
+	ctx := context.Background()
+	st := openTest(t)
+	snap := testSnapshot("atlas", 1793600000000)
+	// Make the payload realistic: a snapshot without services or processes is
+	// small enough that compression would not be worth measuring.
+	for i := 0; i < 40; i++ {
+		snap.Processes = append(snap.Processes, model.Process{PID: int32(i), Name: "worker", Command: "worker [1 args redacted]", User: "ops", State: "S"})
+	}
+	if err := st.SaveSnapshot(ctx, snap, nil); err != nil {
+		t.Fatal(err)
+	}
+	var stored []byte
+	if err := st.db.QueryRowContext(ctx, `SELECT payload FROM node_state WHERE node_id = ?`, "atlas").Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) < 2 || stored[0] != 0x1f || stored[1] != 0x8b {
+		t.Fatalf("stored payload is not gzip (first bytes %x)", stored[:2])
+	}
+	raw, err := json.Marshal(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored) >= len(raw) {
+		t.Fatalf("compressed %d bytes is not smaller than %d", len(stored), len(raw))
+	}
+	got, err := st.GetState(ctx, "atlas")
+	if err != nil {
+		t.Fatalf("GetState: %v", err)
+	}
+	if got.Node.ID != "atlas" || len(got.Processes) != 41 {
+		t.Fatalf("round trip lost data: %+v", got.Node)
+	}
+
+	// A row written before compression must still load.
+	if _, err := st.db.ExecContext(ctx, `UPDATE node_state SET payload = ? WHERE node_id = ?`, string(raw), "atlas"); err != nil {
+		t.Fatal(err)
+	}
+	old, err := st.GetState(ctx, "atlas")
+	if err != nil {
+		t.Fatalf("GetState on a plain JSON row: %v", err)
+	}
+	if old.Node.ID != "atlas" {
+		t.Fatalf("plain row decoded to %+v", old.Node)
 	}
 }

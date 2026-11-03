@@ -10,7 +10,9 @@ export interface ChartMarker {
   label: string;
 }
 
-export type ChartUnit = 'percent' | 'rate' | 'net' | 'load' | 'bytes';
+import { niceMax, tickValue, type ChartUnit } from '../lib/axis';
+
+export type { ChartUnit };
 
 /** uPlot paints a flat translucent area under each line; no gradients. */
 const FILL_ALPHA = '2e';
@@ -58,76 +60,9 @@ function withAlpha(color: string, alpha: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color + alpha : color;
 }
 
-/**
- * The top of the y scale: four equal steps of 1, 2, 2.5 or 5 × 10^n, so the
- * five gridlines carry round labels. Percent never goes past 100.
- */
-/** Binary steps (1, 2, 4, 8 … × kB/MB/GB) so byte gridlines carry round labels. */
-function niceBinaryStep(raw: number): number {
-  if (!Number.isFinite(raw) || raw <= 0) return 1;
-  const base = 1024 ** Math.max(0, Math.floor(Math.log(raw) / Math.log(1024)));
-  for (const factor of [1, 2, 4, 8, 16, 32, 64, 128, 256, 512]) {
-    if (raw <= factor * base) return factor * base;
-  }
-  return 1024 * base;
-}
-
-function niceMax(value: number, unit: ChartUnit): number {
-  if (!Number.isFinite(value) || value <= 0) return unit === 'percent' ? 100 : 1;
-  // Byte charts are read in binary units, so their steps are binary too.
-  if (unit === 'rate' || unit === 'bytes') return niceBinaryStep(value / 4) * 4;
-  const raw = value / 4;
-  if (unit === 'percent') {
-    // Whole percents only: a 2.5 % step prints as 0/3/5/8/10.
-    const step = [1, 2, 5, 10, 20, 25].find((candidate) => raw <= candidate) ?? 25;
-    return Math.min(100, step * 4);
-  }
-  const base = 10 ** Math.floor(Math.log10(raw));
-  for (const factor of [1, 2, 2.5, 5, 10]) {
-    if (raw <= factor * base) return factor * base * 4;
-  }
-  return 40 * base;
-}
-
 function scaleMax(series: ChartSeries[], unit: ChartUnit, maxValue?: number): number {
   if (maxValue != null) return niceMax(maxValue, unit);
-  return unit === 'percent' ? 100 : niceMax(dataMax(series) * 1.1, unit);
-}
-
-/** Axis labels: short, no trailing zeros; the readout keeps full precision. */
-function tickValue(value: number, unit: ChartUnit, step: number): string {
-  const digits = step >= 1 || value === 0 ? 0 : step >= 0.1 ? 1 : 2;
-  switch (unit) {
-    case 'rate':
-      return rate(value);
-    case 'net': {
-      const bits = value * 8;
-      if (bits >= 1e9) return `${+(bits / 1e9).toFixed(2)} Gb/s`;
-      if (bits >= 1e6) return `${+(bits / 1e6).toFixed(1)} Mb/s`;
-      if (bits >= 1e3) return `${Math.round(bits / 1e3)} kb/s`;
-      return `${Math.round(bits)} b/s`;
-    }
-    case 'load':
-      return value.toFixed(digits);
-    case 'bytes':
-      return sizeTick(value, step);
-    default:
-      return percent(value, digits);
-  }
-}
-
-/** One unit for every byte gridline, chosen from the step so the labels match. */
-function sizeTick(value: number, step: number): string {
-  const units: Array<[string, number]> = [
-    ['TB', 1024 ** 4],
-    ['GB', 1024 ** 3],
-    ['MB', 1024 ** 2],
-    ['kB', 1024],
-  ];
-  const [label, scale] = units.find(([, unit]) => step >= unit) ?? ['B', 1];
-  const perStep = step / scale;
-  const digits = perStep >= 1 ? 0 : perStep >= 0.1 ? 1 : 2;
-  return `${Number((value / scale).toFixed(digits))} ${label}`;
+  return unit === 'percent' ? 100 : niceMax(dataMax(series), unit);
 }
 
 function longest(points: SeriesPoint[]): number {
