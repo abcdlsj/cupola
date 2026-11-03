@@ -226,18 +226,7 @@ func (h *Hub) handleFleetSummary(w http.ResponseWriter, r *http.Request) {
 
 func (h *Hub) nodeView(ctx context.Context, node model.NodeRecord, withSnapshot bool) model.NodeView {
 	snap, _ := h.store.GetState(ctx, node.ID)
-	days := 0.0
-	if snap != nil {
-		for _, disk := range snap.Disks {
-			if disk.Mount != "/" {
-				continue
-			}
-			since := time.Now().Add(-7 * 24 * time.Hour).UnixMilli()
-			if history, err := h.store.DiskHistory(ctx, node.ID, disk.Mount, since); err == nil {
-				days = daysToFull(history)
-			}
-		}
-	}
+	days := h.fillForecast(ctx, node.ID, snap)
 	attention, _ := h.attentionCount(ctx, node.ID, snap, days)
 	health := nodeHealth(node, snap, days, attention)
 	if actions, err := h.store.GetActions(ctx, node.ID); err == nil {

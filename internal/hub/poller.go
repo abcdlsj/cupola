@@ -189,18 +189,7 @@ func (p *poller) sweepOffline(ctx context.Context) {
 }
 
 func (p *poller) health(ctx context.Context, nodeID, status string, snap *model.Snapshot) model.NodeHealth {
-	days := 0.0
-	if snap != nil {
-		for _, disk := range snap.Disks {
-			if disk.Mount != "/" {
-				continue
-			}
-			since := time.Now().Add(-7 * 24 * time.Hour).UnixMilli()
-			if history, err := p.hub.store.DiskHistory(ctx, nodeID, disk.Mount, since); err == nil {
-				days = daysToFull(history)
-			}
-		}
-	}
+	days := p.hub.fillForecast(ctx, nodeID, snap)
 	attention, _ := p.hub.attentionCount(ctx, nodeID, snap, days)
 	record, _ := p.hub.store.GetNode(ctx, nodeID)
 	record.Status = status

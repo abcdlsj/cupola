@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/abcdlsj/cupola/internal/model"
 	"github.com/abcdlsj/cupola/internal/updater"
 	"github.com/abcdlsj/cupola/internal/version"
 )
@@ -38,13 +39,13 @@ func newUpdateHub(t *testing.T, api string, enabled bool) (*Hub, *httptest.Serve
 	t.Helper()
 	t.Setenv("CUPOLA_ADMIN_PASSWORD", "test-password-123")
 	instance, err := New(context.Background(), Config{
-		DataDir:       t.TempDir(),
-		WebDir:        t.TempDir(),
-		Listen:        "127.0.0.1:0",
-		PollInterval:  50 * time.Millisecond,
+		DataDir:        t.TempDir(),
+		WebDir:         t.TempDir(),
+		Listen:         "127.0.0.1:0",
+		PollInterval:   50 * time.Millisecond,
 		UpdateDisabled: !enabled,
-		UpdateRepo:    "abcdlsj/cupola",
-		UpdateAPI:     api,
+		UpdateRepo:     "abcdlsj/cupola",
+		UpdateAPI:      api,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -211,5 +212,46 @@ func TestUpdateStatusWhenDisabled(t *testing.T) {
 	}
 	if status, _ := doJSON(t, c, http.MethodPost, server.URL+"/api/v1/update", map[string]any{}, ""); status != http.StatusConflict {
 		t.Fatalf("POST /update on a disabled hub = %d, want 409", status)
+	}
+}
+
+// The fill forecast used to scan seven days of disk samples on every poll and
+// every fleet summary; it is a trend, so it is cached.
+func TestFillForecastIsCachedPerNode(t *testing.T) {
+	instance, _ := newUpdateHub(t, "", false)
+	ctx := context.Background()
+	now := time.Now().UnixMilli()
+	weekAgo := now - 7*24*3600*1000
+	save := func(ts int64, used uint64) {
+		snap := &model.Snapshot{
+			Ts:   ts,
+			Node: model.NodeInfo{ID: "atlas", Name: "atlas"},
+			Disks: []model.DiskStats{{
+				Mount: "/", Device: "/dev/vda1", FsType: "ext4", Total: 100 << 30, Used: used, UsedPct: 50,
+			}},
+		}
+		if err := instance.store.SaveSnapshot(ctx, snap, nil); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// daysToFull needs a dozen points inside the seven-day window before it
+	// will fit a line; an hour apart keeps them all in it.
+	for hour := 0; hour < 36; hour++ {
+		save(now-int64(35-hour)*3600*1000, uint64(40+hour/4)<<30)
+	}
+	_ = weekAgo
+
+	growing := &model.Snapshot{Disks: []model.DiskStats{{Mount: "/", Total: 100 << 30, Used: 60 << 30}}}
+	first := instance.fillForecast(ctx, "atlas", growing)
+	if first <= 0 {
+		t.Fatalf("forecast = %v days, want a positive trend", first)
+	}
+	// A different snapshot inside the TTL must come back from the cache.
+	full := &model.Snapshot{Disks: []model.DiskStats{{Mount: "/", Total: 100 << 30, Used: 99 << 30}}}
+	if got := instance.fillForecast(ctx, "atlas", full); got != first {
+		t.Fatalf("second forecast = %v, want the cached %v", got, first)
+	}
+	if got := instance.fillForecast(ctx, "other", nil); got != 0 {
+		t.Fatalf("forecast without a snapshot = %v, want 0", got)
 	}
 }

@@ -46,7 +46,22 @@ type Hub struct {
 
 	agentCancel context.CancelFunc
 	mu          sync.Mutex
+
+	fillMu sync.Mutex
+	fill   map[string]fillEntry
 }
+
+// fillEntry caches the disk-fill forecast. The forecast scans seven days of
+// disk samples, which is far too expensive to run on every snapshot and every
+// fleet summary.
+type fillEntry struct {
+	days float64
+	at   time.Time
+}
+
+// fillForecastTTL is how stale a fill prediction may be; disk usage moves
+// slowly, and the prediction is a trend, not a measurement.
+const fillForecastTTL = 10 * time.Minute
 
 func New(ctx context.Context, cfg Config) (*Hub, error) {
 	if err := cfg.normalize(); err != nil {
@@ -149,6 +164,37 @@ func (h *Hub) Run(ctx context.Context) error {
 
 // startEmbeddedAgent runs an agent in-process for `cupola serve` and registers
 // it as the `local` node. Its config stays editable at <data>/local-agent.json.
+// fillForecast returns the days until the root filesystem fills, cached per
+// node. It used to be recomputed from seven days of samples on every poll.
+func (h *Hub) fillForecast(ctx context.Context, nodeID string, snap *model.Snapshot) float64 {
+	if snap == nil {
+		return 0
+	}
+	h.fillMu.Lock()
+	entry, ok := h.fill[nodeID]
+	h.fillMu.Unlock()
+	if ok && time.Since(entry.at) < fillForecastTTL {
+		return entry.days
+	}
+	days := 0.0
+	for _, disk := range snap.Disks {
+		if disk.Mount != "/" {
+			continue
+		}
+		since := time.Now().Add(-7 * 24 * time.Hour).UnixMilli()
+		if history, err := h.store.DiskHistory(ctx, nodeID, disk.Mount, since); err == nil {
+			days = daysToFull(history)
+		}
+	}
+	h.fillMu.Lock()
+	if h.fill == nil {
+		h.fill = make(map[string]fillEntry)
+	}
+	h.fill[nodeID] = fillEntry{days: days, at: time.Now()}
+	h.fillMu.Unlock()
+	return days
+}
+
 func (h *Hub) startEmbeddedAgent(ctx context.Context) error {
 	dataDir := h.cfg.DataDir
 	tokenPath := filepath.Join(dataDir, "local-agent.token")
