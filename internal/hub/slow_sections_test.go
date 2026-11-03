@@ -84,3 +84,70 @@ func TestMergeSlowSectionsCachesASlimSnapshot(t *testing.T) {
 		t.Fatalf("merge did not fill services: %+v", snap.Services)
 	}
 }
+
+func TestProcessesAreFetchedOnDemandAndCached(t *testing.T) {
+	var fetches int
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/processes", func(w http.ResponseWriter, r *http.Request) {
+		fetches++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ts":        7,
+			"processes": []model.Process{{PID: 42, Name: "codex"}},
+			"agents":    []model.AgentSession{{ID: "test-42", Type: "codex"}},
+		})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	hub, _ := newTestHub(t)
+	node := model.NodeRecord{ID: "test", Name: "test", Mode: "pull", URL: server.URL}
+	sealed, err := encrypt(hub.keys.key, []byte("agent-token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.store.UpsertNode(context.Background(), node, sealed, "hash"); err != nil {
+		t.Fatal(err)
+	}
+
+	hub.poller.refreshProcesses(context.Background(), "test", processesOnDemand)
+	hub.poller.refreshProcesses(context.Background(), "test", processesOnDemand)
+	if fetches != 1 {
+		t.Fatalf("fetched %d times, want 1: the second call is inside the throttle", fetches)
+	}
+
+	snap := &model.Snapshot{Ts: 7}
+	fake := nodeEndpoint{HTTP: &http.Client{Timeout: 2 * time.Second}, Base: server.URL, Token: "agent-token"}
+	hub.poller.mergeSlowSections(context.Background(), "test", fake, snap)
+	if len(snap.Processes) != 1 || snap.Processes[0].Name != "codex" {
+		t.Fatalf("processes not merged into the snapshot: %+v", snap.Processes)
+	}
+	if len(snap.Agents) != 1 {
+		t.Fatalf("agents not merged into the snapshot: %+v", snap.Agents)
+	}
+}
+
+// An older agent (or a test double) that ignores ?slim=1 still sends services
+// inside the snapshot; if its part endpoint is missing, the merge must keep
+// what arrived instead of blanking the panel.
+func TestMergeKeepsSectionsTheAgentSentWhenThePartFetchFails(t *testing.T) {
+	agent := partAgent(t)
+	hub, _ := newTestHub(t)
+	// Point at a server without /v1/services or /v1/ports.
+	broken := httptest.NewServer(http.NotFoundHandler())
+	defer broken.Close()
+	endpoint := nodeEndpoint{HTTP: &http.Client{Timeout: time.Second}, Base: broken.URL, Token: "agent-token"}
+	_ = agent
+
+	snap := &model.Snapshot{
+		Ts:       7,
+		Services: []model.Service{{Name: "from-snapshot.service"}},
+		Ports:    []model.Port{{Port: 22}},
+	}
+	hub.poller.mergeSlowSections(context.Background(), "test", endpoint, snap)
+	if len(snap.Services) != 1 || snap.Services[0].Name != "from-snapshot.service" {
+		t.Fatalf("services were blanked: %+v", snap.Services)
+	}
+	if len(snap.Ports) != 1 {
+		t.Fatalf("ports were blanked: %+v", snap.Ports)
+	}
+}

@@ -28,7 +28,7 @@ agent token from `agent.token` (0600). There is no write route except actions.
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | `/healthz` | `{ok, version}` (no token) |
-| GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size); `?slim=1` omits `services` and `ports`, which are 90 % of the bytes |
+| GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size); `?slim=1` omits `services`, `ports`, `processes` and `agents`, which are most of the bytes |
 | GET | `/v1/processes` | `{ts, processes}` |
 | GET | `/v1/agents` | `{ts, agents}` |
 | GET | `/v1/services` | `{ts, services}` |
@@ -179,11 +179,14 @@ The privileged side is the `cupola upgrade` command, run by the
 
 ### Why the hub polls a slim snapshot
 
-Services and ports are about 90 % of a snapshot (463 units is 96 kB of 115 kB)
-and change on a much slower clock. The hub asks for `?slim=1` every poll and
-refreshes `/v1/services` every 60 s and `/v1/ports` every 30 s, splicing the
-cached copies back in. On a 5 s cadence that is roughly 10 kB per poll instead
-of 115 kB, which matters for a relayed or metered path.
+Services and ports are about 90 % of a snapshot (463 units is 96 kB of 115 kB),
+processes are another 11 kB, and all of them change on a much slower clock than
+CPU and memory. The hub asks for `?slim=1` every poll and refreshes the parts
+itself: `/v1/services` every 60 s, `/v1/ports` every 30 s, `/v1/processes` every
+five minutes or when a node page is opened. The cached copies are spliced back
+into each poll, so on a 5 s cadence the payload is about 3 kB instead of 115 kB.
+An agent that does not know `?slim=1` keeps sending everything and the hub keeps
+what arrived.
 
 ### Container history
 

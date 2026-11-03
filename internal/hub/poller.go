@@ -150,6 +150,7 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 		p.noteFailure(node.ID)
 		return
 	}
+	p.refreshProcesses(pollCtx, node.ID, processesRefresh)
 	p.mergeSlowSections(pollCtx, node.ID, endpoint, snap)
 	if snap.Node.ID == "" {
 		snap.Node.ID = node.ID
@@ -523,13 +524,27 @@ func fetchActions(ctx context.Context, endpoint nodeEndpoint) ([]model.Action, e
 const (
 	servicesRefresh = 60 * time.Second
 	portsRefresh    = 30 * time.Second
+	// Processes are only on screen when a node page is open, so they ride the
+	// slow path and are refreshed on demand; the background pass keeps the agent
+	// roster and the process count from going stale on their own.
+	processesRefresh  = 5 * time.Minute
+	processesOnDemand = 15 * time.Second
 )
 
 type slowSections struct {
 	services   []model.Service
 	servicesAt time.Time
-	ports      []model.Port
-	portsAt    time.Time
+	// Fetched is set once a part fetch has succeeded: until then an older agent
+	// still sends these sections inside the snapshot, and the merge must not
+	// throw them away.
+	servicesFetched  bool
+	ports            []model.Port
+	portsAt          time.Time
+	portsFetched     bool
+	processes        []model.Process
+	agents           []model.AgentSession
+	processesAt      time.Time
+	processesFetched bool
 }
 
 func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint nodeEndpoint, snap *model.Snapshot) {
@@ -537,14 +552,14 @@ func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint 
 	cached := p.slow[nodeID]
 	p.slowMu.Unlock()
 
-	if len(cached.services) == 0 || time.Since(cached.servicesAt) >= servicesRefresh {
+	if !cached.servicesFetched || time.Since(cached.servicesAt) >= servicesRefresh {
 		if services, err := fetchPart[model.Service](ctx, endpoint, "services", "services"); err == nil {
-			cached.services, cached.servicesAt = services, time.Now()
+			cached.services, cached.servicesAt, cached.servicesFetched = services, time.Now(), true
 		}
 	}
-	if len(cached.ports) == 0 || time.Since(cached.portsAt) >= portsRefresh {
+	if !cached.portsFetched || time.Since(cached.portsAt) >= portsRefresh {
 		if ports, err := fetchPart[model.Port](ctx, endpoint, "ports", "ports"); err == nil {
-			cached.ports, cached.portsAt = ports, time.Now()
+			cached.ports, cached.portsAt, cached.portsFetched = ports, time.Now(), true
 		}
 	}
 
@@ -555,8 +570,71 @@ func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint 
 	p.slow[nodeID] = cached
 	p.slowMu.Unlock()
 
-	snap.Services = append([]model.Service(nil), cached.services...)
-	snap.Ports = append([]model.Port(nil), cached.ports...)
+	if cached.servicesFetched {
+		snap.Services = append([]model.Service(nil), cached.services...)
+	}
+	if cached.portsFetched {
+		snap.Ports = append([]model.Port(nil), cached.ports...)
+	}
+	if cached.processesFetched {
+		snap.Processes = append([]model.Process(nil), cached.processes...)
+		snap.Agents = append([]model.AgentSession(nil), cached.agents...)
+	}
+}
+
+// refreshProcesses pulls /v1/processes when the cached copy is older than
+// maxAge. The poller calls it with processesRefresh, the node page with
+// processesOnDemand, so opening a node refreshes what the tab shows.
+func (p *poller) refreshProcesses(ctx context.Context, nodeID string, maxAge time.Duration) {
+	p.slowMu.Lock()
+	cached := p.slow[nodeID]
+	if time.Since(cached.processesAt) < maxAge {
+		p.slowMu.Unlock()
+		return
+	}
+	// Claim the slot before the fetch so concurrent requests do not stack up.
+	cached.processesAt = time.Now()
+	p.slow[nodeID] = cached
+	p.slowMu.Unlock()
+
+	secret, err := p.hub.store.GetNodeSecret(ctx, nodeID)
+	if err != nil {
+		return
+	}
+	endpoint, err := p.hub.transport.endpoint(ctx, secret)
+	if err != nil || endpoint.Base == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.Base+"/v1/processes", nil)
+	if err != nil {
+		return
+	}
+	request.Header.Set("Authorization", "Bearer "+endpoint.Token)
+	response, err := endpoint.HTTP.Do(request)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return
+	}
+	var payload struct {
+		Processes []model.Process      `json:"processes"`
+		Agents    []model.AgentSession `json:"agents"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return
+	}
+	p.slowMu.Lock()
+	current := p.slow[nodeID]
+	current.processes = payload.Processes
+	current.agents = payload.Agents
+	current.processesAt = time.Now()
+	current.processesFetched = true
+	p.slow[nodeID] = current
+	p.slowMu.Unlock()
 }
 
 // fetchPart reads one of the agent's part endpoints, which answer

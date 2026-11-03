@@ -193,13 +193,15 @@ func (a *Agent) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "collect", err.Error())
 		return
 	}
-	// ?slim=1 drops the two sections the hub refreshes on its own schedule.
-	// Services alone were 84 % of a 115 KB snapshot, and the hub was asking for
-	// them every five seconds.
+	// ?slim=1 drops the sections the hub refreshes on its own schedule:
+	// services were 84 % of a 115 KB snapshot, and processes are another 11 KB
+	// that only the Processes tab needs.
 	if r.URL.Query().Get("slim") == "1" {
 		slim := *snap
 		slim.Services = nil
 		slim.Ports = nil
+		slim.Processes = nil
+		slim.Agents = nil
 		writeJSON(w, http.StatusOK, &slim)
 		return
 	}

@@ -225,6 +225,11 @@ func (h *Hub) handleFleetSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Hub) nodeView(ctx context.Context, node model.NodeRecord, withSnapshot bool) model.NodeView {
+	if withSnapshot {
+		// Opening a node refreshes the sections it shows, throttled; the poller
+		// merges whatever this produced into the next snapshot.
+		h.poller.refreshProcesses(ctx, node.ID, processesOnDemand)
+	}
 	snap, _ := h.store.GetState(ctx, node.ID)
 	days := h.fillForecast(ctx, node.ID, snap)
 	attention, _ := h.attentionCount(ctx, node.ID, snap, days)
@@ -272,6 +277,9 @@ func (h *Hub) handleNodePart(part string) http.Handler {
 		if !tokenAllowsNode(identityFrom(r.Context()), id) {
 			apiError(w, http.StatusForbidden, "scope", "token is not allowed on this node")
 			return
+		}
+		if part == "processes" || part == "agents" {
+			h.poller.refreshProcesses(r.Context(), id, processesOnDemand)
 		}
 		snap, err := h.store.GetState(r.Context(), id)
 		if err != nil || snap == nil {
@@ -1138,14 +1146,14 @@ func (h *Hub) handleStream(w http.ResponseWriter, r *http.Request) {
 func (h *Hub) routesHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle("GET /healthz", h.healthz())
-		mux.HandleFunc("GET /install.sh", h.handleInstallScript)
+	mux.HandleFunc("GET /install.sh", h.handleInstallScript)
 	mux.HandleFunc("GET /install/cupola", h.handleInstallBinary)
 	mux.HandleFunc("POST /api/v1/join", h.handleJoin)
 	mux.HandleFunc("POST /api/v1/ingest", h.handleIngest)
 	mux.Handle("POST /api/v1/join/codes", h.requireAdmin(http.HandlerFunc(h.handleCreateJoinCode)))
 	mux.Handle("GET /api/v1/join/{id}/status", h.requireRead(http.HandlerFunc(h.handleJoinStatus)))
 	mux.Handle("GET /api/v1/tailnet/peers", h.requireRead(http.HandlerFunc(h.handleTailnetPeers)))
-mux.Handle("POST /api/v1/auth/password", h.requireAdmin(http.HandlerFunc(h.handleChangePassword)))
+	mux.Handle("POST /api/v1/auth/password", h.requireAdmin(http.HandlerFunc(h.handleChangePassword)))
 	mux.HandleFunc("POST /api/v1/auth/login", h.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", h.handleLogout)
 	mux.Handle("GET /api/v1/auth/me", h.requireRead(http.HandlerFunc(h.handleMe)))
