@@ -358,6 +358,8 @@ type NodeHealth struct {
 	MemPct       float64  `json:"mem_pct"`
 	CPUPct       float64  `json:"cpu_pct"`
 	Load1        float64  `json:"load1"`
+	Load5        float64  `json:"load5"`
+	Load15       float64  `json:"load15"`
 	UptimeSec    int64    `json:"uptime_sec"`
 	Agents        int     `json:"agents"`
 	FailedUnits   int     `json:"failed_units"`
@@ -368,7 +370,12 @@ type NodeHealth struct {
 	RootDiskUsed  uint64  `json:"root_disk_used"`
 	RootDiskTotal uint64  `json:"root_disk_total"`
 	NetRxBps      float64 `json:"net_rx_bps"`
-	Warnings     []string `json:"warnings,omitempty"`
+	NetTxBps      float64 `json:"net_tx_bps"`
+	// TempMaxC is the hottest temperature sensor; nil when the agent reports none.
+	TempMaxC *float64 `json:"temp_max_c,omitempty"`
+	// GPUPct is the busiest GPU's utilisation; nil on a box without one.
+	GPUPct   *float64 `json:"gpu_pct,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
 }
 
 type NodeView struct {

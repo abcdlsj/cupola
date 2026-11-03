@@ -1,104 +1,99 @@
-import { Fig } from '../../components/Fig';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
+import { ChartCard } from '../../components/ChartCard';
 import { Panel } from '../../components/Panel';
+import { Meter } from '../../components/Meter';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { SeriesChart, type ChartSeries } from '../../components/SeriesChart';
+import type { ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
 import { useSeries } from '../../data/queries';
 import type { NodeView, SeriesPoint } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, size } from '../../lib/format';
-import { RangeControl } from './RangeControl';
-
-/** "Loading a window" is one quiet line; the chart frame never collapses. */
-const NO_WINDOW = 'No sample in this window yet.';
-
-function windowNote(pending: boolean, points: SeriesPoint[], empty: string, filled: string): string {
-  if (pending && points.length === 0) return 'Loading this window from the hub…';
-  if (points.length === 0) return empty;
-  return filled;
-}
+import { percentCeiling } from './NodeLists';
+import { useRange } from './RangeControl';
 
 function useSnapshot() {
-  const view = useOutletContext<NodeView>();
-  return view;
+  return useOutletContext<NodeView>();
+}
+
+function useMetric(nodeId: string, metric: string, range: string) {
+  const query = useSeries(nodeId, metric, range);
+  const points = useMemo(() => query.data?.points ?? [], [query.data]);
+  return { points, pending: query.isPending };
+}
+
+function peak(...lists: SeriesPoint[][]): number {
+  let max = 0;
+  for (const list of lists) for (const point of list) if (point.max > max) max = point.max;
+  return max;
+}
+
+function WaitingForSnapshot() {
+  return (
+    <Panel title="Waiting for data">
+      <Empty>The hub has no snapshot for this system yet. The first poll runs within a few seconds.</Empty>
+    </Panel>
+  );
 }
 
 export function CpuPage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
+  const [range] = useRange();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
-  const series = useSeries(nodeId, 'cpu', range);
-  const pressure = useSeries(nodeId, 'psi_cpu', range);
-  const points = useMemo(() => series.data?.points ?? [], [series.data]);
-  const pressurePoints = useMemo(() => pressure.data?.points ?? [], [pressure.data]);
+  const cpu = useMetric(nodeId, 'cpu', range);
+  const pressure = useMetric(nodeId, 'psi_cpu', range);
   const chart = useMemo<ChartSeries[]>(
     () => [
-      { label: 'Utilisation', points, color: seriesColor(0) },
-      { label: 'Pressure', points: pressurePoints, color: seriesColor(1) },
+      { label: 'Utilisation', points: cpu.points, color: seriesColor(0) },
+      { label: 'Pressure', points: pressure.points, color: seriesColor(2) },
     ],
-    [points, pressurePoints],
+    [cpu.points, pressure.points],
   );
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
+  if (!snap) return <WaitingForSnapshot />;
   const cores = snap.cpu.per_core;
   return (
     <>
-      <Panel title="CPU" meta={<RangeControl value={range} onChange={setRange} />} flush>
-        <div className="cpu-split">
-          <div className="cpu-split-main">
-            <SeriesChart series={chart} unit="percent" threshold={80} label="CPU utilisation and pressure" height={232} />
-            <p className="cpu-note">
-              <span className="legend-inline">
-                <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
-                Utilisation
-              </span>
-              <span className="legend-inline">
-                <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
-                Pressure
-              </span>
-              {' · '}
-              {windowNote(
-                series.isPending || pressure.isPending,
-                points,
-                NO_WINDOW,
-                'Time tasks waited on the CPU; the dashed line is the 80% alert threshold.',
-              )}
-            </p>
-          </div>
-          <div className="cpu-split-side">
-            <h3 className="split-title">Breakdown</h3>
-            <Kv
-              rows={[
-                { label: 'User', value: percent(snap.cpu.user, 1) },
-                { label: 'System', value: percent(snap.cpu.system, 1) },
-                { label: 'Iowait', value: percent(snap.cpu.iowait, 1) },
-                { label: 'Steal', value: percent(snap.cpu.steal, 1) },
-                { label: 'Load 1 / 5 / 15', value: `${snap.cpu.load1.toFixed(2)} / ${snap.cpu.load5.toFixed(2)} / ${snap.cpu.load15.toFixed(2)}` },
-                { label: 'Processes', value: String(snap.cpu.procs) },
-                { label: 'CPU pressure', value: percent(snap.pressure.cpu.some, 1) },
-              ]}
-            />
-          </div>
-        </div>
-      </Panel>
-      <Panel title="Per core" meta={`${cores.length} cores · ${snap.node.cpu_model || 'unknown model'}`} flush>
+      <div className="chart-grid chart-grid-wide">
+        <ChartCard
+          title="CPU utilisation and pressure"
+          desc="Pressure is the share of time runnable tasks waited for a CPU; the dashed line is the 80 % alert."
+          now={percent(snap.cpu.percent, 1)}
+          series={chart}
+          unit="percent"
+          threshold={80}
+          legend={[percent(snap.cpu.percent, 1), percent(snap.pressure.cpu.some, 1)]}
+          pending={cpu.pending || pressure.pending}
+          height={220}
+        />
+        <Panel title="Breakdown" desc="Where the CPU time went in the last sample.">
+          <Kv
+            rows={[
+              { label: 'User', value: percent(snap.cpu.user, 1) },
+              { label: 'System', value: percent(snap.cpu.system, 1) },
+              { label: 'I/O wait', value: percent(snap.cpu.iowait, 1) },
+              { label: 'Steal', value: percent(snap.cpu.steal, 1) },
+              { label: 'Load 1 / 5 / 15', value: `${snap.cpu.load1.toFixed(2)} / ${snap.cpu.load5.toFixed(2)} / ${snap.cpu.load15.toFixed(2)}` },
+              { label: 'Processes', value: String(snap.cpu.procs) },
+              { label: 'Clock', value: snap.cpu.mhz ? `${(snap.cpu.mhz / 1000).toFixed(2)} GHz` : '—' },
+            ]}
+          />
+        </Panel>
+      </div>
+      <Panel title="Per core" desc={`${cores.length} threads · ${snap.node.cpu_model || 'unknown model'}`}>
         {cores.length === 0 ? (
-          <Empty>This agent did not report per-core usage.</Empty>
+          <p className="note">This agent did not report per-core usage.</p>
         ) : (
-          <div className="bar-list">
+          <ul className="core-grid">
             {cores.map((value, index) => (
-              <div className="bar-row" key={index}>
-                <span className="bar-label fig">core {index}</span>
-                <span className="bar-track">
-                  <span className="bar-fill" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
-                </span>
-                <span className="bar-value fig">{percent(value)}</span>
-              </div>
+              <li className="core-row" key={index}>
+                <span className="core-label fig">{index}</span>
+                <Meter value={value} label={`Thread ${index}`} />
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </Panel>
     </>
@@ -108,47 +103,52 @@ export function CpuPage() {
 export function MemoryPage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
+  const [range] = useRange();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
-  const series = useSeries(nodeId, 'mem', range);
-  const points = useMemo(() => series.data?.points ?? [], [series.data]);
-  const chart = useMemo<ChartSeries[]>(
-    () => [{ label: 'Memory', points, color: seriesColor(1) }],
-    [points],
-  );
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
-  const top = [...snap.processes].sort((a, b) => b.rss_bytes - a.rss_bytes).slice(0, 6);
+  const mem = useMetric(nodeId, 'mem', range);
+  const chart = useMemo<ChartSeries[]>(() => [{ label: 'Memory', points: mem.points, color: seriesColor(1) }], [mem.points]);
+  if (!snap) return <WaitingForSnapshot />;
+  const top = [...snap.processes].sort((a, b) => b.rss_bytes - a.rss_bytes).slice(0, 8);
+  const swapPct = snap.memory.swap_total ? (snap.memory.swap_used / snap.memory.swap_total) * 100 : null;
   return (
     <>
-      <Panel title="Memory" meta={<RangeControl value={range} onChange={setRange} />} flush>
-        <div className="cpu-split">
-          <div className="cpu-split-main">
-            <SeriesChart series={chart} unit="percent" label="Memory used" height={232} />
-            <p className="cpu-note">{windowNote(series.isPending, points, NO_WINDOW, 'Used percentage over the window.')}</p>
-          </div>
-          <div className="cpu-split-side">
-            <h3 className="split-title">Breakdown</h3>
-            <Kv
-              rows={[
-                { label: 'Total', value: size(snap.memory.total) },
-                { label: 'Used', value: size(snap.memory.used) },
-                { label: 'Available', value: size(snap.memory.available) },
-                { label: 'Cached', value: size(snap.memory.cached) },
-                { label: 'Buffers', value: size(snap.memory.buffers) },
-                { label: 'Swap used', value: `${size(snap.memory.swap_used)} of ${size(snap.memory.swap_total)}` },
-                { label: 'Memory pressure', value: percent(snap.pressure.mem.some, 1) },
-              ]}
-            />
-          </div>
-        </div>
-      </Panel>
-      <Panel title="Largest residents" meta={`${top.length} of ${snap.processes.length} shown`} flush>
+      <div className="chart-grid chart-grid-wide">
+        <ChartCard
+          title="Memory usage"
+          desc={`Used share of ${size(snap.memory.total)} over the window.`}
+          now={percent(snap.memory.used_percent, 1)}
+          series={chart}
+          unit="percent"
+          pending={mem.pending}
+          height={220}
+        />
+        <Panel title="Breakdown" desc="The last sample.">
+          <Kv
+            rows={[
+              { label: 'Total', value: size(snap.memory.total) },
+              { label: 'Used', value: size(snap.memory.used) },
+              { label: 'Available', value: size(snap.memory.available) },
+              { label: 'Cached', value: size(snap.memory.cached) },
+              { label: 'Buffers', value: size(snap.memory.buffers) },
+              { label: 'Swap', value: snap.memory.swap_total ? `${size(snap.memory.swap_used)} of ${size(snap.memory.swap_total)}` : 'none' },
+              { label: 'Pressure', value: percent(snap.pressure.mem.some, 1) },
+            ]}
+          />
+          {swapPct != null ? (
+            <div className="breakdown-meter">
+              <span className="quiet">Swap used</span>
+              <Meter value={swapPct} label="Swap used" />
+            </div>
+          ) : null}
+        </Panel>
+      </div>
+      <Panel title="Largest residents" desc={`${top.length} of ${snap.processes.length} sampled processes, by resident memory.`} flush>
         <Table label="Largest resident processes">
           <THead>
             <Th>Process</Th>
             <Th num>PID</Th>
             <Th>User</Th>
-            <Th num>Memory</Th>
+            <Th>Memory</Th>
             <Th num>CPU</Th>
           </THead>
           <TBody>
@@ -163,8 +163,13 @@ export function MemoryPage() {
                 <Td cell="field" label="User">
                   {proc.user}
                 </Td>
-                <Td num cell="key">
-                  {size(proc.rss_bytes)}
+                <Td cell="key" className="meter-cell">
+                  <Meter
+                    value={snap.memory.total ? (proc.rss_bytes / snap.memory.total) * 100 : null}
+                    text={size(proc.rss_bytes)}
+                    tone="neutral"
+                    label={`${proc.name} resident memory, bar is its share of ${size(snap.memory.total)}`}
+                  />
                 </Td>
                 <Td num cell="field" label="CPU">
                   {percent(proc.cpu_percent, 1)}
@@ -181,50 +186,51 @@ export function MemoryPage() {
 export function StoragePage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
+  const [range] = useRange();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
-  const read = useSeries(nodeId, 'disk_r', range);
-  const write = useSeries(nodeId, 'disk_w', range);
-  const points = useMemo(() => read.data?.points ?? [], [read.data]);
+  const read = useMetric(nodeId, 'disk_r', range);
+  const write = useMetric(nodeId, 'disk_w', range);
+  const io = useMetric(nodeId, 'psi_io', range);
   const chart = useMemo<ChartSeries[]>(
     () => [
-      { label: 'Read', points, color: seriesColor(0) },
-      { label: 'Write', points: write.data?.points ?? [], color: seriesColor(1) },
+      { label: 'Read', points: read.points, color: seriesColor(0) },
+      { label: 'Write', points: write.points, color: seriesColor(1) },
     ],
-    [points, write.data],
+    [read.points, write.points],
   );
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
+  const pressure = useMemo<ChartSeries[]>(() => [{ label: 'I/O pressure', points: io.points, color: seriesColor(2) }], [io.points]);
+  if (!snap) return <WaitingForSnapshot />;
+  const readNow = snap.disks.reduce((sum, disk) => sum + disk.read_bps, 0);
+  const writeNow = snap.disks.reduce((sum, disk) => sum + disk.write_bps, 0);
   return (
     <>
-      <Panel title="Disk throughput" meta={<RangeControl value={range} onChange={setRange} />} flush>
-        <div className="cpu-split-main">
-          <SeriesChart series={chart} unit="rate" label="Disk read and write throughput" height={210} />
-          <p className="cpu-note">
-            <span className="legend-inline">
-              <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
-              Read
-            </span>
-            <span className="legend-inline">
-              <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
-              Write
-            </span>
-            {' · '}
-            {windowNote(
-              read.isPending || write.isPending,
-              points,
-              NO_WINDOW,
-              'Bytes per second across the sampled block devices. Mounted usage, inodes and fill prediction are in the table below.',
-            )}
-          </p>
-        </div>
-      </Panel>
-      <Panel title="Filesystems" meta={`${snap.disks.length} mounted`} flush>
+      <div className="chart-grid">
+        <ChartCard
+          title="Disk I/O"
+          desc="Bytes per second across the sampled block devices."
+          now={rate(readNow + writeNow)}
+          series={chart}
+          unit="rate"
+          legend={[rate(readNow), rate(writeNow)]}
+          pending={read.pending || write.pending}
+        />
+        <ChartCard
+          title="I/O pressure"
+          desc="Share of time some task waited on storage."
+          now={percent(snap.pressure.io.some, 1)}
+          series={pressure}
+          unit="percent"
+          maxValue={percentCeiling(peak(io.points))}
+          pending={io.pending}
+        />
+      </div>
+      <Panel title="Filesystems" desc={`${snap.disks.length} mounted. Fill prediction covers the root filesystem.`} flush>
         <Table label="Filesystems">
           <THead>
             <Th>Mount</Th>
             <Th>Device</Th>
-            <Th>FS</Th>
-            <Th num>Used</Th>
+            <Th>Used</Th>
+            <Th num>Size</Th>
             <Th num>Inodes</Th>
             <Th num>Read</Th>
             <Th num>Write</Th>
@@ -232,21 +238,19 @@ export function StoragePage() {
           </THead>
           <TBody>
             {snap.disks.map((disk) => (
-              <tr key={disk.device}>
+              <tr key={disk.device + disk.mount}>
                 <Td cell="primary">
                   <span className="row-name">{disk.mount}</span>
+                  <span className="cell-sub">{disk.fstype}{disk.read_only ? ' · read-only' : ''}</span>
                 </Td>
                 <Td cell="field" label="Device">
-                  {disk.device}
+                  <span className="fig">{disk.device}</span>
                 </Td>
-                <Td cell="field" label="FS">
-                  {disk.fstype}
+                <Td cell="key" className="meter-cell">
+                  <Meter value={disk.used_pct} label={`${disk.mount} used`} />
                 </Td>
-                <Td num cell="key">
-                  {percent(disk.used_pct)}
-                  <span className="cell-sub">
-                    {size(disk.used)} of {size(disk.total)}
-                  </span>
+                <Td num cell="field" label="Size">
+                  {size(disk.used)} of {size(disk.total)}
                 </Td>
                 <Td num cell="field" label="Inodes">
                   {percent(disk.inode_pct)}
@@ -265,6 +269,48 @@ export function StoragePage() {
           </TBody>
         </Table>
       </Panel>
+      {snap.smart.length > 0 ? (
+        <Panel title="Drive health" desc="SMART and NVMe self-reports." flush>
+          <Table label="Drive health">
+            <THead>
+              <Th>Device</Th>
+              <Th>Health</Th>
+              <Th>Wear</Th>
+              <Th num>Temp</Th>
+              <Th num>Power-on</Th>
+              <Th num>Reallocated</Th>
+            </THead>
+            <TBody>
+              {snap.smart.map((drive) => (
+                <tr key={drive.device}>
+                  <Td cell="primary">
+                    <span className="row-name">{drive.device}</span>
+                    <span className="cell-sub">{drive.model || drive.type}</span>
+                  </Td>
+                  <Td cell="key">
+                    <span className="status" data-tone={drive.error ? 'neutral' : /pass|ok/i.test(drive.health) ? 'positive' : 'negative'}>
+                      <span className="status-dot" data-tone={drive.error ? 'neutral' : /pass|ok/i.test(drive.health) ? 'positive' : 'negative'} aria-hidden="true" />
+                      {drive.error ? 'unreadable' : drive.health || '—'}
+                    </span>
+                  </Td>
+                  <Td cell="field" label="Wear" className="meter-cell">
+                    <Meter value={drive.wear_percent} label={`${drive.device} wear`} />
+                  </Td>
+                  <Td num cell="field" label="Temp">
+                    {drive.temperature_c ? `${Math.round(drive.temperature_c)} °C` : '—'}
+                  </Td>
+                  <Td num cell="field" label="Power-on">
+                    {drive.power_on_hours ? `${drive.power_on_hours} h` : '—'}
+                  </Td>
+                  <Td num cell="field" label="Reallocated">
+                    {drive.reallocated}
+                  </Td>
+                </tr>
+              ))}
+            </TBody>
+          </Table>
+        </Panel>
+      ) : null}
     </>
   );
 }
@@ -272,70 +318,51 @@ export function StoragePage() {
 export function NetworkPage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
+  const [range] = useRange();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
-  const rx = useSeries(nodeId, 'net_rx', range);
-  const tx = useSeries(nodeId, 'net_tx', range);
-  const points = useMemo(() => rx.data?.points ?? [], [rx.data]);
+  const rx = useMetric(nodeId, 'net_rx', range);
+  const tx = useMetric(nodeId, 'net_tx', range);
   const chart = useMemo<ChartSeries[]>(
     () => [
-      { label: 'In', points, color: seriesColor(0) },
-      { label: 'Out', points: tx.data?.points ?? [], color: seriesColor(1) },
+      { label: 'Received', points: rx.points, color: seriesColor(0) },
+      { label: 'Sent', points: tx.points, color: seriesColor(1) },
     ],
-    [points, tx.data],
+    [rx.points, tx.points],
   );
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
-  const sum = (key: 'rx_bps' | 'tx_bps') =>
-    snap.network.filter((iface) => iface.iface !== 'lo').reduce((total, iface) => total + iface[key], 0);
+  if (!snap) return <WaitingForSnapshot />;
+  const ifaces = snap.network.filter((iface) => iface.iface !== 'lo');
+  const sum = (key: 'rx_bps' | 'tx_bps') => ifaces.reduce((total, iface) => total + iface[key], 0);
   return (
     <>
-      <div className="kpi-row" data-count="3">
-        <div className="kpi-cell">
-          <div className="kpi-label">Receive</div>
-          <div className="kpi-value"><Fig>{netRate(sum('rx_bps'))}</Fig></div>
-          <div className="kpi-sub">all interfaces, loopback excluded</div>
-        </div>
-        <div className="kpi-cell">
-          <div className="kpi-label">Transmit</div>
-          <div className="kpi-value"><Fig>{netRate(sum('tx_bps'))}</Fig></div>
-          <div className="kpi-sub">all interfaces</div>
-        </div>
-        <div className="kpi-cell">
-          <div className="kpi-label">Connections</div>
-          <div className="kpi-value"><Fig>{snap.fd.conntrack || 0}</Fig></div>
-          <div className="kpi-sub">conntrack entries</div>
-        </div>
+      <div className="chart-grid chart-grid-wide">
+        <ChartCard
+          title="Bandwidth"
+          desc={`Bits per second over ${ifaces.length} ${ifaces.length === 1 ? 'interface' : 'interfaces'}, loopback excluded.`}
+          now={netRate(sum('rx_bps') + sum('tx_bps'))}
+          series={chart}
+          unit="net"
+          legend={[netRate(sum('rx_bps')), netRate(sum('tx_bps'))]}
+          pending={rx.pending || tx.pending}
+          height={220}
+        />
+        <Panel title="Connections" desc="Kernel tables in the last sample.">
+          <Kv
+            rows={[
+              { label: 'Conntrack entries', value: String(snap.fd.conntrack || 0) },
+              { label: 'Open files', value: `${snap.fd.allocated} of ${snap.fd.max}` },
+              { label: 'Listening ports', value: String(snap.ports.length) },
+              { label: 'Interfaces up', value: `${snap.network.filter((iface) => iface.up).length} of ${snap.network.length}` },
+            ]}
+          />
+        </Panel>
       </div>
-      <Panel title="Throughput" meta={<RangeControl value={range} onChange={setRange} />} flush>
-        <div className="cpu-split-main">
-          <SeriesChart series={chart} unit="net" label="Network throughput" height={210} />
-          <p className="cpu-note">
-            <span className="legend-inline">
-              <span className="legend-swatch" style={{ background: seriesColor(0) }} aria-hidden="true" />
-              In
-            </span>
-            <span className="legend-inline">
-              <span className="legend-swatch" style={{ background: seriesColor(1) }} aria-hidden="true" />
-              Out
-            </span>
-            {' · '}
-            {windowNote(
-              rx.isPending || tx.isPending,
-              points,
-              NO_WINDOW,
-              'Bits per second, summed over the interfaces the hub sampled.',
-            )}
-          </p>
-        </div>
-      </Panel>
-      <Panel title="Interfaces" meta={`${snap.network.length} interfaces`} flush>
+      <Panel title="Interfaces" desc="Live rates from the latest snapshot." flush>
         <Table label="Interfaces">
           <THead>
             <Th>Interface</Th>
-            <Th>State</Th>
-            <Th num>Speed</Th>
             <Th num>In</Th>
             <Th num>Out</Th>
+            <Th num>Speed</Th>
             <Th num>Errors</Th>
             <Th num>Drops</Th>
             <Th>Driver</Th>
@@ -344,19 +371,19 @@ export function NetworkPage() {
             {snap.network.map((iface) => (
               <tr key={iface.iface}>
                 <Td cell="primary">
-                  <span className="row-name">{iface.iface}</span>
-                </Td>
-                <Td cell="field" label="State">
-                  {iface.up ? 'up' : 'down'}
-                </Td>
-                <Td num cell="field" label="Speed">
-                  {iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}
+                  <span className="row-name">
+                    <span className="status-dot" data-tone={iface.up ? 'positive' : 'neutral'} role="img" aria-label={iface.up ? 'up' : 'down'} />
+                    {iface.iface}
+                  </span>
                 </Td>
                 <Td num cell="key">
                   {netRate(iface.rx_bps)}
                 </Td>
                 <Td num cell="field" label="Out">
                   {netRate(iface.tx_bps)}
+                </Td>
+                <Td num cell="field" label="Speed">
+                  {iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}
                 </Td>
                 <Td num cell="field" label="Errors">
                   {iface.rx_errors + iface.tx_errors}
@@ -371,12 +398,6 @@ export function NetworkPage() {
             ))}
           </TBody>
         </Table>
-        <div className="panel-foot">
-          <span className="note">
-            Live rates from the latest snapshot. The hub answers history for CPU, memory, load and pressure only, so this page has no
-            throughput curve until the series route serves the net_rx and net_tx columns the store already keeps.
-          </span>
-        </div>
       </Panel>
     </>
   );

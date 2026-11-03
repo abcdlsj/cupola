@@ -29,6 +29,8 @@ export interface NodeHealth {
   mem_pct: number;
   cpu_pct: number;
   load1: number;
+  load5?: number;
+  load15?: number;
   uptime_sec: number;
   agents: number;
   failed_units: number;
@@ -39,6 +41,11 @@ export interface NodeHealth {
   root_disk_used: number;
   root_disk_total: number;
   net_rx_bps: number;
+  net_tx_bps?: number;
+  /** hottest temperature sensor; absent when the agent reports none */
+  temp_max_c?: number;
+  /** busiest GPU's utilisation; absent on a box without one */
+  gpu_pct?: number;
   warnings?: string[];
 }
 

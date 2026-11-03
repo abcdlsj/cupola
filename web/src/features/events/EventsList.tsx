@@ -46,10 +46,10 @@ export function EventsList({
         <>
           {!compact ? (
             <>
-              <label className="filter">
+              <label className="select-wrap">
                 <span className="sr-only">Severity</span>
                 <select
-                  className="select"
+                  className="select-bare"
                   value={severity}
                   onChange={(event) => {
                     setSeverity(event.target.value);
@@ -63,10 +63,10 @@ export function EventsList({
                   ))}
                 </select>
               </label>
-              <label className="filter">
+              <label className="select-wrap">
                 <span className="sr-only">Kind</span>
                 <select
-                  className="select"
+                  className="select-bare"
                   value={kind}
                   onChange={(event) => {
                     setKind(event.target.value);

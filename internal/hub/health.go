@@ -15,6 +15,8 @@ func nodeHealth(node model.NodeRecord, snap *model.Snapshot, daysToFull float64,
 	health.CPUPct = snap.CPU.Percent
 	health.MemPct = snap.Memory.UsedPercent
 	health.Load1 = snap.CPU.Load1
+	health.Load5 = snap.CPU.Load5
+	health.Load15 = snap.CPU.Load15
 	health.UptimeSec = snap.Node.UptimeSec
 	health.Agents = len(snap.Agents)
 	health.Containers = len(snap.Containers)
@@ -23,6 +25,22 @@ func nodeHealth(node model.NodeRecord, snap *model.Snapshot, daysToFull float64,
 	for _, iface := range snap.Network {
 		if iface.Iface != "lo" {
 			health.NetRxBps += iface.RxBps
+			health.NetTxBps += iface.TxBps
+		}
+	}
+	for _, sensor := range snap.Sensors {
+		if sensor.Kind != "temperature" {
+			continue
+		}
+		if health.TempMaxC == nil || sensor.Value > *health.TempMaxC {
+			value := sensor.Value
+			health.TempMaxC = &value
+		}
+	}
+	for _, gpu := range snap.GPUs {
+		if health.GPUPct == nil || gpu.UtilPercent > *health.GPUPct {
+			value := gpu.UtilPercent
+			health.GPUPct = &value
 		}
 	}
 	for _, service := range snap.Services {

@@ -188,13 +188,30 @@ export function prefetchSeries(
 
 /** What each node tab draws first, warmed when the tab is hovered or focused. */
 export const TAB_SERIES: Record<string, ReadonlyArray<readonly [string, string]>> = {
-  '': [['cpu', '1h']],
+  '': [
+    ['cpu', '1h'],
+    ['mem', '1h'],
+    ['load', '1h'],
+    ['net_rx', '1h'],
+    ['net_tx', '1h'],
+    ['disk_r', '1h'],
+    ['disk_w', '1h'],
+    ['psi_cpu', '1h'],
+    ['psi_io', '1h'],
+  ],
   '/cpu': [
     ['cpu', '1h'],
     ['psi_cpu', '1h'],
   ],
   '/memory': [['mem', '1h']],
-  '/storage': [['psi_io', '1h']],
+  '/storage': [
+    ['disk_r', '1h'],
+    ['disk_w', '1h'],
+  ],
+  '/network': [
+    ['net_rx', '1h'],
+    ['net_tx', '1h'],
+  ],
 };
 
 export function useCreateNode() {

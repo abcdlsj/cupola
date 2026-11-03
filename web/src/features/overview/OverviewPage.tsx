@@ -1,289 +1,497 @@
-import { Fig } from '../../components/Fig';
-import { useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Power } from '@phosphor-icons/react';
-import { PageHeader, Panel } from '../../components/Panel';
-import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { FleetGrid } from '../../components/FleetGrid';
-import { StatusPill } from '../../components/StatusPill';
-import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
+import { useMemo, useState, type ReactNode } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowDown, ArrowUp, CaretRight, FunnelSimple, Play, Rows, SquaresFour } from '@phosphor-icons/react';
+import { Panel } from '../../components/Panel';
+import { Fig as Figure } from '../../components/Fig';
+import { Meter } from '../../components/Meter';
+import { StatusDot } from '../../components/StatusPill';
+import { AgentMark } from '../../components/AgentMark';
+import { Empty, ErrorPanel } from '../../components/States';
 import { RunActionDialog } from '../apps/RunActionDialog';
-import { EventsList } from '../events/EventsList';
-import { useEvents, useFleet, useFleetActions, useSettings } from '../../data/queries';
-import type { Action, Event, FleetAction } from '../../data/types';
-import { days, percent, relative, size, uptime } from '../../lib/format';
+import { useEvents, useFleet, useFleetActions, useFleetAgents, useSettings } from '../../data/queries';
+import type { Action, FleetAction, NodeView } from '../../data/types';
+import { agentTypeInfo } from '../../data/registry';
+import { duration, netRate, relative } from '../../lib/format';
+import { findings, nodeFigures, type NodeFigures } from '../../lib/fleet';
 
-interface Attention {
-  key: string;
-  nodeId: string;
-  severity: 'warning' | 'critical';
-  title: string;
-  detail: string;
-  ts: number;
+type SortKey = 'name' | 'cpu' | 'mem' | 'disk' | 'gpu' | 'net' | 'load' | 'temp' | 'agents';
+
+interface Row {
+  view: NodeView;
+  fig: NodeFigures;
 }
 
-function attentionItems(events: Event[]): Attention[] {
-  const now = Date.now();
-  const seen = new Set<string>();
-  const out: Attention[] = [];
-  for (const event of events) {
-    if (event.severity === 'info' || now - event.ts > 24 * 3600 * 1000) continue;
-    const key = `${event.node_id}:${event.kind}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push({
-      key: `${event.id}`,
-      nodeId: event.node_id,
-      severity: event.severity,
-      title: event.message,
-      detail: `${event.node_id} · ${event.kind}`,
-      ts: event.ts,
-    });
+function sortValue(row: Row, key: SortKey): number | string {
+  const fig = row.fig;
+  switch (key) {
+    case 'name':
+      return row.view.node.name.toLowerCase();
+    case 'load':
+      return fig.load?.[0] ?? -1;
+    case 'agents':
+      return fig.agents;
+    default:
+      return fig[key] ?? -1;
   }
-  return out;
+}
+
+/** The hub and agents ship together; an older agent is worth a quiet amber dot. */
+function versionTone(agent: string, hub: string | undefined): 'positive' | 'warning' | 'neutral' {
+  if (!agent) return 'neutral';
+  if (!hub || hub === 'dev' || agent === 'dev') return 'positive';
+  return agent.replace(/^v/, '') === hub.replace(/^v/, '') ? 'positive' : 'warning';
+}
+
+function SortHeader({
+  id,
+  label,
+  sort,
+  dir,
+  onSort,
+  num = false,
+  width,
+}: {
+  id: SortKey;
+  label: string;
+  sort: SortKey;
+  dir: 'asc' | 'desc';
+  onSort: (key: SortKey) => void;
+  num?: boolean;
+  width?: number;
+}) {
+  const active = sort === id;
+  return (
+    <th scope="col" className={num ? 'num' : undefined} style={width ? { width } : undefined} aria-sort={active ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}>
+      <button type="button" className="sort-btn" data-active={active || undefined} onClick={() => onSort(id)}>
+        {label}
+        {active ? dir === 'asc' ? <ArrowUp size={12} aria-hidden="true" /> : <ArrowDown size={12} aria-hidden="true" /> : null}
+      </button>
+    </th>
+  );
+}
+
+/** A figure cell: digits in mono, units in the UI face, a dash when missing. */
+function Fig({ children, muted = false }: { children: ReactNode; muted?: boolean }) {
+  return (
+    <span className={muted ? 'quiet' : undefined}>
+      <Figure>{children}</Figure>
+    </span>
+  );
+}
+
+function SystemsTable({ rows, showGpu, hubVersion, sort, dir, onSort }: {
+  rows: Row[];
+  showGpu: boolean;
+  hubVersion?: string;
+  sort: SortKey;
+  dir: 'asc' | 'desc';
+  onSort: (key: SortKey) => void;
+}) {
+  const navigate = useNavigate();
+  const now = Date.now();
+  const head = { sort, dir, onSort };
+  return (
+    <div className="table-wrap systems-table-wrap">
+      <table className="table systems-table" aria-label="Systems">
+        <thead>
+          <tr>
+            <SortHeader id="name" label="System" {...head} />
+            <SortHeader id="cpu" label="CPU" width={150} {...head} />
+            <SortHeader id="mem" label="Memory" width={150} {...head} />
+            <SortHeader id="disk" label="Disk" width={150} {...head} />
+            {showGpu ? <SortHeader id="gpu" label="GPU" width={150} {...head} /> : null}
+            <SortHeader id="net" label="Net" num {...head} />
+            <SortHeader id="load" label="Load avg" num {...head} />
+            <SortHeader id="temp" label="Temp" num {...head} />
+            <SortHeader id="agents" label="Agents" num {...head} />
+            <th scope="col">Agent</th>
+            <th scope="col" className="systems-go">
+              <span className="sr-only">Open</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ view, fig }) => {
+            const node = view.node;
+            const href = `/nodes/${node.id}`;
+            const tone = versionTone(node.agent_version, hubVersion);
+            return (
+              <tr
+                key={node.id}
+                className="systems-row"
+                data-offline={!fig.online || undefined}
+                onClick={(event) => {
+                  if ((event.target as HTMLElement).closest('a,button')) return;
+                  navigate(href);
+                }}
+              >
+                <td>
+                  <Link to={href} className="system-cell">
+                    <StatusDot status={view.health.status} />
+                    <span className="system-text">
+                      <span className="system-name">{node.name}</span>
+                      <span className="system-sub">
+                        {fig.online
+                          ? [node.os || view.snapshot?.node.platform, node.arch].filter(Boolean).join(' · ') || 'unknown OS'
+                          : node.last_seen
+                            ? `down · last seen ${relative(node.last_seen, now)}`
+                            : 'waiting for the first poll'}
+                      </span>
+                    </span>
+                  </Link>
+                </td>
+                <td>
+                  <Meter value={fig.cpu} label={`CPU on ${node.name}`} />
+                </td>
+                <td>
+                  <Meter value={fig.mem} label={`Memory on ${node.name}`} />
+                </td>
+                <td>
+                  <Meter value={fig.disk} label={`Root disk on ${node.name}`} />
+                </td>
+                {showGpu ? (
+                  <td>
+                    <Meter value={fig.gpu} label={`GPU on ${node.name}`} />
+                  </td>
+                ) : null}
+                <td className="num">{fig.net == null ? <Fig muted>—</Fig> : <Fig>{netRate(fig.net)}</Fig>}</td>
+                <td className="num">{fig.load ? <span className="fig load-figs">{fig.load.map((value) => value.toFixed(2)).join(' ')}</span> : <Fig muted>—</Fig>}</td>
+                <td className="num">
+                  {fig.temp == null ? (
+                    <Fig muted>—</Fig>
+                  ) : (
+                    <span className={fig.temp >= 80 ? 'temp-hot' : undefined}>
+                      <Figure>{`${Math.round(fig.temp)} °C`}</Figure>
+                    </span>
+                  )}
+                </td>
+                <td className="num">
+                  <Fig muted={!fig.online}>{fig.online ? fig.agents : '—'}</Fig>
+                </td>
+                <td>
+                  <span className="agent-version" title={tone === 'warning' ? `The hub runs ${hubVersion}` : undefined}>
+                    <span className="status-dot" data-tone={fig.online ? tone : 'neutral'} aria-hidden="true" />
+                    <span className="fig">{node.agent_version || '—'}</span>
+                    <span className="quiet">{node.mode}</span>
+                  </span>
+                </td>
+                <td className="systems-go">
+                  <CaretRight size={14} aria-hidden="true" />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SystemsGrid({ rows, fallback = false }: { rows: Row[]; fallback?: boolean }) {
+  const now = Date.now();
+  return (
+    <div className="systems-grid" data-fallback={fallback || undefined}>
+      {rows.map(({ view, fig }) => {
+        const node = view.node;
+        return (
+          <Link to={`/nodes/${node.id}`} className="system-card" key={node.id} data-offline={!fig.online || undefined}>
+            <span className="system-card-head">
+              <StatusDot status={view.health.status} />
+              <span className="system-name">{node.name}</span>
+              <span className="system-card-side fig">
+                {fig.online ? (fig.net == null ? '—' : netRate(fig.net)) : node.last_seen ? `down ${relative(node.last_seen, now).replace(' ago', '')}` : 'waiting'}
+              </span>
+            </span>
+            <span className="system-card-meters">
+              <span className="system-card-meter">
+                <span className="system-card-label">CPU</span>
+                <Meter value={fig.cpu} label={`CPU on ${node.name}`} />
+              </span>
+              <span className="system-card-meter">
+                <span className="system-card-label">Memory</span>
+                <Meter value={fig.mem} label={`Memory on ${node.name}`} />
+              </span>
+              <span className="system-card-meter">
+                <span className="system-card-label">Disk</span>
+                <Meter value={fig.disk} label={`Root disk on ${node.name}`} />
+              </span>
+            </span>
+            <span className="system-card-foot">
+              <span>{[node.os || view.snapshot?.node.platform, node.arch].filter(Boolean).join(' · ') || 'unknown OS'}</span>
+              {fig.load ? <span className="fig">load {fig.load[0].toFixed(2)}</span> : null}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
 }
 
 export function OverviewPage() {
   const fleet = useFleet();
   const events = useEvents({ limit: 60 });
   const actions = useFleetActions();
+  const agents = useFleetAgents();
   const settings = useSettings();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<FleetAction | null>(null);
   const [open, setOpen] = useState(false);
+
+  const query = params.get('q') ?? '';
+  const view = params.get('view') === 'grid' ? 'grid' : 'table';
+  const sort = (params.get('sort') as SortKey | null) ?? 'name';
+  const dir = params.get('dir') === 'desc' ? 'desc' : 'asc';
+
+  const nodes = useMemo(() => fleet.data?.nodes ?? [], [fleet.data]);
   const now = Date.now();
+  const found = useMemo(() => findings(nodes, events.data ?? [], Date.now()), [nodes, events.data]);
 
-  const nodes = fleet.data?.nodes ?? [];
-  const attention = useMemo(() => attentionItems(events.data ?? []), [events.data]);
-  const offline = nodes.find((view) => view.health.status === 'offline');
-  const degraded = nodes.find((view) => view.health.status === 'degraded');
-  const selectedId = params.get('node') ?? (offline ?? degraded)?.node.id ?? nodes[0]?.node.id;
-  const needAttention = nodes.filter((view) => view.health.status !== 'healthy').length;
-  const sessions = nodes.reduce((sum, view) => sum + view.health.agents, 0);
-  const appCount = actions.data?.length ?? 0;
-  const stripActions = (actions.data ?? []).slice(0, 3);
+  const rows = useMemo<Row[]>(() => {
+    const needle = query.trim().toLowerCase();
+    const list = nodes
+      .filter((entry) =>
+        needle
+          ? [entry.node.name, entry.node.id, entry.node.os, entry.node.kernel, entry.node.arch, entry.node.mode, ...entry.node.labels]
+              .join(' ')
+              .toLowerCase()
+              .includes(needle)
+          : true,
+      )
+      .map((entry) => ({ view: entry, fig: nodeFigures(entry) }));
+    const factor = dir === 'asc' ? 1 : -1;
+    return list.sort((a, b) => {
+      const left = sortValue(a, sort);
+      const right = sortValue(b, sort);
+      if (left < right) return -1 * factor;
+      if (left > right) return 1 * factor;
+      return a.view.node.name.localeCompare(b.view.node.name);
+    });
+  }, [nodes, query, sort, dir]);
 
-  if (fleet.isPending) return <PageSkeleton title="Overview" />;
-  if (fleet.isError || !fleet.data) {
-    return (
-      <>
-        <PageHeader title="Overview" finding="The fleet did not load." />
-        <ErrorPanel what="Couldn't load the fleet snapshot." onRetry={() => void fleet.refetch()} />
-      </>
-    );
+  const setParam = (key: string, value: string | null) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
+
+  const onSort = (key: SortKey) => {
+    const next = new URLSearchParams(params);
+    if (sort === key) {
+      next.set('dir', dir === 'asc' ? 'desc' : 'asc');
+    } else {
+      next.set('sort', key);
+      // figures read best biggest-first; names read A to Z
+      next.set('dir', key === 'name' ? 'asc' : 'desc');
+    }
+    if (next.get('sort') === 'name' && next.get('dir') === 'asc') {
+      next.delete('sort');
+      next.delete('dir');
+    }
+    setParams(next, { replace: true });
+  };
+
+  if (fleet.isError && !fleet.data) {
+    return <ErrorPanel what="Couldn't load the fleet snapshot." onRetry={() => void fleet.refetch()} />;
   }
 
-  const finding = (() => {
-    if (nodes.length === 0) return 'No node is registered yet. Add one in Settings → Nodes.';
-    const parts: string[] = [];
-    if (offline) parts.push(`${offline.node.name} is offline`);
-    const full = nodes
-      .map((view) => ({ view, disk: view.snapshot?.disks.find((disk) => disk.mount === '/') }))
-      .filter((entry) => entry.disk && entry.disk.used_pct >= 85)
-      .sort((a, b) => (b.disk?.used_pct ?? 0) - (a.disk?.used_pct ?? 0))[0];
-    if (full?.disk) parts.push(`${full.view.node.name}'s root disk is ${percent(full.disk.used_pct)} full`);
-    const otherFinding = attention.find((item) => item.nodeId !== offline?.node.id);
-    if (otherFinding) parts.push(otherFinding.title.toLowerCase());
-    const verb = needAttention === 1 ? 'needs' : 'need';
-    return `${nodes.length} boxes, ${needAttention} ${verb} attention${parts.length ? `: ${parts.join('; ')}` : '.'}`;
-  })();
+  const counts = {
+    up: nodes.filter((entry) => entry.health.status === 'healthy').length,
+    degraded: nodes.filter((entry) => entry.health.status === 'degraded').length,
+    down: nodes.filter((entry) => entry.health.status === 'offline').length,
+  };
+  const showGpu = nodes.some((entry) => entry.health.gpu_pct != null);
+  const fleetActions = actions.data ?? [];
+  const sessions = [...(agents.data ?? [])].sort((a, b) => a.runtime_sec - b.runtime_sec);
 
   return (
     <>
-      <PageHeader
-        title="Overview"
-        finding={finding}
-        actions={
-          <>
-            {stripActions[0] ? (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => {
-                  setSelected(stripActions[0]);
-                  setOpen(true);
-                }}
-              >
-                <Power size={15} aria-hidden="true" />
-                {stripActions[0].name}
+      <h1 className="sr-only">Systems</h1>
+      {found.length > 0 ? (
+        <section className="alert-strip" aria-labelledby="alerts-head">
+          <div className="section-head">
+            <h2 className="section-title" id="alerts-head">
+              Needs attention
+            </h2>
+            <Link className="text-link" to="/events">
+              {found.length > 2 ? `All ${found.length}` : 'Events'}
+            </Link>
+          </div>
+          <div className="alert-cards">
+            {found.slice(0, 4).map((item) => (
+              <Link className="alert-card" to={`/nodes/${item.nodeId}/events`} key={item.key}>
+                <span className="dot-mark" data-severity={item.severity} aria-hidden="true" />
+                <span className="alert-card-text">
+                  <span className="alert-card-title">{item.title}</span>
+                  <span className="alert-card-detail">
+                    {item.nodeName} · {item.detail}
+                  </span>
+                </span>
+                <span className="alert-card-when">{relative(item.ts, now).replace(' ago', '')}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="panel systems" aria-labelledby="systems-head">
+        <header className="panel-head systems-head">
+          <div className="panel-heading">
+            <h2 className="panel-title systems-title" id="systems-head">
+              All systems
+            </h2>
+            <p className="panel-desc">
+              {fleet.isPending ? (
+                'Loading the fleet…'
+              ) : nodes.length === 0 ? (
+                'No system yet.'
+              ) : (
+                <>
+                  <span className="fig">{nodes.length}</span> {nodes.length === 1 ? 'system' : 'systems'} · <span className="fig">{counts.up}</span> up
+                  {counts.degraded ? (
+                    <>
+                      {' · '}
+                      <span className="fig tone-warning">{counts.degraded}</span> degraded
+                    </>
+                  ) : null}
+                  {counts.down ? (
+                    <>
+                      {' · '}
+                      <span className="fig tone-negative">{counts.down}</span> down
+                    </>
+                  ) : null}
+                  . Updated every {settings.data?.poll_interval_sec ?? 5} s; open a system for its charts.
+                </>
+              )}
+            </p>
+          </div>
+          <div className="systems-tools">
+            <label className="filter">
+              <span className="sr-only">Filter systems</span>
+              <FunnelSimple size={15} aria-hidden="true" />
+              <input
+                className="input input-search"
+                value={query}
+                onChange={(event) => setParam('q', event.target.value || null)}
+                placeholder="Filter…"
+                type="search"
+              />
+            </label>
+            <div className="seg" role="group" aria-label="Layout">
+              <button type="button" className="seg-btn" aria-pressed={view === 'table'} aria-label="Table" title="Table" onClick={() => setParam('view', null)}>
+                <Rows size={15} aria-hidden="true" />
               </button>
-            ) : null}
-          </>
-        }
-      />
-
-      <Panel
-        title="Fleet at a glance"
-        meta={
-          <>
-            <span>{nodes.length} boxes</span>
-            <span className="quiet">current reading per dimension</span>
-          </>
-        }
-        flush
-      >
-        {nodes.length === 0 ? <Empty>No node yet.</Empty> : <FleetGrid nodes={nodes} selectedId={selectedId} />}
-      </Panel>
-
-      <div className="kpi-row" data-count="4">
-        <div className="kpi-cell">
-          <div className="kpi-label">Boxes</div>
-          <div className="kpi-value"><Fig>{nodes.length}</Fig></div>
-          <div className="kpi-sub">{needAttention} {needAttention === 1 ? 'needs' : 'need'} attention</div>
+              <button type="button" className="seg-btn" aria-pressed={view === 'grid'} aria-label="Grid" title="Grid" onClick={() => setParam('view', 'grid')}>
+                <SquaresFour size={15} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        </header>
+        <div className="panel-body flush">
+          {fleet.isPending ? (
+            <div className="systems-loading" aria-hidden="true">
+              {[0, 1, 2].map((index) => (
+                <div className="skeleton-row" key={index}>
+                  <span className="skeleton" style={{ width: 120 }} />
+                  <span className="skeleton" style={{ width: 140 }} />
+                  <span className="skeleton" style={{ width: 140 }} />
+                  <span className="skeleton" style={{ width: 140 }} />
+                </div>
+              ))}
+            </div>
+          ) : rows.length === 0 ? (
+            <Empty>
+              {nodes.length === 0 ? (
+                <>
+                  No system is registered yet. <Link className="link" to="/settings/nodes">Add the first agent</Link>.
+                </>
+              ) : (
+                <>
+                  No system matches “{query}”.{' '}
+                  <button type="button" className="link" onClick={() => setParam('q', null)}>
+                    Clear the filter
+                  </button>{' '}
+                  to see all {nodes.length}.
+                </>
+              )}
+            </Empty>
+          ) : view === 'grid' ? (
+            <SystemsGrid rows={rows} />
+          ) : (
+            <>
+              <SystemsTable rows={rows} showGpu={showGpu} hubVersion={settings.data?.version.version} sort={sort} dir={dir} onSort={onSort} />
+              <SystemsGrid rows={rows} fallback />
+            </>
+          )}
         </div>
-        <div className="kpi-cell">
-          <div className="kpi-label">Agent sessions</div>
-          <div className="kpi-value"><Fig>{sessions}</Fig></div>
-          <div className="kpi-sub">across the fleet</div>
-        </div>
-        <div className="kpi-cell">
-          <div className="kpi-label">Apps</div>
-          <div className="kpi-value"><Fig>{appCount}</Fig></div>
-          <div className="kpi-sub">configured actions</div>
-        </div>
-        <div className="kpi-cell">
-          <div className="kpi-label">Findings</div>
-          <div className="kpi-value"><Fig>{attention.length}</Fig></div>
-          <div className="kpi-sub">{attention.length === 1 ? 'warning' : 'warnings'} in the last 24 h</div>
-        </div>
-      </div>
+      </section>
 
       <div className="row">
-        <div className="span-5">
-          <Panel title="Attention" meta={attention.length === 1 ? '1 finding' : `${attention.length} findings`} flush>
-            {attention.length === 0 ? (
-              <Empty>Nothing needs attention. Units, containers, disks and thresholds are quiet.</Empty>
+        <div className="span-6">
+          <Panel
+            title="Apps"
+            desc="Actions the agents allow; each run asks first."
+            meta={
+              <Link className="text-link" to="/apps">
+                {fleetActions.length ? `All ${fleetActions.length}` : 'Apps'}
+              </Link>
+            }
+          >
+            {fleetActions.length === 0 ? (
+              <p className="note">No action configured. Add them to the agent config on each host.</p>
             ) : (
-              <ul className="attention-list">
-                {attention.slice(0, 4).map((item) => (
-                  <li key={item.key}>
-                    <Link className="attention-row" to={`/nodes/${item.nodeId}/events`}>
-                      <span className="dot-mark attention-dot" data-severity={item.severity} aria-hidden="true" />
-                      <span>
-                        <span className="attention-title">{item.title}</span>
-                        <span className="attention-detail">{item.detail}</span>
+              <div className="chip-list">
+                {fleetActions.slice(0, 8).map((action) => (
+                  <button
+                    type="button"
+                    className="chip-btn"
+                    key={`${action.node_id}-${action.id}`}
+                    onClick={() => {
+                      setSelected(action);
+                      setOpen(true);
+                    }}
+                  >
+                    <Play size={12} weight="fill" aria-hidden="true" />
+                    <span>{action.name}</span>
+                    <span className="quiet">{action.node_name}</span>
+                    {action.last_ok === false ? <span className="status-dot" data-tone="negative" role="img" aria-label="Last run failed" /> : null}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Panel>
+        </div>
+        <div className="span-6">
+          <Panel
+            title="Agent sessions"
+            desc="AI coding agents running across the fleet."
+            meta={
+              <Link className="text-link" to="/agents">
+                {sessions.length ? `All ${sessions.length}` : 'Agents'}
+              </Link>
+            }
+          >
+            {sessions.length === 0 ? (
+              <p className="note">No AI agent session is running on any system.</p>
+            ) : (
+              <ul className="session-list">
+                {sessions.slice(0, 4).map((session) => (
+                  <li key={`${session.node_id}-${session.id}`}>
+                    <Link className="session-row" to={`/nodes/${session.node_id}/agents/${session.id}`}>
+                      <AgentMark type={session.type} />
+                      <span className="session-kind">{agentTypeInfo(session.type).label}</span>
+                      <span className="session-where">
+                        {session.node_name} · {session.project || session.cwd || 'no project'}
                       </span>
-                      <span className="attention-when">{relative(item.ts, now)}</span>
+                      <span className="session-age fig">{duration(session.runtime_sec)}</span>
                     </Link>
                   </li>
                 ))}
               </ul>
             )}
-            <div className="panel-foot">
-              <span className="note">
-                {attention.length > 4 ? `${attention.length - 4} more ${attention.length - 4 === 1 ? 'finding' : 'findings'} in Events. ` : ''}
-                Derived from events; action failures stay on the Apps screen.
-              </span>
-            </div>
-          </Panel>
-        </div>
-        <div className="span-7">
-          <Panel
-            title="Nodes"
-            meta={
-              <>
-                <span>{nodes.length} boxes</span>
-                <Link className="text-link" to="/nodes">
-                  All nodes
-                </Link>
-              </>
-            }
-            flush
-          >
-            <Table label="Fleet nodes">
-              <THead>
-                <Th>Node</Th>
-                <Th num>CPU</Th>
-                <Th num>Memory</Th>
-                <Th num>Root disk</Th>
-                <Th num>Uptime</Th>
-              </THead>
-              <TBody>
-                {nodes.map((view) => {
-                  const node = view.node;
-                  return (
-                    <tr key={node.id}>
-                      <Td cell="primary">
-                        <Link to={`/nodes/${node.id}`} className="row-name">
-                          {node.name}
-                          <StatusPill status={view.health.status} />
-                        </Link>
-                        <span className="cell-sub">{node.os || 'unknown OS'} · {node.arch}</span>
-                      </Td>
-                      <Td num cell="key">{view.health.status === 'offline' ? '—' : percent(view.health.cpu_pct)}</Td>
-                      <Td num cell="field" label="Memory">
-                        {percent(view.health.mem_pct)}
-                        <span className="cell-sub">{size(view.health.mem_used)} of {size(view.health.mem_total)}</span>
-                      </Td>
-                      <Td num cell="field" label="Disk">
-                        {percent(view.health.root_disk_pct)}
-                        <span className="cell-sub">{view.health.root_disk_total ? `${size(view.health.root_disk_used)} of ${size(view.health.root_disk_total)}` : 'no disk'}</span>
-                      </Td>
-                      <Td num cell="field" label="Uptime">
-                        {view.health.status === 'offline'
-                          ? node.last_seen ? relative(node.last_seen, now) : 'never seen'
-                          : uptime(view.health.uptime_sec)}
-                        <span className="cell-sub">
-                          {view.health.days_to_full ? `full in ${days(view.health.days_to_full)}` : 'disk steady'}
-                        </span>
-                      </Td>
-                    </tr>
-                  );
-                })}
-              </TBody>
-            </Table>
-            <div className="panel-foot">
-              <span className="note">Updated every {settings.data?.poll_interval_sec ?? 5} s · open a node for the full snapshot.</span>
-            </div>
           </Panel>
         </div>
       </div>
-
-      <Panel
-        title="Apps"
-        meta={
-          <>
-            <span>{stripActions.length} of {appCount} actions</span>
-            <Link className="text-link" to="/apps">
-              All apps
-            </Link>
-          </>
-        }
-        flush
-      >
-        {stripActions.length === 0 ? (
-          <Empty>No action configured. Add them to the agent config on each host.</Empty>
-        ) : (
-          <div className="app-cells" data-count={stripActions.length}>
-            {stripActions.map((action) => (
-              <button
-                type="button"
-                className="app-cell"
-                key={`${action.node_id}-${action.id}`}
-                onClick={() => {
-                  setSelected(action);
-                  setOpen(true);
-                }}
-              >
-                <span className="app-cell-top">
-                  <span className="app-cell-name">{action.name}</span>
-                  {action.last_ok == null ? (
-                    <span className="pill" data-tone="neutral">Never run</span>
-                  ) : (
-                    <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>{action.last_ok ? 'OK' : 'Failed'}</span>
-                  )}
-                </span>
-                <span className="app-cell-desc">{action.description}</span>
-                <span className="app-cell-meta">
-                  {action.node_name} · {action.last_run_at ? relative(action.last_run_at, now) : 'never run'}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </Panel>
-
-      <EventsList title="Recent events" compact />
 
       <RunActionDialog
         action={selected as Action | null}

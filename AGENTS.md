@@ -18,7 +18,7 @@ expand or shrink scope; update the plan when a decision changes.
 - Final acceptance requires the complete v1: agent, hub, all collectors,
   actions/WOL, alerts + event webhooks, scoped curl API, URL routes, PWA,
   push mode, Docker, systemd, docs and the Linux/beelink verification.
-- Keep `/nodes` as the table (option A). Do not redesign it in this pass.
+- The systems table is the home screen (`/`); `/nodes` redirects there.
 
 ## Language
 
@@ -63,8 +63,9 @@ collectors. Do not vendor `node_exporter`.
 
 ## UI rules
 
-Follow `docs/DESIGN.md` exactly: **data terminal** (dark, dense, 1 px accent
-selection, monochrome numbers, colour only on data/status).
+Follow `docs/DESIGN.md` exactly: the **Beszel direction** (one systems table
+with meters, one chart grid per system, bordered cards, 1 px accent selection,
+colour only on data, status and meters).
 
 - Do not use cream-paper/ink, beige, terracotta, violet/indigo, gradients,
   glass, glow, emoji, icon chips, sparklines on KPIs, rainbow charts, zebra
@@ -73,10 +74,10 @@ selection, monochrome numbers, colour only on data/status).
 - Two themes, dark and light, sharing one layout; Settings → Appearance picks
   system, light or dark. Every colour comes from `tokens.css`; no hex in
   components (canvas reads tokens through `cssColor`).
-- Cards are one lightness step off the ground; no card shadows. The shadow is for floating
-  menus/dialogs only.
-- The **fleet horizon** is the signature element on the overview; build it from
-  real data and make it clickable.
+- Cards are one lightness step off the ground with a 1 px border; no card
+  shadows. The shadow is for floating menus/dialogs only.
+- Every percentage in a table or list is a `<Meter>` (green < 65, amber < 90,
+  red); a node's state is a `<StatusDot>`.
 - Agent marks come from Warren’s `PresetIcons.xcassets`; copy to
   `web/public/agents/`, render as monochrome masks, and attribute them in
   `docs/ASSETS.md`. Missing types use a neutral glyph; do not invent brands.

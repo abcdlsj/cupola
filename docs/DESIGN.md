@@ -2,155 +2,141 @@
 
 ## Direction
 
-Two themes on one layout, chosen in **Settings → Appearance** (system, light,
-dark; the choice is kept per browser in `localStorage` under `cupola.theme`,
-and `web/public/theme-init.js` applies it before first paint).
+Cupola reads like **Beszel**: one systems table on the home screen, one grid
+of chart cards per system, bordered cards on a near-black (or cool grey)
+ground, and a thin meter beside every percentage. It keeps its own type (IBM
+Plex), its data-terminal blue and the parts Beszel does not have: agent
+sessions, apps, findings and URL-addressable tabs.
 
-- **Dark — true-black flat, data-terminal blue.** A cool near-black ground,
-  cards one lightness step above it, no borders or shadows on cards; colour on
-  data and status only; selection is the 1 px `#4a8ad6` accent line. Taken from
-  tasteskill v2 `true-black-flat`, keeping the original data-terminal blue
-  instead of the dealt lime.
-- **Light — framed sheet.** A blue-grey ground (`#f2f5f8`) around white cards,
-  ink text, a teal accent (`#1b6c80`) for selection and the main series. From
-  tasteskill v2 `framed-sheet`.
+Two themes on one layout, chosen with the header's sun/moon button or in
+**Settings → Appearance** (system, light, dark; kept per browser in
+`localStorage` under `cupola.theme`; `web/public/theme-init.js` applies it
+before first paint).
 
-Both themes share every layout, spacing and type token. The original
-data-terminal sheet (seed `956138436`) is kept in `docs/design/direction.json`
-for history.
+- **Dark:** ground `#0b0c0e`, cards `#111316` with a 1 px `#22252a` border,
+  text `#f3f4f5`, muted `#9a9ea6`, accent `#4a8ad6`.
+- **Light:** ground `#f6f7f9`, white cards with a 1 px `#e2e5e9` border, ink
+  text, accent `#1b6c80`.
 
-Tokens live in `web/src/styles/tokens.css`: shared layout and type on `:root`,
-dark colours as the default, light colours under
-`@media (prefers-color-scheme: light)` (unless `data-theme="dark"`) and under
-`:root[data-theme="light"]`. Components never hard-code a colour; uPlot reads
-the tokens through `cssColor()` in `web/src/lib/theme.ts` and is rebuilt when
-the theme changes.
+Tokens live in `web/src/styles/tokens.css`: layout and type on `:root`, dark
+colours as the default, light colours under `@media (prefers-color-scheme:
+light)` (unless `data-theme="dark"`) and under `:root[data-theme="light"]`.
+Components never hard-code a colour; uPlot reads tokens through `cssColor()`
+in `web/src/lib/theme.ts` and is rebuilt when the theme changes.
+
+The earlier data-terminal sheet (seed `956138436`, borderless cards, icon
+rail, fleet profile) is kept in `docs/design/direction.json` for history.
 
 ## Type
 
-- UI: **IBM Plex Sans**, 400/500/600/700.
-- Numbers, timestamps, IDs, table figures: **IBM Plex Mono**, 400/500.
-- `font-variant-numeric: tabular-nums` on every figure.
-- Sizes: 24 title, 16 section/card title, 24 KPI, 14 body, 12 small.
-- Sentence case; no tracked uppercase; no monospace in prose (only data/IDs).
-- Axis ticks and chart notes stay in the UI face, not mono.
-
-The taste-skill inspector flags monospace; this is a deliberate decision for
-figures. Defend it in the report, do not blanket `--allow` other rules.
+- UI: **IBM Plex Sans**, 400/500/600.
+- Figures, timestamps, IDs: **IBM Plex Mono**, tabular. Units next to a
+  figure step back into the UI face, muted and slightly smaller (`<Fig>`).
+- Sizes: 22 page title, 18 the systems card title, 15 card title, 14 body,
+  13 card description and table figures, 12 table headers and axis labels.
+- Sentence case everywhere; no tracked uppercase.
 
 ## Shell
 
-- **Desktop:** 56 px icon rail on the ground with the Cupola mark at the top,
-  16 px outline icons on a 38 px pitch, groups split by short hairlines,
-  settings at the bottom. 48 px top bar with the workspace/node context,
-  search, freshness and one action. Content padding 32 px, max width 1440.
-- **Selection:** a 1 px accent line exactly as wide as the label, on the
-  nearest edge. No filled pills for tabs, no coloured segmented controls.
-- **Tablet:** rail stays, content padding 24; tables keep 4–5 columns.
-- **Phone:** rail becomes a bottom bar with four destinations and short labels;
-  48 px top bar with title and one action; 16–20 px margins; 44 px targets.
-  Tabs scroll in their own row. Tables become two-line rows (identity + key
-  figure on line 1; fields in 13 px muted on line 2), never dropping fields.
+- **Header (all widths):** 56 px, sticky, on the ground with a 1 px rule. The
+  Cupola mark and word, then the five destinations as words (Systems, Agents,
+  Apps, Alerts with a firing count, Events), the selected one underlined by a
+  1 px accent line. On the right: the freshness stamp, search (⌘K), the theme
+  switch and settings, all 34 px bordered controls.
+- **Content:** max width 1440, 32 px side padding (24 on tablets, 16 on
+  phones), 16 px gap between cards.
+- **Phone (≤ 640 px):** the header keeps the mark and the three icon buttons
+  (40 px); the destinations move to a bottom bar of four (Systems, Agents,
+  Apps, Alerts) above the home indicator.
 
-## The fleet profile
+## Cards
 
-The one signature element only Cupola has. On the overview:
+- 12 px radius, 1 px border, one lightness step off the ground. No shadow;
+  the one shadow is for menus, tooltips and dialogs.
+- Head: title (15 px, 600) and one muted description line under it, the
+  card's link or count on the right. A table or list inside runs to the
+  card's edges under a 1 px rule.
+- Controls: 34 px high, 8 px radius, 1 px border; a filter or select inside a
+  card sits on the ground tone as a well. Segmented toggles (table/grid) use a
+  raised pressed segment, not colour.
 
-- One thin line per node across four shared axes: **CPU, memory, root disk,
-  network** (Mbit/s). A flat line is a quiet box; a spike is a box under load.
-  The shape of the whole fleet reads in one glance, which four KPI columns and
-  a bar per node cannot do.
-- Lines use the identity hues (`--series-1`, `--series-2`, `--chart-1`, cycling),
-  never a status colour: two boxes can share a status and still have to be
-  distinguishable. Degraded and offline are named in the line label and the
-  readout, and an offline line is dashed in `--muted`.
-- A 1 px accent tick marks the selected node; hover or focus prints its four
-  figures in the readout under the chart; click or Enter routes to
-  `/nodes/:id`.
-- Above it: the fleet count and the finding sentence (“3 boxes, 2 need
-  attention”). Beside it: the one action the operator is most likely to take.
+## Meters
 
-This is functional data, not a decorative skyline. No bars, no orbital rings,
-no glows, no fake constellations.
+Every percentage in a table or list is a figure plus a 6 px rounded bar
+(`<Meter>`): green below 65 %, amber from 65 %, red from 90 % (the figure turns
+red too). A missing reading prints a dash over an empty track; zero prints
+0 %. Data that is not health (a process's share of the CPU, memory per
+process) uses a neutral meter in the first series hue.
 
-## Agent marks
+## Status
 
-Use Warren’s preset agent SVGs as **monochrome masks** at 16 px, in `--muted`
-and `--text` for selected/hover. No tinted squares, no brand colours.
+A node's state is an 8 px dot (`<StatusDot>`): green up, amber degraded, red
+down, grey waiting. Headers that must be read add the word (`<StatusPill>`:
+Up, Degraded, Down, Waiting). Pills stay for kinds and results (OK, Failed,
+Never run, severity).
 
-Source:
-`warren/Packages/WarrenIOS/Sources/WarrenIOS/Resources/PresetIcons.xcassets`
-— Codex, Claude, Pi, OpenCode, Qoder, Antigravity, Trae, shell, zsh.
+## Screens
 
-Copy the SVGs into `web/public/agents/`, keep `docs/ASSETS.md` with source,
-license note and trademark attribution. Missing types (Cursor, Aider, Gemini,
-Goose, Cline, Roo, Continue, Ollama, vLLM, ComfyUI) use a neutral terminal
-glyph + the type name; do not draw fake brand marks.
+- **Systems (`/`)** — *is anything wrong, and where?* Up to four "Needs
+  attention" cards (down systems first, then one finding per system and kind
+  from the last 24 h; two on phones). Then the **All systems** card: count line,
+  filter, table/grid toggle, and a sortable table — system (dot, name, OS),
+  CPU, memory, disk, GPU (only when a system has one) as meters; net, load
+  1/5/15, hottest temperature, agent sessions, agent version and transport.
+  The row opens the system. Under 900 px the table becomes cards with three
+  meters. Filter, sort and layout live in the URL (`?q=`, `?sort=&dir=`,
+  `?view=grid`). Below: Apps (run buttons) and Agent sessions. `/nodes`
+  redirects here with its query.
+- **System (`/nodes/:id`)** — header card (back, name, status, labels, host,
+  uptime, OS, kernel, CPU, memory, agent) with the chart window on the right
+  (1 hour, 24 hours, 7 days, 30 days; `?range=`, carried across tabs). Tabs
+  with counts. Overview is the chart grid: CPU, memory, load (dashed line at
+  one task per thread), pressure, disk I/O, bandwidth, Docker CPU and memory
+  (when containers exist), then disk usage and temperatures as meter lists and
+  the top processes.
+- **CPU / Memory / Storage / Network** — the tab's chart beside a breakdown
+  card, then its table (per-core meters, largest residents, filesystems and
+  drive health, interfaces).
+- **Lists** (processes, agents, services, containers, apps, events, alerts,
+  settings) — one card per question, filters in the card head, the URL holds
+  the filter.
 
 ## Charts
 
-- uPlot for time series with a custom theme (not its defaults); hand-drawn SVG
-  for the fleet profile.
-- Lines are thin and coloured: 1.5 px, never smoothed, sitting on a flat
-  translucent area (18 % of the same hue, no gradient) so the shape of the load
-  reads at a glance the way Beszel draws it. The hues come from
-  `--series-1..4` (blue, teal, amber, red) and a chart uses at most four,
-  usually two (utilisation against pressure). Chrome stays monochrome.
-- The crosshair is shared: one 1 px accent line and one readout that lists every
-  series in the chart with its value at the cursor.
-- 3–5 faint horizontal gridlines, no y-axis line, round ticks above the max;
-  seconds on the x-axis when the window is shorter than 30 minutes.
-- No boxed legend: for one series the card title names it; for two, a plain
-  swatch-and-label line sits under the chart.
-- Shared crosshair across charts; tooltip with label + value, no arrow.
-- Annotate the event that matters (reboot, deploy, alert) with a 1 px marker
-  and a short label; dashed reference lines only for thresholds.
-- No chart animation on live ticks; updates are immediate.
-- Long ranges return min/avg/max; downsample to the plot width.
-
-## App screen rules
-
-- No hero header; the page title is a noun at 26 px, the finding is one 13 px
-  muted line under it.
-- No KPI tiles with icons or sparklines. One divided strip or bare figures.
-- The biggest block answers the screen’s one question.
-- Tables: 12 px sentence-case grey headers, no fill band, no zebra, numbers
-  right-aligned, one status mark per row, one action where needed.
-- Colour ≤ 3 % of pixels: status and the one accent on data/selection.
-- Empty, zero, loading and error states for every block: real zero prints,
-  missing is a dash, loading keeps layout, errors stay inside the block.
-- No pagination on the overview; cap rows and link out.
-- No emoji, gradients, glass, glow, icon chips, rainbow charts, uppercase
-  tracked headers, fake data or lorem.
+- uPlot with the Cupola theme. Curves are 1.5 px splines over a flat area of
+  the same hue at 18 % (no gradient). Hues `--series-1..4`; at most four per
+  chart.
+- Card head: title, one-line description, the current reading on the right in
+  mono 18 px. Two or more series get a swatch legend under the chart with each
+  series' current value.
+- Five faint gridlines on round steps (1, 2, 2.5, 5 × 10ⁿ; binary steps for
+  bytes), no y-axis line, axis labels 11 px in the UI face; the y-axis is as
+  wide as its widest label.
+- Thresholds are dashed in muted ink with a short label. One shared crosshair
+  with a readout listing every series.
+- A window with fewer than two samples shows a dashed empty frame of the same
+  height with one line of text; the frame never collapses.
+- No animation on live ticks.
 
 ## Motion
 
-App screens have no entrance-motion floor. Use feedback only: press, hover,
-focus, menu/sheet opening, row arriving. 120–160 ms, ease-out. Respect
-`prefers-reduced-motion`. No page-load choreography.
+Feedback only: hover borders, pressed states, menus and dialogs opening,
+meter widths, 120–160 ms ease-out. `prefers-reduced-motion` turns it off.
+
+## Rules that still hold
+
+- No emoji, gradients, glass, glow, icon chips, sparklines on KPIs, rainbow
+  charts, zebra rows, uppercase tracked headers, fake data or lorem.
+- Colour is for data, status, meters and the one accent line.
+- Empty, zero, loading and error states for every block.
+- WCAG AA contrast in both themes; no hover-only controls; 44 px touch
+  targets on phones.
 
 ## PWA / iOS
 
-- Manifest: standalone, `start_url=/`, scope `/`, theme `#171719`, background
-  `#171719`, 192/512/1024 icons + maskable.
-- Service worker: shell precache; network-first API; last-known snapshot in
-  IndexedDB; offline banner with last-updated time.
-- iOS meta: `apple-mobile-web-app-capable`, `viewport-fit=cover`, `dvh`,
-  safe-area padding, Apple touch icon, install sheet (Share → Add to Home
-  Screen), standalone detection, no 100vh traps.
-- Bottom bar above the home indicator; no hover-only controls; one row of
-  controls above a chart; tabs scroll in their own row.
-- No Web Push in v1. In-app alert badge + ntfy/webhook first.
-
-## Report
-
-When M0 is done, report:
-
-- the style and seed (data-terminal, 956138436);
-- the face (fleet horizon) and where it appears;
-- each screen’s one question;
-- taste-skill inspect results at 1440/768/390, with any WARN defended;
-- any sample data that must be replaced;
-- screenshots for approval.
-
-Do not claim a check you did not run.
+- Manifest: standalone, `start_url=/`, theme and background `#0b0c0e`.
+- Service worker: shell precache; network-first API; last snapshot in
+  IndexedDB; offline banner with the last-updated time.
+- iOS: `viewport-fit=cover`, `dvh`, safe-area padding, the shell pinned to
+  the screen edges in the installed app, the bottom bar above the home
+  indicator.

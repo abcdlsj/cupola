@@ -1,8 +1,9 @@
 import { Fragment, useMemo, useState } from 'react';
-import { Link, useOutletContext, useParams } from 'react-router-dom';
+import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowsClockwise,
   Database,
+  FunnelSimple,
   DownloadSimple,
   HardDrive,
   Power,
@@ -19,9 +20,11 @@ import { RunActionDialog } from '../apps/RunActionDialog';
 import { useActions, useContainerHistory, useNode, useRuns } from '../../data/queries';
 import { agentTypeInfo } from '../../data/registry';
 import type { Action, AgentSession, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
-import { SeriesChart, type ChartSeries } from '../../components/SeriesChart';
+import type { ChartSeries } from '../../components/SeriesChart';
 import { seriesColor } from '../../lib/chart';
-import { RangeControl } from './RangeControl';
+import { useRange } from './RangeControl';
+import { ChartCard } from '../../components/ChartCard';
+import { Meter } from '../../components/Meter';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 
@@ -53,7 +56,14 @@ function NotFound({ what, to }: { what: string; to: string }) {
 export function ProcessesPage() {
   const view = useSnap();
   const { nodeId = '' } = useParams();
-  const [query, setQuery] = useState('');
+  const [params, setParams] = useSearchParams();
+  const query = params.get('q') ?? '';
+  const setQuery = (value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set('q', value);
+    else next.delete('q');
+    setParams(next, { replace: true });
+  };
   const snap = view.snapshot;
   const procs = useMemo(() => {
     if (!snap) return [];
@@ -66,14 +76,13 @@ export function ProcessesPage() {
   return (
     <Panel
       title="Processes"
+      desc={`${procs.length} of ${snap.cpu.procs || snap.processes.length} by CPU. The agent samples the busiest; arguments are redacted.`}
       meta={
-        <>
-          <label className="filter">
-            <span className="sr-only">Filter processes</span>
-            <input className="input input-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter processes" />
-          </label>
-          <span>{procs.length} shown</span>
-        </>
+        <label className="filter">
+          <span className="sr-only">Filter processes</span>
+          <FunnelSimple size={15} aria-hidden="true" />
+          <input className="input input-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter…" />
+        </label>
       }
       flush
     >
@@ -85,7 +94,7 @@ export function ProcessesPage() {
             <Th>Process</Th>
             <Th num>PID</Th>
             <Th>User</Th>
-            <Th num>CPU</Th>
+            <Th>CPU</Th>
             <Th num>Memory</Th>
             <Th num>Threads</Th>
             <Th num>Started</Th>
@@ -105,8 +114,13 @@ export function ProcessesPage() {
                 <Td cell="field" label="User">
                   {proc.user}
                 </Td>
-                <Td num cell="key">
-                  {percent(proc.cpu_percent, 1)}
+                <Td cell="key" className="meter-cell">
+                  <Meter
+                    value={Math.min(100, proc.cpu_percent / Math.max(1, snap.node.cores))}
+                    text={percent(proc.cpu_percent, 1)}
+                    tone="neutral"
+                    label={`${proc.name} CPU, bar is its share of all ${snap.node.cores} threads`}
+                  />
                 </Td>
                 <Td num cell="field" label="Memory">
                   {size(proc.rss_bytes)}
@@ -372,7 +386,7 @@ const IMAGE_ROWS = 8;
 const CHART_CONTAINERS = 4;
 
 /** Turns container history rows into the chart's series, one colour each. */
-function historyChart(containers: ContainerSeries[], pick: 'cpu' | 'mem'): ChartSeries[] {
+export function historyChart(containers: ContainerSeries[], pick: 'cpu' | 'mem'): ChartSeries[] {
   return containers.map((container, index) => ({
     label: container.name || container.id,
     color: seriesColor(index),
@@ -385,31 +399,17 @@ function historyChart(containers: ContainerSeries[], pick: 'cpu' | 'mem'): Chart
   }));
 }
 
-function peakOf(points: Array<{ cpu: number; mem: number }>, key: 'cpu' | 'mem'): number {
+export function peakOf(points: Array<{ cpu: number; mem: number }>, key: 'cpu' | 'mem'): number {
   let peak = 0;
   for (const point of points) if (point[key] > peak) peak = point[key];
   return peak;
 }
 
 /** Container CPU rarely reaches 100%: scale to the window instead of a flat axis. */
-function percentCeiling(peak: number): number {
+export function percentCeiling(peak: number): number {
   if (peak <= 0) return 10;
   const step = peak * 1.25 <= 12 ? 1 : peak * 1.25 <= 30 ? 5 : 10;
   return Math.min(100, Math.max(10, Math.ceil((peak * 1.25) / step) * step));
-}
-
-function ContainerLegend({ chart }: { chart: ChartSeries[] }) {
-  if (chart.length === 0) return null;
-  return (
-    <p className="cpu-note">
-      {chart.map((entry) => (
-        <span className="legend-inline" key={entry.label}>
-          <span className="legend-swatch" style={{ background: entry.color }} aria-hidden="true" />
-          {entry.label}
-        </span>
-      ))}
-    </p>
-  );
 }
 
 /**
@@ -458,7 +458,7 @@ export function ContainersPage() {
   const view = useSnap();
   const { nodeId = '' } = useParams();
   const snap = view.snapshot;
-  const [range, setRange] = useState('1h');
+  const [range] = useRange();
   // The chart follows the window, not the live snapshot: a container that
   // restarted, or is gone now, still has history worth seeing.
   const history = useContainerHistory(nodeId, range, []);
@@ -476,28 +476,29 @@ export function ContainersPage() {
   const empty = 'No sample in this window yet. History is written once a minute.';
   return (
     <>
-      <Panel title="Container CPU" meta={<RangeControl value={range} onChange={setRange} />} flush>
-        {cpu.length === 0 ? (
-          <Empty>{empty}</Empty>
-        ) : (
-          <>
-            <SeriesChart series={cpu} unit="percent" label="CPU per container" height={200} maxValue={cpuMax} />
-            <ContainerLegend chart={cpu} />
-          </>
-        )}
-      </Panel>
-      <Panel title="Container memory" flush>
-        {memory.length === 0 ? (
-          <Empty>{empty}</Empty>
-        ) : (
-          <>
-            <SeriesChart series={memory} unit="bytes" label="Memory per container" height={200} />
-            <ContainerLegend chart={memory} />
-          </>
-        )}
-      </Panel>
+      <div className="chart-grid">
+        <ChartCard
+          title="Container CPU"
+          desc={`The ${cpu.length || ''} busiest containers in this window.`.replace('The  ', 'The ')}
+          now={percent(snap.containers.reduce((sum, container) => sum + container.cpu_percent, 0), 1)}
+          series={cpu}
+          unit="percent"
+          maxValue={cpuMax}
+          pending={history.isPending}
+          empty={empty}
+        />
+        <ChartCard
+          title="Container memory"
+          desc="Resident memory of the same containers."
+          now={size(snap.containers.reduce((sum, container) => sum + container.mem_bytes, 0))}
+          series={memory}
+          unit="bytes"
+          pending={history.isPending}
+          empty={empty}
+        />
+      </div>
       <ImageChart images={snap.images ?? []} />
-      <Panel title="Containers" meta={`${snap.containers.length} containers`} flush>
+      <Panel title="Containers" meta={`${snap.containers.length} ${snap.containers.length === 1 ? 'container' : 'containers'}`} flush>
         {snap.containers.length === 0 ? (
           <Empty>No container or the Docker socket is not readable by the agent.</Empty>
         ) : (
@@ -523,7 +524,10 @@ export function ContainersPage() {
                     {container.image}
                   </Td>
                   <Td cell="field" label="State">
-                    <span className="pill" data-tone={container.state === 'running' ? 'positive' : 'neutral'}>{container.state}</span>
+                    <span className="status" data-tone={container.state === 'running' ? 'positive' : container.state === 'restarting' || container.state === 'exited' ? 'warning' : 'neutral'}>
+                      <span className="status-dot" data-tone={container.state === 'running' ? 'positive' : container.state === 'restarting' || container.state === 'exited' ? 'warning' : 'neutral'} aria-hidden="true" />
+                      {container.state}
+                    </span>
                   </Td>
                   <Td num cell="key">
                     {percent(container.cpu_percent, 1)}
@@ -550,27 +554,34 @@ export function ContainersPage() {
 export function ContainerDetailPage() {
   const view = useSnap();
   const { nodeId = '', containerId = '' } = useParams();
-  const [range, setRange] = useState('1h');
+  const [range] = useRange();
   const container = view.snapshot?.containers.find((entry) => entry.id === containerId);
   const history = useContainerHistory(nodeId, range, container ? [container.id] : []);
   if (!container) return <NotFound what="This container" to={`/nodes/${nodeId}/containers`} />;
   const series = history.data?.containers ?? [];
   return (
     <>
-    <Panel title={`${container.name} CPU`} meta={<RangeControl value={range} onChange={setRange} />} flush>
-      {series.length === 0 ? (
-        <Empty>No sample in this window yet. History is written once a minute.</Empty>
-      ) : (
-        <SeriesChart series={historyChart(series, 'cpu')} unit="percent" label="CPU of this container" height={200} />
-      )}
-    </Panel>
-    <Panel title={`${container.name} memory`} flush>
-      {series.length === 0 ? (
-        <Empty>No sample in this window yet. History is written once a minute.</Empty>
-      ) : (
-        <SeriesChart series={historyChart(series, 'mem')} unit="bytes" label="Memory of this container" height={200} />
-      )}
-    </Panel>
+    <div className="chart-grid">
+      <ChartCard
+        title="CPU"
+        desc={`${container.name} over the window.`}
+        now={percent(container.cpu_percent, 1)}
+        series={historyChart(series, 'cpu')}
+        unit="percent"
+        maxValue={percentCeiling(peakOf(series.flatMap((entry) => entry.points), 'cpu'))}
+        pending={history.isPending}
+        empty="No sample in this window yet. History is written once a minute."
+      />
+      <ChartCard
+        title="Memory"
+        desc={container.mem_limit ? `Resident memory against a ${size(container.mem_limit)} limit.` : 'Resident memory; no limit set.'}
+        now={size(container.mem_bytes)}
+        series={historyChart(series, 'mem')}
+        unit="bytes"
+        pending={history.isPending}
+        empty="No sample in this window yet. History is written once a minute."
+      />
+    </div>
     <Panel title={container.name} flush>
       <div className="panel-body">
         <Kv

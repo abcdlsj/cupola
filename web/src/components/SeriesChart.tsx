@@ -22,15 +22,18 @@ export interface ChartSeries {
   color: string;
 }
 
-const AXIS_FONT = '12px "IBM Plex Sans", sans-serif';
+const AXIS_FONT = '11px "IBM Plex Sans", sans-serif';
+
+/** Monotone-ish curves, the way Beszel draws its metrics; uPlot keeps the knots on the samples. */
+const spline = uPlot.paths.spline?.();
 
 /** Chart chrome comes from the theme tokens; read once per chart build. */
 function inks() {
   return {
     axis: cssColor('var(--muted)'),
-    grid: cssColor('var(--rule)'),
+    grid: cssColor('var(--grid)'),
     cursor: cssColor('var(--accent)'),
-    threshold: cssColor('var(--control)'),
+    threshold: cssColor('var(--muted)'),
     surface: cssColor('var(--surface)'),
   };
 }
@@ -55,14 +58,55 @@ function withAlpha(color: string, alpha: string): string {
   return /^#[0-9a-fA-F]{6}$/.test(color) ? color + alpha : color;
 }
 
-function niceMax(value: number): number {
-  if (!Number.isFinite(value) || value <= 0) return 1;
-  const exponent = Math.floor(Math.log10(value));
-  const base = 10 ** exponent;
-  for (const factor of [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10]) {
-    if (value <= factor * base) return factor * base;
+/**
+ * The top of the y scale: four equal steps of 1, 2, 2.5 or 5 × 10^n, so the
+ * five gridlines carry round labels. Percent never goes past 100.
+ */
+function niceMax(value: number, unit: ChartUnit): number {
+  if (!Number.isFinite(value) || value <= 0) return unit === 'percent' ? 100 : 1;
+  // bytes print in binary units (MB = 1024² B), so round in those units
+  if (unit === 'rate' || unit === 'bytes') {
+    const scale = 1024 ** Math.max(0, Math.floor(Math.log(value) / Math.log(1024)));
+    return niceMax(value / scale, 'load') * scale;
   }
-  return 10 * base;
+  const raw = value / 4;
+  const base = 10 ** Math.floor(Math.log10(raw));
+  let step = 10 * base;
+  for (const factor of [1, 2, 2.5, 5, 10]) {
+    if (raw <= factor * base) {
+      step = factor * base;
+      break;
+    }
+  }
+  const top = step * 4;
+  return unit === 'percent' ? Math.min(100, top) : top;
+}
+
+function scaleMax(series: ChartSeries[], unit: ChartUnit, maxValue?: number): number {
+  if (maxValue != null) return niceMax(maxValue, unit);
+  return unit === 'percent' ? 100 : niceMax(dataMax(series) * 1.1, unit);
+}
+
+/** Axis labels: short, no trailing zeros; the readout keeps full precision. */
+function tickValue(value: number, unit: ChartUnit, step: number): string {
+  const digits = step >= 1 || value === 0 ? 0 : step >= 0.1 ? 1 : 2;
+  switch (unit) {
+    case 'rate':
+      return rate(value);
+    case 'net': {
+      const bits = value * 8;
+      if (bits >= 1e9) return `${+(bits / 1e9).toFixed(2)} Gb/s`;
+      if (bits >= 1e6) return `${+(bits / 1e6).toFixed(1)} Mb/s`;
+      if (bits >= 1e3) return `${Math.round(bits / 1e3)} kb/s`;
+      return `${Math.round(bits)} b/s`;
+    }
+    case 'load':
+      return value.toFixed(digits);
+    case 'bytes':
+      return size(value);
+    default:
+      return percent(value, digits);
+  }
 }
 
 function longest(points: SeriesPoint[]): number {
@@ -90,8 +134,8 @@ function dataMax(series: ChartSeries[]): number {
 }
 
 /**
- * Time series in the data-terminal idiom: thin coloured lines on the surface,
- * faint horizontal gridlines, no y-axis line, no fill, no animation. Several
+ * Time series: thin coloured curves over a flat 18 % area of the same hue,
+ * four faint horizontal gridlines, no y-axis line, no animation. Several
  * lines share one crosshair; the readout names each series.
  */
 export function SeriesChart({
@@ -135,13 +179,13 @@ export function SeriesChart({
     const width = element.clientWidth || 600;
     const allPoints = series.flatMap((entry) => entry.points);
     const spanHours = allPoints.length > 1 ? (Math.max(...allPoints.map((p) => p.ts)) - Math.min(...allPoints.map((p) => p.ts))) / 3_600_000 : 1;
-    const yMax = maxValue ?? (unit === 'percent' ? 100 : niceMax(dataMax(series) * 1.1));
-    const ySplits = [0, 0.25, 0.5, 0.75, 1].map((fraction) => Math.round(yMax * fraction * 100) / 100);
+    const yMax = scaleMax(series, unit, maxValue);
 
     const options: uPlot.Options = {
       width,
       height: element.clientHeight || height,
-      padding: [14, 28, 0, 8],
+      // room on the right for the last time label, which is centred on the edge
+      padding: [12, 22, 0, 4],
       legend: { show: false },
       cursor: {
         show: true,
@@ -158,10 +202,10 @@ export function SeriesChart({
           stroke: ink.axis,
           font: AXIS_FONT,
           grid: { show: false },
-          ticks: { stroke: ink.grid, width: 1, size: 4 },
-          gap: 8,
-          size: 30,
-          space: 120,
+          ticks: { show: false },
+          gap: 6,
+          size: 26,
+          space: 96,
           values: (_u, splits) =>
             splits.map((value) =>
               spanHours <= 0.5 ? clockSeconds(value * 1000) : spanHours <= 26 ? clock(value * 1000) : day(value * 1000),
@@ -170,11 +214,22 @@ export function SeriesChart({
         {
           stroke: ink.axis,
           font: AXIS_FONT,
-          size: 56,
+          gap: 6,
+          // as wide as the widest label, so "320 Mb/s" is never clipped
+          size: (u, values) => {
+            if (!values?.length) return 40;
+            const { ctx } = u;
+            const previous = ctx.font;
+            ctx.font = AXIS_FONT; // CSS pixels: the width below is in CSS pixels too
+            const widest = Math.max(...values.map((value) => ctx.measureText(String(value)).width));
+            ctx.font = previous;
+            return Math.ceil(widest) + 14;
+          },
           grid: { stroke: ink.grid, width: 1 },
           ticks: { show: false },
-          splits: () => ySplits,
-          values: (_u, splits) => splits.map((value) => formatValue(value, unitRef.current)),
+          // quarters of the current scale, recomputed when the window rescales
+          splits: (u) => [0, 0.25, 0.5, 0.75, 1].map((fraction) => Math.round((u.scales.y.max ?? yMax) * fraction * 100) / 100),
+          values: (_u, splits) => splits.map((value) => tickValue(value, unitRef.current, splits.length > 1 ? splits[1] - splits[0] : value)),
         },
       ],
       series: [
@@ -182,6 +237,7 @@ export function SeriesChart({
         ...series.map((entry) => ({
           stroke: cssColor(entry.color),
           width: 1.5,
+          paths: spline,
           // A flat translucent area, the way Beszel draws its metrics: the
           // shape of the load reads at a glance, the line keeps the edge.
           fill: withAlpha(cssColor(entry.color), FILL_ALPHA),
@@ -202,17 +258,19 @@ export function SeriesChart({
             if (limit != null) {
               const alertY = u.valToPos(limit, 'y', true);
               ctx.strokeStyle = ink.threshold;
-              ctx.setLineDash([3, 4]);
+              ctx.globalAlpha = 0.6;
+              ctx.setLineDash([4, 4]);
               ctx.beginPath();
               ctx.moveTo(left, alertY);
               ctx.lineTo(right, alertY);
               ctx.stroke();
               ctx.setLineDash([]);
+              ctx.globalAlpha = 1;
               ctx.fillStyle = ink.axis;
-              ctx.font = `${Math.round(12 * uPlot.pxRatio)}px "IBM Plex Sans", sans-serif`;
+              ctx.font = `${Math.round(11 * uPlot.pxRatio)}px "IBM Plex Sans", sans-serif`;
               ctx.textAlign = 'left';
               ctx.textBaseline = 'bottom';
-              ctx.fillText(formatValue(limit, unitRef.current), left + 4, alertY - 4);
+              ctx.fillText(tickValue(limit, unitRef.current, limit), left + 4, alertY - 4);
             }
             const event = markerRef.current;
             if (event) {
@@ -289,7 +347,7 @@ export function SeriesChart({
     const pointCount = Math.max(...series.map((entry) => entry.points.length), 0);
     if (pointCount === 0) return;
     instance.setData(toAligned(series));
-    instance.setScale('y', { min: 0, max: maxValue ?? (unit === 'percent' ? 100 : niceMax(dataMax(series) * 1.1)) });
+    instance.setScale('y', { min: 0, max: scaleMax(series, unit, maxValue) });
   }, [series, unit, maxValue]);
 
   return (

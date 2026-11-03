@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  ArrowClockwise,
   Bell,
   HardDrives,
   ListBullets,
   MagnifyingGlass,
+  Moon,
   PlayCircle,
   Robot,
   SlidersHorizontal,
-  SquaresFour,
+  Sun,
 } from '@phosphor-icons/react';
 import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link, Outlet, useLocation } from 'react-router-dom';
@@ -16,106 +16,89 @@ import { CupolaMark } from './CupolaMark';
 import { CommandPalette } from './CommandPalette';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OfflineBanner } from './OfflineBanner';
-import { useFleet, useMe } from '../data/queries';
+import { useAlerts, useFleet, useMe } from '../data/queries';
 import { useStream } from '../data/stream';
 import { clockSeconds } from '../lib/format';
+import { setThemePreference, useResolvedTheme } from '../lib/theme';
 
 const NAV = [
-  { to: '/', label: 'Overview', icon: SquaresFour, match: (path: string) => path === '/' },
-  { to: '/nodes', label: 'Nodes', icon: HardDrives, match: (path: string) => path.startsWith('/nodes') },
+  { to: '/', label: 'Systems', icon: HardDrives, match: (path: string) => path === '/' || path.startsWith('/nodes') },
   { to: '/agents', label: 'Agents', icon: Robot, match: (path: string) => path.startsWith('/agents') },
   { to: '/apps', label: 'Apps', icon: PlayCircle, match: (path: string) => path.startsWith('/apps') },
   { to: '/alerts', label: 'Alerts', icon: Bell, match: (path: string) => path.startsWith('/alerts') },
   { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-const BOTTOM = ['/', '/nodes', '/agents', '/alerts'];
+const BOTTOM = ['/', '/agents', '/apps', '/alerts'];
 
-function RailLink({ to, label, icon: Icon, active }: { to: string; label: string; icon: typeof SquaresFour; active: boolean }) {
+function IconButton({ label, onClick, to, active, children }: { label: string; onClick?: () => void; to?: string; active?: boolean; children: React.ReactNode }) {
+  const trigger = to ? (
+    <Link to={to} className="icon-btn" aria-label={label} aria-current={active ? 'page' : undefined}>
+      {children}
+    </Link>
+  ) : (
+    <button type="button" className="icon-btn" aria-label={label} onClick={onClick}>
+      {children}
+    </button>
+  );
   return (
-    <Tooltip.Root delayDuration={220}>
-      <Tooltip.Trigger asChild>
-        <Link to={to} className="rail-link" aria-label={label} aria-current={active ? 'page' : undefined}>
-          <Icon size={18} aria-hidden="true" />
-        </Link>
-      </Tooltip.Trigger>
+    <Tooltip.Root delayDuration={260}>
+      <Tooltip.Trigger asChild>{trigger}</Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="tooltip" side="right" sideOffset={10}>
+        <Tooltip.Content className="tooltip" side="bottom" sideOffset={8}>
           {label}
-          <Tooltip.Arrow className="tooltip-arrow" />
         </Tooltip.Content>
       </Tooltip.Portal>
     </Tooltip.Root>
   );
 }
 
-const NODE_TABS: Record<string, string> = {
-  cpu: 'CPU',
-  memory: 'Memory',
-  storage: 'Storage',
-  network: 'Network',
-  processes: 'Processes',
-  agents: 'Agents',
-  services: 'Services',
-  containers: 'Containers',
-  apps: 'Apps',
-  events: 'Events',
-};
-
 /**
- * The top bar locates the view; the page's own title names the object. It never
- * repeats the heading below it, so a node page says "Cupola / Nodes / CPU" and
- * the heading carries the node name once.
+ * One header row: the mark, the five destinations as words, then search, the
+ * freshness stamp, the theme switch and settings. The page's own card names
+ * the object, so the header never repeats it.
  */
-function trail(path: string): string[] {
-  const parts = path.split('/').filter(Boolean);
-  if (parts[0] === 'nodes' && parts[1]) {
-    const tab = NODE_TABS[parts[2] ?? ''];
-    return tab ? ['Nodes', tab] : ['Nodes'];
-  }
-  if (parts[0] === 'events' && parts[1]) return ['Events'];
-  if (parts[0] === 'alerts' && parts[1] === 'rules') return ['Alerts'];
-  if (parts[0] === 'settings' && parts[1]) return ['Settings'];
-  return [];
-}
-
-function TopBar({ onSearch }: { onSearch: () => void }) {
+function Header({ onSearch }: { onSearch: () => void }) {
   const fleet = useFleet();
+  const firing = useAlerts('firing');
   const location = useLocation();
+  const theme = useResolvedTheme();
   const updated = fleet.data?.updated;
-  const crumbs = trail(location.pathname);
+  const firingCount = firing.data?.length ?? 0;
 
   return (
-    <header className="topbar">
-      <div className="topbar-context">
-        <Link to="/" className="topbar-scope">
-          Cupola
+    <header className="header">
+      <div className="header-inner">
+        <Link to="/" className="brand" aria-label="Cupola home">
+          <CupolaMark size={20} />
+          <span className="brand-word">cupola</span>
         </Link>
-        {crumbs.map((crumb) => (
-          <span className="topbar-crumb" key={crumb}>
-            <span className="topbar-sep" aria-hidden="true">
-              /
-            </span>
-            {crumb}
-          </span>
-        ))}
-      </div>
-      <div className="topbar-right">
-        <button type="button" className="search-btn" onClick={onSearch} aria-label="Search nodes and screens">
-          <MagnifyingGlass size={15} aria-hidden="true" />
-          <span>Search</span>
-          <kbd className="kbd">⌘K</kbd>
-        </button>
-        <span className="freshness">{updated ? `Updated ${clockSeconds(updated)} UTC` : 'Waiting for data'}</span>
-        <button
-          type="button"
-          className="icon-btn"
-          onClick={() => void fleet.refetch()}
-          aria-label="Refresh"
-          title="Refresh"
-        >
-          <ArrowClockwise size={16} aria-hidden="true" />
-        </button>
+        <nav className="header-nav" aria-label="Primary">
+          {NAV.map((item) => (
+            <Link key={item.to} to={item.to} className="header-link" aria-current={item.match(location.pathname) ? 'page' : undefined}>
+              {item.label}
+              {item.to === '/alerts' && firingCount > 0 ? (
+                <span className="header-count" aria-label={`${firingCount} firing`}>
+                  {firingCount}
+                </span>
+              ) : null}
+            </Link>
+          ))}
+        </nav>
+        <div className="header-right">
+          <span className="freshness">{updated ? `Updated ${clockSeconds(updated)} UTC` : 'Waiting for data'}</span>
+          <button type="button" className="search-btn" onClick={onSearch} aria-label="Search systems and screens">
+            <MagnifyingGlass size={15} aria-hidden="true" />
+            <span className="search-label">Search</span>
+            <kbd className="kbd">⌘K</kbd>
+          </button>
+          <IconButton label={theme === 'dark' ? 'Light theme' : 'Dark theme'} onClick={() => setThemePreference(theme === 'dark' ? 'light' : 'dark')}>
+            {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
+          </IconButton>
+          <IconButton label="Settings" to="/settings/nodes" active={location.pathname.startsWith('/settings')}>
+            <SlidersHorizontal size={16} aria-hidden="true" />
+          </IconButton>
+        </div>
       </div>
     </header>
   );
@@ -130,7 +113,7 @@ function BottomBar() {
         const active = item.match(location.pathname);
         return (
           <Link key={item.to} to={item.to} className="bottom-link" aria-current={active ? 'page' : undefined}>
-            <Icon size={18} aria-hidden="true" />
+            <Icon size={20} aria-hidden="true" weight={active ? 'fill' : 'regular'} />
             <span>{item.label}</span>
           </Link>
         );
@@ -164,32 +147,10 @@ export function AppShell() {
   }, [location.pathname]);
 
   return (
-    <Tooltip.Provider delayDuration={220}>
+    <Tooltip.Provider delayDuration={260}>
       <div className="shell">
-        <nav className="rail" aria-label="Primary">
-          <Link to="/" className="rail-mark" aria-label="Cupola home">
-            <CupolaMark size={20} />
-          </Link>
-          <div className="rail-nav">
-            {NAV.map((item) => (
-              <RailLink key={item.to} to={item.to} label={item.label} icon={item.icon} active={item.match(location.pathname)} />
-            ))}
-          </div>
-          <div className="rail-sep" aria-hidden="true" />
-          <div className="rail-bottom">
-            <RailLink
-              to="/settings/nodes"
-              label="Settings"
-              icon={SlidersHorizontal}
-              active={location.pathname.startsWith('/settings')}
-            />
-            <span className="rail-stamp" aria-hidden="true">
-              v1
-            </span>
-          </div>
-        </nav>
         <div className="main" ref={mainRef}>
-          <TopBar onSearch={() => setPaletteOpen(true)} />
+          <Header onSearch={() => setPaletteOpen(true)} />
           <main className="content">
             {fleet.data ? <OfflineBanner lastUpdated={fleet.data.updated} stale={Boolean(fleet.data.stale)} /> : null}
             <ErrorBoundary key={location.pathname}>

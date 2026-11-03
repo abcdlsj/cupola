@@ -78,9 +78,11 @@ npm run build        # production build and PWA in web/dist
 npx playwright test  # starts a hub + three fictional agents (scripts/e2e-hub.sh)
 ```
 
-![Cupola overview](docs/screenshots/overview.png)
+![Cupola systems](docs/screenshots/overview.png)
 
-The screenshot uses fictional nodes (`atlas`, `beelink`, `studio`).
+![A system’s charts](docs/screenshots/system.png)
+
+The screenshots use fictional nodes (`atlas`, `beelink`, `studio`).
 
 Go checks:
 

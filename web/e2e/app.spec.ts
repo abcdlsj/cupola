@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-test.describe('fleet overview', () => {
-  test('shows the fleet grid and routes to a node', async ({ page }) => {
+/** The systems list is a table on wide screens and cards under 900 px. */
+const SYSTEM_ROWS = '.systems-row:visible, .system-card:visible';
+
+test.describe('systems', () => {
+  test('lists every system and routes to one', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-    await expect(page.locator('.fleet-row')).toHaveCount(3);
-    await page.getByLabel(/^beelink: (healthy|degraded)/).click();
+    await expect(page.getByRole('heading', { level: 2, name: 'All systems' })).toBeVisible();
+    await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
+    await page.locator('.systems-row:visible .system-cell, .system-card:visible').filter({ hasText: 'beelink' }).click();
     await expect(page).toHaveURL(/\/nodes\/beelink$/);
     await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
     await page.goBack();
@@ -14,26 +17,29 @@ test.describe('fleet overview', () => {
 
   test('answers the screen question with real API data', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.page-finding')).toContainText('boxes');
-    await expect(page.locator('.kpi-cell').first()).toContainText('3');
-    await expect(page.locator('.attention-list, .empty').first()).toBeVisible();
+    await expect(page.locator('.systems-head .panel-desc')).toContainText('3 systems');
+    await expect(page.locator('.meter:visible').first()).toBeVisible();
+    await expect(page.locator('.alert-card').first()).toBeVisible();
+  });
+
+  test('filters and sorts through the URL; /nodes lands here', async ({ page }) => {
+    await page.goto('/nodes');
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
+    await page.getByPlaceholder('Filter…').fill('studio');
+    await expect(page).toHaveURL(/q=studio/);
+    await expect(page.locator(SYSTEM_ROWS)).toHaveCount(1);
+    await expect(page.locator(SYSTEM_ROWS).first()).toContainText('studio');
+    await page.goto('/?view=grid');
+    await expect(page.locator('.system-card:visible')).toHaveCount(3);
   });
 });
 
 test.describe('nodes', () => {
-  test('the list stays a table and filters', async ({ page }) => {
-    await page.goto('/nodes');
-    await expect(page.locator('table')).toBeVisible();
-    await expect(page.locator('tbody tr')).toHaveCount(3);
-    await page.getByPlaceholder('Filter nodes').fill('studio');
-    await expect(page.locator('tbody tr')).toHaveCount(1);
-    await expect(page.locator('tbody tr').first()).toContainText('studio');
-  });
-
   test('node tabs are real routes and a process has a detail page', async ({ page }) => {
     await page.goto('/nodes/studio');
     await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
-    await page.getByRole('link', { name: 'Processes', exact: true }).click();
+    await page.getByRole('navigation', { name: 'System views' }).getByRole('link', { name: /^Processes/ }).click();
     await expect(page).toHaveURL(/\/nodes\/studio\/processes$/);
     await page.locator('tbody tr').first().getByRole('link').click();
     await expect(page).toHaveURL(/\/nodes\/studio\/processes\/\d+$/);
@@ -51,7 +57,7 @@ test.describe('nodes', () => {
     const cpuPanel = page.locator('.panel', { has: page.getByRole('heading', { name: 'Container CPU' }) });
     await expect(cpuPanel).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Container memory' })).toBeVisible();
-    await expect(cpuPanel.locator('canvas, .empty').first()).toBeVisible();
+    await expect(cpuPanel.locator('canvas, .chart-card-empty').first()).toBeVisible();
     // The images chart ranks what the image cache holds down on disk.
     const images = page.locator('.panel', { has: page.getByRole('heading', { name: 'Images' }) });
     await expect(images.locator('.image-row')).toHaveCount(3);
@@ -203,16 +209,16 @@ test.describe('settings and tokens', () => {
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/settings/appearance');
     const ground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    await expect(page.getByRole('button', { name: 'System' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await ground()).toBe('rgb(12, 13, 15)');
-    await page.getByRole('button', { name: 'Light' }).click();
-    expect(await ground()).toBe('rgb(242, 245, 248)');
+    await expect(page.getByRole('button', { name: 'System', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await ground()).toBe('rgb(11, 12, 14)');
+    await page.getByRole('button', { name: 'Light', exact: true }).click();
+    expect(await ground()).toBe('rgb(246, 247, 249)');
     await page.reload();
-    await expect(page.getByRole('button', { name: 'Light' })).toHaveAttribute('aria-pressed', 'true');
-    expect(await ground()).toBe('rgb(242, 245, 248)');
-    await page.getByRole('button', { name: 'System' }).click();
+    await expect(page.getByRole('button', { name: 'Light', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(await ground()).toBe('rgb(246, 247, 249)');
+    await page.getByRole('button', { name: 'System', exact: true }).click();
     await page.emulateMedia({ colorScheme: 'light' });
-    expect(await ground()).toBe('rgb(242, 245, 248)');
+    expect(await ground()).toBe('rgb(246, 247, 249)');
   });
 
   test('channels can be added and tested', async ({ page }, testInfo) => {
@@ -226,8 +232,8 @@ test.describe('settings and tokens', () => {
 
 test.describe('keyboard and shell', () => {
   test('command palette opens, filters and navigates', async ({ page }) => {
-    await page.goto('/nodes');
-    await expect(page.getByRole('heading', { level: 1, name: 'Nodes' })).toBeVisible();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 2, name: 'All systems' })).toBeVisible();
     await page.keyboard.press('Meta+k');
     const input = page.getByRole('combobox');
     await expect(input).toBeVisible();
@@ -238,7 +244,7 @@ test.describe('keyboard and shell', () => {
   });
 
   test('the installed app pins the shell to the screen edges', async ({ page, viewport }) => {
-    await page.goto('/nodes');
+    await page.goto('/');
     const size = page.viewportSize();
     if (!size || (viewport?.width ?? 1440) > 640) test.skip(true, 'the standalone pin is a mobile layout');
     // iOS sets this from theme-init.js when it launches the home-screen app.
@@ -253,16 +259,25 @@ test.describe('keyboard and shell', () => {
     expect(Math.round(bar!.y + bar!.height)).toBe(size!.height);
   });
 
-  test('phone shows the bottom bar, desktop shows the rail', async ({ page, viewport }) => {
+  test('phone shows the bottom bar, wider screens the header links', async ({ page, viewport }) => {
     await page.goto('/');
-    await expect(page.locator('.fleet-row')).toHaveCount(3);
+    await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
     if ((viewport?.width ?? 1440) < 641) {
       await expect(page.locator('.bottom-bar')).toBeVisible();
-      await expect(page.locator('.rail')).toBeHidden();
+      await expect(page.locator('.header-nav')).toBeHidden();
     } else {
       await expect(page.locator('.bottom-bar')).toBeHidden();
-      await expect(page.locator('.rail')).toBeVisible();
+      await expect(page.locator('.header-nav')).toBeVisible();
     }
+  });
+
+  test('the chart window is part of the URL', async ({ page }) => {
+    await page.goto('/nodes/studio');
+    await page.getByLabel('Chart window').selectOption('24h');
+    await expect(page).toHaveURL(/range=24h/);
+    await page.getByRole('navigation', { name: 'System views' }).getByRole('link', { name: 'CPU', exact: true }).click();
+    await expect(page).toHaveURL(/\/nodes\/studio\/cpu\?range=24h$/);
+    await expect(page.getByLabel('Chart window')).toHaveValue('24h');
   });
 
   test('the bottom bar stays inside the visual viewport on a long node page', async ({ page, viewport }) => {
@@ -271,7 +286,7 @@ test.describe('keyboard and shell', () => {
     const bar = page.locator('.bottom-bar');
     await expect(bar).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
-    await expect(page.locator('.kpi-row')).toBeVisible();
+    await expect(page.locator('.chart-grid').first()).toBeVisible();
 
     const measure = () =>
       page.evaluate(() => {
@@ -302,7 +317,7 @@ test.describe('keyboard and shell', () => {
 
   test('offline names the last snapshot', async ({ page, context }) => {
     await page.goto('/');
-    await expect(page.locator('.page-title')).toBeVisible();
+    await expect(page.locator('.systems')).toBeVisible();
     await page.waitForTimeout(600);
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));

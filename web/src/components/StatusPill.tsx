@@ -8,9 +8,9 @@ const STATUS_TONE: Record<NodeStatus, string> = {
 };
 
 const STATUS_LABEL: Record<NodeStatus, string> = {
-  healthy: 'Healthy',
+  healthy: 'Up',
   degraded: 'Degraded',
-  offline: 'Offline',
+  offline: 'Down',
   unknown: 'Waiting',
 };
 
@@ -20,12 +20,22 @@ const SEVERITY_TONE: Record<Severity, string> = {
   info: 'neutral',
 };
 
+export function statusLabel(status: NodeStatus): string {
+  return STATUS_LABEL[status] ?? String(status);
+}
+
+/** A node's state as a coloured dot; the label is for screen readers and the tooltip. */
+export function StatusDot({ status }: { status: NodeStatus }) {
+  const label = statusLabel(status);
+  return <span className="status-dot" data-tone={STATUS_TONE[status] ?? 'neutral'} role="img" aria-label={label} title={label} />;
+}
+
+/** Dot and word, for headers where the state needs to be read, not just seen. */
 export function StatusPill({ status }: { status: NodeStatus }) {
-  const label = STATUS_LABEL[status] ?? String(status);
   return (
-    <span className="pill" data-tone={STATUS_TONE[status] ?? 'neutral'}>
-      <span className="dot" aria-hidden="true" />
-      {label}
+    <span className="status" data-tone={STATUS_TONE[status] ?? 'neutral'}>
+      <span className="status-dot" data-tone={STATUS_TONE[status] ?? 'neutral'} aria-hidden="true" />
+      {statusLabel(status)}
     </span>
   );
 }

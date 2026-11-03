@@ -344,6 +344,10 @@ JSON, Unix milliseconds, units labeled, errors `{error:{code,message}}`.
 
 ### 10.1 Direction: data terminal
 
+> Superseded in November 2026 by the Beszel direction in `docs/DESIGN.md`
+> (systems table home, chart grid per system, bordered cards, meters, header
+> navigation). The text below is the original M0 brief, kept for history.
+
 Chosen from the taste-skill app drawer (seed `956138436`, style
 `data-terminal`, theme dark, kind `markets`). It is a monitoring screen read in
 long sessions: dense, monochrome numbers, colour only on data and status, and
@@ -533,7 +537,7 @@ docs/
 M0 is approved. The user asked for continuous delivery: implement M1–M5 end to
 end without intermediate approval, then a single unified acceptance. Each
 milestone still ends with tests and a commit; do not stop for milestone review.
-Keep `/nodes` as the table (option A).
+The systems table is the home screen; `/nodes` redirects there (was option A).
 
 ### Acceptance
 
