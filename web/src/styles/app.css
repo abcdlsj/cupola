@@ -668,6 +668,79 @@
   white-space: nowrap;
 }
 
+/* Repeated events on one node fold into one row: the message carries a count
+   and opens the individual occurrences in place. */
+.event-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-count-summary {
+  white-space: nowrap;
+}
+
+.event-fold {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.event-fold svg {
+  flex: none;
+  color: var(--muted);
+  transition: transform 120ms ease-out;
+}
+
+.event-fold svg[data-open="true"] {
+  transform: rotate(90deg);
+}
+
+.event-fold-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.event-fold:hover .event-fold-text {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.event-count {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.event-occurrences {
+  display: flex;
+  flex-direction: column;
+}
+
+.event-occurrence {
+  min-height: 40px;
+}
+
+/* The occurrences hang under the folded row's text, so the fold reads as a
+   parent even though the node and severity columns stay empty. */
+.event-occurrence .event-message {
+  padding-left: 17px;
+  color: var(--muted);
+}
+
 .u-wrap {
   font-family: var(--font-ui);
 }

@@ -1,13 +1,24 @@
 import { useState } from 'react';
+import { CaretRight } from '@phosphor-icons/react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { SeverityPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel } from '../../components/States';
 import { useEvents } from '../../data/queries';
+import type { Event } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
+import { groupEvents, type EventGroup } from '../../lib/events';
 
 const KINDS = ['', 'node', 'service', 'container', 'system', 'network', 'action', 'disk', 'agent'];
 const SEVERITIES = ['', 'info', 'warning', 'critical'];
+
+function EventLink({ event }: { event: Event }) {
+  return (
+    <Link className="link" to={`/events/${event.id}`}>
+      {event.message}
+    </Link>
+  );
+}
 
 export function EventsList({
   nodeId,
@@ -21,6 +32,7 @@ export function EventsList({
   const [params, setParams] = useSearchParams();
   const [severity, setSeverity] = useState(params.get('severity') ?? '');
   const [kind, setKind] = useState(params.get('kind') ?? '');
+  const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   const query = useEvents({
     node: nodeId,
     severity: severity || undefined,
@@ -37,6 +49,76 @@ export function EventsList({
     if (nextKind) next.set('kind', nextKind);
     else next.delete('kind');
     setParams(next, { replace: true });
+  };
+
+  const events = query.data ?? [];
+  const groups = groupEvents(events);
+  const folded = events.length - groups.length;
+
+  const toggle = (id: number) => {
+    setOpen((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderGroup = (group: EventGroup) => {
+    if (group.count === 1) {
+      const event = group.latest;
+      return (
+        <li className="event-row" key={event.id}>
+          <span className="event-time">{eventTime(event.ts, now)}</span>
+          <span className="event-node">{event.node_id}</span>
+          <SeverityPill severity={event.severity} />
+          <span className="event-message">
+            <EventLink event={event} />
+          </span>
+          <span className="event-kind quiet">{relative(event.ts, now)}</span>
+        </li>
+      );
+    }
+    const head = group.latest;
+    const expanded = open.has(head.id);
+    return (
+      <li className="event-group" key={`${group.key}:${head.id}`}>
+        <div className="event-row">
+          <span className="event-time">{eventTime(head.ts, now)}</span>
+          <span className="event-node">{head.node_id}</span>
+          <SeverityPill severity={head.severity} />
+          <span className="event-message event-message-fold">
+            <button
+              type="button"
+              className="event-fold"
+              aria-expanded={expanded}
+              aria-label={`${expanded ? 'Hide' : 'Show'} ${group.count} occurrences of ${head.message}`}
+              onClick={() => toggle(head.id)}
+            >
+              <CaretRight size={11} aria-hidden="true" data-open={expanded ? 'true' : undefined} />
+              <span className="event-fold-text">{head.message}</span>
+              <span className="event-count fig">×{group.count}</span>
+            </button>
+          </span>
+          <span className="event-kind quiet">{relative(head.ts, now)}</span>
+        </div>
+        {expanded ? (
+          <ul className="event-occurrences">
+            {group.events.slice(1).map((event) => (
+              <li className="event-row event-occurrence" key={event.id}>
+                <span className="event-time">{eventTime(event.ts, now)}</span>
+                <span className="event-node" aria-hidden="true" />
+                <span aria-hidden="true" />
+                <span className="event-message">
+                  <EventLink event={event} />
+                </span>
+                <span className="event-kind quiet">{relative(event.ts, now)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </li>
+    );
   };
 
   return (
@@ -82,7 +164,10 @@ export function EventsList({
               </label>
             </>
           ) : null}
-          <span>{query.data?.length ?? 0} events</span>
+          <span className="event-count-summary">
+            {events.length} events
+            {folded > 0 ? ` · ${groups.length} rows` : ''}
+          </span>
         </>
       }
       flush
@@ -91,24 +176,10 @@ export function EventsList({
         <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
       ) : query.isPending ? (
         <Empty>Loading events…</Empty>
-      ) : !query.data || query.data.length === 0 ? (
+      ) : groups.length === 0 ? (
         <Empty>No events match this filter. Events appear when a unit fails, a container restarts, a port opens or a threshold fires.</Empty>
       ) : (
-        <ul className="event-list">
-          {query.data.map((event) => (
-            <li className="event-row" key={event.id}>
-              <span className="event-time">{eventTime(event.ts, now)}</span>
-              <span className="event-node">{event.node_id}</span>
-              <SeverityPill severity={event.severity} />
-              <span className="event-message">
-                <Link className="link" to={`/events/${event.id}`}>
-                  {event.message}
-                </Link>
-              </span>
-              <span className="event-kind quiet">{relative(event.ts, now)}</span>
-            </li>
-          ))}
-        </ul>
+        <ul className="event-list">{groups.map(renderGroup)}</ul>
       )}
     </Panel>
   );

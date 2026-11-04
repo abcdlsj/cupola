@@ -100,6 +100,12 @@ Never run, severity).
 - **Lists** (processes, agents, services, containers, apps, events, alerts,
   settings) — one card per question, filters in the card head, the URL holds
   the filter.
+- **Events fold repeats.** One node repeating the same message shape (kind,
+  severity, message with its figures masked: `New listening port #/udp (Plex
+  Media Serv)`) inside an hour is one row with `×N`, the newest occurrence on
+  the row and the rest one click away. The first screen shows the shapes, not
+  every port. Raw events stay in the database and in each occurrence's own
+  route; only the list folds.
 
 ## Charts
 

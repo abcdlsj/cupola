@@ -164,15 +164,30 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 	p.processSnapshot(ctx, node, snap, actions)
 }
 
-// sweepOffline marks a node offline when nothing has arrived for three
-// intervals, whatever the mode. last_seen stays at the last good sample.
+// minOfflineSilence is the shortest silence that counts as an outage. Three poll
+// intervals is 15 s at the default cadence, and a hub that stalls on a disk write
+// or a slow poll for 20 s is not an outage: that produced a stop/reporting pair
+// every five minutes on a busy host. 45 s is nine missed polls at 5 s.
+const minOfflineSilence = 45 * time.Second
+
+// offlineSilence is how long a node may be silent before it is offline.
+func offlineSilence(interval time.Duration) int64 {
+	silence := 3 * interval
+	if silence < minOfflineSilence {
+		silence = minOfflineSilence
+	}
+	return int64(silence / time.Millisecond)
+}
+
+// sweepOffline marks a node offline when nothing has arrived for offlineSilence,
+// whatever the mode. last_seen stays at the last good sample.
 func (p *poller) sweepOffline(ctx context.Context) {
 	nodes, err := p.hub.store.ListNodeRecords(ctx)
 	if err != nil {
 		return
 	}
 	now := time.Now().UnixMilli()
-	limit := int64(3 * p.interval / time.Millisecond)
+	limit := offlineSilence(p.interval)
 	for _, node := range nodes {
 		if node.LastSeen == 0 || node.Status == "offline" {
 			continue

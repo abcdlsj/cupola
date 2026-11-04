@@ -359,6 +359,19 @@ test.describe('keyboard and shell', () => {
     expect(atBottom.top).toBeGreaterThanOrEqual(atBottom.viewportTop - 0.5);
   });
 
+  test('repeated events fold into one row that opens in place', async ({ page }) => {
+    await page.goto('/events');
+    const fold = page.getByRole('button', { name: /Show \d+ occurrences of New listening port/ }).first();
+    await expect(fold).toBeVisible();
+    await expect(page.getByText(/events · \d+ rows/)).toBeVisible();
+    // The head row states the newest occurrence; the older ones stay folded away
+    // until the row is opened.
+    const occurrences = page.getByRole('link', { name: /New listening port/ });
+    const foldedAway = await occurrences.count();
+    await fold.click();
+    await expect.poll(() => occurrences.count()).toBeGreaterThan(foldedAway);
+  });
+
   test('offline names the last snapshot', async ({ page, context }) => {
     await page.goto('/');
     await expect(page.locator('.systems')).toBeVisible();

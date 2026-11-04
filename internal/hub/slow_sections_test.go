@@ -244,3 +244,37 @@ func TestNormaliseSectionsFillsEveryArray(t *testing.T) {
 		t.Fatalf("a section marshals as null: %s", body)
 	}
 }
+
+// A hub that stalls for a third of a minute must not read as an outage: the
+// stop/reporting pairs came back every five minutes while it did.
+func TestSweepOfflineIgnoresAShortStall(t *testing.T) {
+	hub, _ := newTestHub(t)
+	hub.poller.interval = 5 * time.Second
+	ctx := context.Background()
+	node := model.NodeRecord{ID: "test", Name: "test", Mode: "pull", URL: "http://127.0.0.1:1"}
+	sealed, err := encrypt(hub.keys.key, []byte("agent-token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.store.UpsertNode(ctx, node, sealed, "hash"); err != nil {
+		t.Fatal(err)
+	}
+
+	// 20 s of silence: three polls missed, the old threshold, not an outage.
+	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-20_000); err != nil {
+		t.Fatal(err)
+	}
+	hub.poller.sweepOffline(ctx)
+	if record, err := hub.store.GetNode(ctx, "test"); err != nil || record.Status == "offline" {
+		t.Fatalf("20 s of silence marked the node offline: %+v", record)
+	}
+
+	// 50 s of silence is nine missed polls: that is an outage.
+	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-50_000); err != nil {
+		t.Fatal(err)
+	}
+	hub.poller.sweepOffline(ctx)
+	if record, err := hub.store.GetNode(ctx, "test"); err != nil || record.Status != "offline" {
+		t.Fatalf("50 s of silence did not mark the node offline: %+v", record)
+	}
+}
