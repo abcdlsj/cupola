@@ -257,6 +257,19 @@ test.describe('keyboard and shell', () => {
     expect(Math.round(shell!.height)).toBe(size!.height);
     const bar = await page.locator('.bottom-bar').boundingBox();
     expect(Math.round(bar!.y + bar!.height)).toBe(size!.height);
+
+    // iOS can report a layout viewport one safe area short of the screen;
+    // theme-init.js measures that shortfall. The shell grows past the viewport
+    // bottom so no strip is left under the bar, and the bar pads by the gap
+    // once instead of adding it to the env() inset.
+    await page.evaluate(() => document.documentElement.style.setProperty('--app-bottom-gap', '34px'));
+    const extendedShell = await page.locator('.shell').boundingBox();
+    expect(Math.round(extendedShell!.y)).toBe(0);
+    expect(Math.round(extendedShell!.y + extendedShell!.height)).toBe(size!.height + 34);
+    const extendedBar = await page.locator('.bottom-bar').boundingBox();
+    expect(Math.round(extendedBar!.y + extendedBar!.height)).toBe(size!.height + 34);
+    const labels = await page.locator('.bottom-link').first().boundingBox();
+    expect(Math.round(labels!.y + labels!.height)).toBe(size!.height);
   });
 
   test('phone shows the bottom bar, wider screens the header links', async ({ page, viewport }) => {

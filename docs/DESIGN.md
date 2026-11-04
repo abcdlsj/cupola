@@ -139,4 +139,8 @@ meter widths, 120–160 ms ease-out. `prefers-reduced-motion` turns it off.
   IndexedDB; offline banner with the last-updated time.
 - iOS: `viewport-fit=cover`, `dvh`, safe-area padding, the shell pinned to
   the screen edges in the installed app, the bottom bar above the home
-  indicator.
+  indicator. The installed layout viewport can stop one safe area short of the
+  screen; `theme-init.js` measures the shortfall into `--app-bottom-gap`, the
+  shell's bottom edge extends by it and the bar pads by `--app-safe-bottom`
+  (`max(env(safe-area-inset-bottom), gap)`), so no ground is left under the bar
+  and the inset is never counted twice.

@@ -1615,8 +1615,8 @@
   .bottom-bar {
     position: static;
     flex: none;
-    height: calc(56px + env(safe-area-inset-bottom, 0px));
-    padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    height: calc(56px + var(--app-safe-bottom));
+    padding: 0 env(safe-area-inset-right, 0px) var(--app-safe-bottom) env(safe-area-inset-left, 0px);
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     background: var(--ground);
@@ -1646,14 +1646,14 @@
   }
   .dialog {
     top: auto;
-    bottom: 0;
+    bottom: calc(-1 * var(--app-bottom-gap));
     left: 0;
     right: 0;
     transform: none;
     width: 100%;
-    max-height: calc(100dvh - 32px);
+    max-height: calc(100dvh + var(--app-bottom-gap) - 32px);
     border-radius: var(--radius-card) var(--radius-card) 0 0;
-    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    padding: 18px 16px calc(18px + var(--app-safe-bottom));
   }
   .dialog[data-state="open"] {
     animation: sheet-in 140ms ease-out;
@@ -1687,16 +1687,22 @@
   }
 }
 
-/* In the installed app 100dvh comes up short of the screen by the bottom safe
-   area, which leaves a strip of ground under the bottom bar. Pin the shell to
-   the real screen edges instead; the bar keeps env(safe-area-inset-bottom) as
-   padding, so its labels stay above the home indicator and its background runs
-   to the edge. The attribute is set from theme-init.js because iOS does not
-   always match the display-mode query; both selectors are kept. */
+/* In the installed app the layout viewport can stop one safe area short of the
+   screen bottom. Pinning the shell to `inset: 0` alone inherits that shortfall,
+   so a strip of ground is left under the bottom bar; 100dvh is short by the same
+   amount. theme-init.js measures the shortfall into --app-bottom-gap and the
+   shell's bottom edge is pushed down by it, while the bar pads by
+   --app-safe-bottom, which is the larger of that gap and the env() inset, so its
+   labels stay above the home indicator without doubling the padding. The
+   attribute is set from theme-init.js because iOS does not always match the
+   display-mode query; both selectors are kept. */
 @media (max-width: 640px) {
   html[data-standalone] .shell {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(-1 * var(--app-bottom-gap));
     height: auto;
     min-height: 0;
   }
@@ -1705,7 +1711,10 @@
 @media (max-width: 640px) and (display-mode: standalone) {
   .shell {
     position: fixed;
-    inset: 0;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(-1 * var(--app-bottom-gap));
     height: auto;
     min-height: 0;
   }
