@@ -1,6 +1,7 @@
 package hub
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -149,5 +150,97 @@ func TestMergeKeepsSectionsTheAgentSentWhenThePartFetchFails(t *testing.T) {
 	}
 	if len(snap.Ports) != 1 {
 		t.Fatalf("ports were blanked: %+v", snap.Ports)
+	}
+}
+
+// Agents before 1.4.7 answer /v1/processes without them, and a node page reads
+// .length on the section: the hub must ask /v1/agents rather than store null.
+func TestProcessRefreshFallsBackToTheAgentsPart(t *testing.T) {
+	var agentFetches int
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/processes", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ts":        7,
+			"processes": []model.Process{{PID: 42, Name: "codex"}},
+		})
+	})
+	mux.HandleFunc("GET /v1/agents", func(w http.ResponseWriter, r *http.Request) {
+		agentFetches++
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ts":     7,
+			"agents": []model.AgentSession{{ID: "test-42", Type: "codex"}},
+		})
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	hub, _ := newTestHub(t)
+	node := model.NodeRecord{ID: "test", Name: "test", Mode: "pull", URL: server.URL}
+	sealed, err := encrypt(hub.keys.key, []byte("agent-token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.store.UpsertNode(context.Background(), node, sealed, "hash"); err != nil {
+		t.Fatal(err)
+	}
+
+	hub.poller.refreshProcesses(context.Background(), "test", processesOnDemand)
+	if agentFetches != 1 {
+		t.Fatalf("/v1/agents fetched %d times, want 1", agentFetches)
+	}
+
+	snap := &model.Snapshot{Ts: 7}
+	endpoint := nodeEndpoint{HTTP: &http.Client{Timeout: 2 * time.Second}, Base: server.URL, Token: "agent-token"}
+	hub.poller.mergeSlowSections(context.Background(), "test", endpoint, snap)
+	if len(snap.Agents) != 1 || snap.Agents[0].ID != "test-42" {
+		t.Fatalf("agents not merged into the snapshot: %+v", snap.Agents)
+	}
+}
+
+// A node with no agents at all must still answer an empty array, not null.
+func TestMergeKeepsEmptySectionsAsArrays(t *testing.T) {
+	mux := http.NewServeMux()
+	for _, part := range []string{"processes", "agents"} {
+		key := part
+		mux.HandleFunc("GET /v1/"+key, func(w http.ResponseWriter, r *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"ts": 7, key: []any{}})
+		})
+	}
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	hub, _ := newTestHub(t)
+	node := model.NodeRecord{ID: "test", Name: "test", Mode: "pull", URL: server.URL}
+	sealed, err := encrypt(hub.keys.key, []byte("agent-token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.store.UpsertNode(context.Background(), node, sealed, "hash"); err != nil {
+		t.Fatal(err)
+	}
+	hub.poller.refreshProcesses(context.Background(), "test", processesOnDemand)
+
+	snap := &model.Snapshot{Ts: 7}
+	endpoint := nodeEndpoint{HTTP: &http.Client{Timeout: 2 * time.Second}, Base: server.URL, Token: "agent-token"}
+	hub.poller.mergeSlowSections(context.Background(), "test", endpoint, snap)
+	if snap.Processes == nil || snap.Agents == nil {
+		t.Fatalf("empty sections became nil: processes %v agents %v", snap.Processes, snap.Agents)
+	}
+}
+
+func TestNormaliseSectionsFillsEveryArray(t *testing.T) {
+	snap := &model.Snapshot{}
+	normaliseSections(snap)
+	if snap.Disks == nil || snap.Network == nil || snap.Processes == nil || snap.Agents == nil ||
+		snap.Ports == nil || snap.Services == nil || snap.Containers == nil || snap.Images == nil ||
+		snap.Sensors == nil || snap.GPUs == nil || snap.SMART == nil || snap.Users == nil {
+		t.Fatalf("a section is still nil: %+v", snap)
+	}
+	body, err := json.Marshal(snap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte(`":null`)) {
+		t.Fatalf("a section marshals as null: %s", body)
 	}
 }

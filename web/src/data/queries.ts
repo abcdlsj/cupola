@@ -26,6 +26,7 @@ import type {
   Me,
   NodeView,
   Series,
+  Snapshot,
   ContainerHistory,
   TailnetPeers,
   UpdateStatus,
@@ -35,8 +36,7 @@ export { ApiError };
 
 const V1 = '/api/v1';
 
-/** One place for the keys the SSE stream invalidates. */
-export const keys = {
+/** One place for the keys the SSE stream invalidates. */export const keys = {
   me: ['me'] as const,
   fleet: ['fleet'] as const,
   node: (id: string) => ['node', id] as const,
@@ -132,11 +132,46 @@ export function useFleet() {
 export function useNode(nodeId: string | undefined) {
   return useQuery({
     queryKey: keys.node(nodeId ?? ''),
-    queryFn: () => api<NodeView>(`${V1}/nodes/${encodeURIComponent(nodeId ?? '')}`),
+    queryFn: () => api<NodeView>(`${V1}/nodes/${encodeURIComponent(nodeId ?? '')}`).then(filledNode),
     enabled: Boolean(nodeId),
     placeholderData: keepPreviousData,
     staleTime: 5_000,
   });
+}
+
+/** Sections the hub sends as arrays; a nil Go slice arrives as JSON null. */
+const SNAPSHOT_SECTIONS = [
+  'disks',
+  'network',
+  'processes',
+  'agents',
+  'ports',
+  'services',
+  'containers',
+  'images',
+  'sensors',
+  'gpus',
+  'smart',
+  'users',
+] as const;
+
+/**
+ * Every node screen reads `.length` on these sections, and a null section used
+ * to blank the whole page. The hub fills them itself, but the service worker
+ * can still answer from a cached snapshot taken before it did, so fill them
+ * here as well.
+ */
+export function filledNode(node: NodeView): NodeView {
+  if (!node.snapshot) return node;
+  const sections = { ...node.snapshot } as unknown as Record<string, unknown>;
+  let patched = false;
+  for (const key of SNAPSHOT_SECTIONS) {
+    if (!Array.isArray(sections[key])) {
+      sections[key] = [];
+      patched = true;
+    }
+  }
+  return patched ? { ...node, snapshot: sections as unknown as Snapshot } : node;
 }
 
 export function useContainerHistory(nodeId: string, range: string, ids: string[]) {

@@ -217,7 +217,9 @@ func (a *Agent) part(name string) http.Handler {
 		}
 		switch name {
 		case "processes":
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes})
+			// Agents ride along: the hub refreshes both on the same clock and
+			// reads them from this payload.
+			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes, "agents": snap.Agents})
 		case "agents":
 			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "agents": snap.Agents})
 		case "services":

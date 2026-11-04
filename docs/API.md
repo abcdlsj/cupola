@@ -29,7 +29,7 @@ agent token from `agent.token` (0600). There is no write route except actions.
 | --- | --- | --- |
 | GET | `/healthz` | `{ok, version}` (no token) |
 | GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size); `?slim=1` omits `services`, `ports`, `processes` and `agents`, which are most of the bytes |
-| GET | `/v1/processes` | `{ts, processes}` |
+| GET | `/v1/processes` | `{ts, processes, agents}` — agents ride the same clock; an older agent answers `{ts, processes}` and the hub then asks `/v1/agents` |
 | GET | `/v1/agents` | `{ts, agents}` |
 | GET | `/v1/services` | `{ts, services}` |
 | GET | `/v1/containers` | `{ts, containers, images}` |
@@ -187,6 +187,10 @@ five minutes or when a node page is opened. The cached copies are spliced back
 into each poll, so on a 5 s cadence the payload is about 3 kB instead of 115 kB.
 An agent that does not know `?slim=1` keeps sending everything and the hub keeps
 what arrived.
+
+The hub fills every section it did not receive with an empty array before it
+stores a snapshot, so a node page never reads `.length` on `null`; a part fetch
+that fails leaves the section empty for that poll, not missing.
 
 ### Container history
 

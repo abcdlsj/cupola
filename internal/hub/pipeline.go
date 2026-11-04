@@ -10,7 +10,62 @@ import (
 // processSnapshot is the single write path for a node sample. The pull source
 // (poller.go) and the push source (ingest.go) both end here, so events, alert
 // rules, health and the SSE bus cannot drift between modes.
+//
+// normaliseSections keeps every section an array: a nil Go slice marshals as
+// JSON null, and the PWA reads .length on these without a guard, so one missing
+// section used to blank the whole node page.
+func normaliseSections(snap *model.Snapshot) {
+	if snap.Disks == nil {
+		snap.Disks = []model.DiskStats{}
+	}
+	if snap.Network == nil {
+		snap.Network = []model.NetStats{}
+	}
+	if snap.Processes == nil {
+		snap.Processes = []model.Process{}
+	}
+	if snap.Agents == nil {
+		snap.Agents = []model.AgentSession{}
+	}
+	if snap.Ports == nil {
+		snap.Ports = []model.Port{}
+	}
+	if snap.Services == nil {
+		snap.Services = []model.Service{}
+	}
+	if snap.Containers == nil {
+		snap.Containers = []model.Container{}
+	}
+	if snap.Images == nil {
+		snap.Images = []model.Image{}
+	}
+	if snap.Sensors == nil {
+		snap.Sensors = []model.Sensor{}
+	}
+	if snap.GPUs == nil {
+		snap.GPUs = []model.GPU{}
+	}
+	if snap.SMART == nil {
+		snap.SMART = []model.SMARTDevice{}
+	}
+	if snap.Users == nil {
+		snap.Users = []model.User{}
+	}
+	if snap.Node.Labels == nil {
+		snap.Node.Labels = []string{}
+	}
+	if snap.CPU.PerCore == nil {
+		snap.CPU.PerCore = []float64{}
+	}
+	for i := range snap.Containers {
+		if snap.Containers[i].Ports == nil {
+			snap.Containers[i].Ports = []string{}
+		}
+	}
+}
+
 func (p *poller) processSnapshot(ctx context.Context, node model.NodeRecord, snap *model.Snapshot, actions []model.Action) {
+	normaliseSections(snap)
 	now := time.Now().UnixMilli()
 	if err := p.hub.store.SaveSnapshot(ctx, snap, actions); err != nil {
 		p.hub.log.Warn("save snapshot", "node", node.ID, "error", err.Error())

@@ -272,6 +272,37 @@ test.describe('keyboard and shell', () => {
     expect(Math.round(labels!.y + labels!.height)).toBe(size!.height);
   });
 
+  test('every snapshot section is an array, never null', async ({ request }) => {
+    // A Go nil slice is JSON null, and every node screen reads .length on these
+    // sections; one null section blanks the tab content. The hub fills them
+    // before it stores a snapshot.
+    const sections = ['disks', 'network', 'processes', 'agents', 'ports', 'services', 'containers', 'images', 'sensors', 'gpus', 'smart', 'users'];
+    const read = async (): Promise<Record<string, unknown> | undefined> => {
+      const response = await request.get('/api/v1/nodes/beelink');
+      expect(response.ok()).toBe(true);
+      return (await response.json()).snapshot;
+    };
+    // The poller stores the first snapshot a second or two after the hub starts.
+    let snapshot = await read();
+    for (let attempt = 0; attempt < 40 && !snapshot; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      snapshot = await read();
+    }
+    expect(snapshot, 'the hub has no snapshot for beelink').toBeTruthy();
+    for (const key of sections) {
+      expect(Array.isArray(snapshot![key]), `snapshot.${key}`).toBe(true);
+    }
+  });
+
+  test('every node tab renders', async ({ page }) => {
+    for (const tab of ['', '/storage', '/processes', '/agents', '/containers', '/apps', '/events']) {
+      await page.goto(`/nodes/beelink${tab}`);
+      await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
+      await expect(page.getByRole('navigation', { name: 'System views' })).toBeVisible();
+      await expect(page.getByText('This view failed to render')).toHaveCount(0);
+    }
+  });
+
   test('phone shows the bottom bar, wider screens the header links', async ({ page, viewport }) => {
     await page.goto('/');
     await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);

@@ -571,15 +571,23 @@ func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint 
 	p.slowMu.Unlock()
 
 	if cached.servicesFetched {
-		snap.Services = append([]model.Service(nil), cached.services...)
+		snap.Services = copyOf(cached.services)
 	}
 	if cached.portsFetched {
-		snap.Ports = append([]model.Port(nil), cached.ports...)
+		snap.Ports = copyOf(cached.ports)
 	}
 	if cached.processesFetched {
-		snap.Processes = append([]model.Process(nil), cached.processes...)
-		snap.Agents = append([]model.AgentSession(nil), cached.agents...)
+		snap.Processes = copyOf(cached.processes)
+		snap.Agents = copyOf(cached.agents)
 	}
+}
+
+// copyOf copies a section and keeps it non-nil: append(nil, empty...) is nil,
+// and a nil section marshals as JSON null, which the PWA reads .length on.
+func copyOf[T any](in []T) []T {
+	out := make([]T, len(in))
+	copy(out, in)
+	return out
 }
 
 // refreshProcesses pulls /v1/processes when the cached copy is older than
@@ -626,6 +634,14 @@ func (p *poller) refreshProcesses(ctx context.Context, nodeID string, maxAge tim
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return
+	}
+	// Agents ride the process refresh, but agents before 1.4.7 answer
+	// /v1/processes without them; ask the part endpoint rather than storing a
+	// null section.
+	if payload.Agents == nil {
+		if agents, err := fetchPart[model.AgentSession](ctx, endpoint, "agents", "agents"); err == nil {
+			payload.Agents = agents
+		}
 	}
 	p.slowMu.Lock()
 	current := p.slow[nodeID]
