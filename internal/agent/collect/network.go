@@ -28,7 +28,7 @@ func (c *Collector) collectNetwork(ctx context.Context, out *[]model.NetStats, w
 	next := make(map[string]netDelta, len(counters))
 	stats := make([]model.NetStats, 0, len(counters))
 	for _, counter := range counters {
-		if counter.Name == "" {
+		if counter.Name == "" || ignoredInterface(counter.Name) {
 			continue
 		}
 		entry := model.NetStats{
@@ -68,6 +68,21 @@ func (c *Collector) collectNetwork(ctx context.Context, out *[]model.NetStats, w
 		return stats[i].Iface < stats[j].Iface
 	})
 	*out = stats
+}
+
+// ignoredInterface reports whether a counter is noise rather than bandwidth.
+//
+// Loopback never leaves the machine, and a container's veth pair carries the
+// same bytes its bridge already counted: keeping either double-counts the
+// machine and fills the per-interface history with rows nobody reads. On one
+// five-node host they were 43 % of the table.
+func ignoredInterface(name string) bool {
+	if name == "lo" {
+		return true
+	}
+	// veth* is the host end of a container's virtual pair; docker0 and br-*
+	// stand for the same traffic once, so only the host ends go.
+	return strings.HasPrefix(name, "veth")
 }
 
 type linkDetail struct {
