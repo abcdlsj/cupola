@@ -179,6 +179,14 @@ that failed. Devices, targets, slices, paths, idle sockets and timers, finished
 oneshots, inactive units and per-session scopes are dropped before the agent
 answers (`model.PruneServices`, also applied by the hub on ingest so older
 agents produce the same shape). A desktop drops from ~500 units to ~25 rows.
+
+Ports and processes are pruned the same way (`model.PrunePorts`,
+`model.PruneProcesses`): DHCP and NTP client sockets and listeners bound to one
+address on a kernel-chosen ephemeral port (tailscaled, container runtimes) are
+dropped, and the `[::]:p` twin of a `0.0.0.0:p` listener collapses into one row.
+Kernel threads (children of kthreadd) are dropped, so the CPU-sorted top-N shows
+real processes instead of `kworker`/`ksoftirqd`, which on an idle box used to
+fill 34 of 40 rows.
 The hub asks for `?slim=1` every poll and refreshes the parts
 itself: `/v1/services` every 60 s, `/v1/ports` every 30 s, `/v1/processes` every
 five minutes or when a node page is opened. The cached copies are spliced back

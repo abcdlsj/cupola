@@ -360,8 +360,14 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 	})
 
 	keep := make(map[int32]bool, c.opts.Processes)
-	for index, cand := range candidates {
-		if index >= c.opts.Processes {
+	for _, cand := range candidates {
+		if len(keep) >= c.opts.Processes {
+			break
+		}
+		// A child of kthreadd is a kernel thread: no user, no cgroup, no RSS.
+		// On an idle box they tie at 0 % CPU with real processes and, having the
+		// lowest pids, used to fill the whole top-N list.
+		if ppid, err := cand.proc.PpidWithContext(ctx); err == nil && ppid == model.KThreaddPID {
 			continue
 		}
 		keep[cand.pid] = true

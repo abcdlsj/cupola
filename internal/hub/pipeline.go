@@ -27,6 +27,10 @@ func normaliseSections(snap *model.Snapshot) {
 	if snap.Ports == nil {
 		snap.Ports = []model.Port{}
 	}
+	// Older agents send kernel threads and client sockets; keep the hub's stored
+	// shape identical to a current agent's so the UI and the alerts agree.
+	snap.Processes = model.PruneProcesses(snap.Processes)
+	snap.Ports = model.PrunePorts(snap.Ports)
 	if snap.Services == nil {
 		snap.Services = []model.Service{}
 	}

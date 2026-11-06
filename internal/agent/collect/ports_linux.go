@@ -92,6 +92,7 @@ func (c *Collector) collectPorts(out *[]model.Port, warn func(string, error)) {
 		}
 		return ports[i].Port < ports[j].Port
 	})
+	ports = model.PrunePorts(ports)
 	c.ports = ports
 	c.portsAt = time.Now()
 	*out = append(*out, ports...)
