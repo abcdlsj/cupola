@@ -58,10 +58,10 @@
   --control-height: 34px;
   --header-height: 56px;
 
-  /* theme-init.js writes the visual viewport height here before first paint.
-     100dvh is the fallback, and on iOS it is the one that lies: it can end
-     short of the screen at first paint and past it after a bounce. */
-  --app-height: 100dvh;
+  /* theme-init.js writes the visual viewport height here on every resize, so
+     this is only the pre-script fallback. 100vh first, because iOS before 15.4
+     does not know 100dvh; the @supports block below upgrades it. */
+  --app-height: 100vh;
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
 
   --fs-title: 28px;
@@ -146,6 +146,12 @@
     --grid: #eceef1;
     --scrim: rgba(19, 20, 22, 0.32);
     --shadow: 0 12px 28px rgba(19, 20, 22, 0.1);
+  }
+}
+
+@supports (height: 100dvh) {
+  :root {
+    --app-height: 100dvh;
   }
 }
 

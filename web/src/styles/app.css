@@ -176,7 +176,7 @@
 
 .unit-dot {
   width: 18px;
-  padding-left: 2px !important;
+  padding-left: 10px !important;
   padding-right: 0 !important;
 }
 
@@ -2180,6 +2180,13 @@ h1.panel-title {
     overflow-y: auto;
     overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
+    /* iOS draws an overlay scroller that fades; a painted one would sit on the
+       card edge and read as a divider */
+    scrollbar-width: none;
+  }
+  .main::-webkit-scrollbar {
+    width: 0;
+    height: 0;
   }
   /* the rail folds: a 48 px bar keeps the mark and the three utilities, the
      five destinations move to the bottom bar. The bar starts below the notch
@@ -2215,12 +2222,13 @@ h1.panel-title {
   .mobilebar .rail-item:first-of-type {
     margin-left: auto;
   }
+  /* the bar is the shell's last flex item, not a fixed layer: iOS moves a
+     fixed element while its toolbar collapses, and the shell is already
+     exactly one visual viewport tall */
   .rail {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    top: auto;
+    position: static;
+    order: 2;
+    flex: none;
     width: auto;
     height: auto;
     flex-direction: row;
@@ -2231,6 +2239,9 @@ h1.panel-title {
     border-right: 0;
     border-top: 1px solid var(--border);
     background: var(--ground);
+  }
+  .main {
+    order: 1;
   }
   .rail-mark,
   .rail-sep,
