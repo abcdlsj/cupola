@@ -4054,3 +4054,35 @@ h1.panel-title {
     grid-column: 1 / -1;
   }
 }
+
+/* ---------- tooltip ---------- */
+
+.tip {
+  position: fixed;
+  z-index: 95;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-chip);
+  background: var(--raised);
+  color: var(--text);
+  font-size: var(--fs-small);
+  line-height: 1.4;
+  box-shadow: var(--shadow); /* taste-skill-ignore */
+  pointer-events: none;
+  overflow-wrap: anywhere;
+  animation: tip-in 90ms ease-out;
+}
+
+@keyframes tip-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* no hover, no tip: a long press would fight the scroll */
+@media (hover: none) {
+  .tip {
+    display: none;
+  }
+}

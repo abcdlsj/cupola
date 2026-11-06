@@ -45,7 +45,7 @@ export function AppsPage() {
             }}
           >
             <span className="app-cell-top">
-              <span className="app-cell-name">{action.name}</span>
+              <span className="app-cell-name" title={action.name}>{action.name}</span>
               <span className="app-tile-pill">
                 {action.last_ok == null ? (
                   <span className="pill" data-tone="neutral">Never run</span>
@@ -54,8 +54,13 @@ export function AppsPage() {
                 )}
               </span>
             </span>
-            <span className="app-cell-desc">{action.description}</span>
-            <span className="app-cell-meta">
+            <span className="app-cell-desc" title={action.description}>{action.description}</span>
+            <span
+              className="app-cell-meta"
+              title={`${action.node_name} · ${action.last_run_at ? relative(action.last_run_at, now) : 'never run'} · ${
+                action.type === 'wol' ? 'Wake-on-LAN' : 'Script'
+              }`}
+            >
               {action.node_name} · {action.last_run_at ? relative(action.last_run_at, now) : 'never run'} ·{' '}
               {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
             </span>

@@ -14,6 +14,7 @@ import * as Tooltip from '@radix-ui/react-tooltip';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { CupolaMark } from './CupolaMark';
 import { CommandPalette } from './CommandPalette';
+import { TipLayer } from './TipLayer';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OfflineBanner } from './OfflineBanner';
 import { useAlerts, useFleet, useMe } from '../data/queries';
@@ -206,6 +207,7 @@ export function AppShell() {
           </footer>
         </div>
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <TipLayer />
       </div>
     </Tooltip.Provider>
   );

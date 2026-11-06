@@ -101,10 +101,12 @@ export function ProcessesPage() {
             {procs.map((proc) => (
               <tr key={proc.pid}>
                 <Td cell="primary">
-                  <Link className="row-name" to={`/nodes/${nodeId}/processes/${proc.pid}`}>
+                  <Link className="row-name" title={proc.name} to={`/nodes/${nodeId}/processes/${proc.pid}`}>
                     {proc.name}
                   </Link>
-                  <span className="cell-sub">{proc.command}</span>
+                  <span className="cell-sub" title={proc.command}>
+                    {proc.command}
+                  </span>
                 </Td>
                 <Td num cell="field" label="PID">
                   {proc.pid}
@@ -207,10 +209,16 @@ export function ServicesPage() {
             {services.map((service) => (
               <tr key={service.name}>
                 <Td cell="primary">
-                  <Link className="row-name" to={`/nodes/${nodeId}/services/${encodeURIComponent(service.name)}`}>
+                  <Link
+                    className="row-name"
+                    title={service.name}
+                    to={`/nodes/${nodeId}/services/${encodeURIComponent(service.name)}`}
+                  >
                     {service.name}
                   </Link>
-                  <span className="cell-sub">{service.description}</span>
+                  <span className="cell-sub" title={service.description}>
+                    {service.description}
+                  </span>
                 </Td>
                 <Td cell="field" label="State">
                   <span className="pill" data-tone={service.active_state === 'failed' ? 'negative' : service.active_state === 'active' ? 'positive' : 'neutral'}>
@@ -395,12 +403,12 @@ export function ContainersPage() {
               {snap.containers.map((container) => (
                 <tr key={container.id}>
                   <Td cell="primary">
-                    <Link className="row-name" to={`/nodes/${nodeId}/containers/${container.id}`}>
+                    <Link className="row-name" title={container.name} to={`/nodes/${nodeId}/containers/${container.id}`}>
                       {container.name}
                     </Link>
                   </Td>
                   <Td cell="field" label="Image">
-                    {container.image}
+                    <span title={container.image}>{container.image}</span>
                   </Td>
                   <Td cell="field" label="State">
                     <span className="status" data-tone={container.state === 'running' ? 'positive' : container.state === 'restarting' || container.state === 'exited' ? 'warning' : 'neutral'}>

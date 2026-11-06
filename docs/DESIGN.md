@@ -74,8 +74,12 @@ rail, fleet profile) is kept in `docs/design/direction.json` for history.
   Names read in mono, figures right-aligned and tabular. Under 1024 px a table
   becomes rows of two lines: the identity on the first, its fields in an
   aligned grid under it, each with a small label.
-- Nothing is truncated without a tooltip: any string that overflows shows its
-  full value on hover (and on focus).
+- Nothing is truncated without a tooltip. A card or a row declares the full
+  value in `title`; `TipLayer` adopts it, deletes the attribute and draws one
+  themed tip above the anchor — but only when the string is really cut off
+  (`scrollWidth > clientWidth`), so a short name never gets a redundant box.
+  Keyboard focus shows the same tip; on a touch screen there is no tip at all,
+  because a long press would fight the scroll.
 
 ## Meters
 
