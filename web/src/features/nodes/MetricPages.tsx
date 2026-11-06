@@ -90,7 +90,7 @@ export function CpuPage() {
             {cores.map((value, index) => (
               <li className="core-row" key={index}>
                 <span className="core-label fig">{index}</span>
-                <Meter value={value} label={`Thread ${index}`} />
+                <Meter value={value} label={`Thread ${index}`} tone="neutral" />
               </li>
             ))}
           </ul>
