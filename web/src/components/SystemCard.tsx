@@ -46,8 +46,14 @@ export function SystemCard({ view, fig }: { view: NodeView; fig: SystemCardFigur
     <Link to={`/nodes/${node.id}`} className="syscard">
       <div className="syscard-head">
         <span className="syscard-dot" data-tone={STATE_TONE[health.status as keyof typeof STATE_TONE] ?? 'neutral'} aria-hidden="true" />
-        <span className="syscard-name">{node.name}</span>
-        {role ? <span className="syscard-role">{role}</span> : null}
+        <span className="syscard-name" title={node.name}>
+          {node.name}
+        </span>
+        {role ? (
+          <span className="syscard-role" title={role}>
+            {role}
+          </span>
+        ) : null}
         <span className="syscard-open" aria-hidden="true">
           Open
         </span>
@@ -77,7 +83,9 @@ export function SystemCard({ view, fig }: { view: NodeView; fig: SystemCardFigur
             text={fig.load ? fig.load[0].toFixed(2) : undefined}
           />
         </div>
-        <div className="syscard-meta">{meta.length ? meta.join(' · ') : 'no data yet'}</div>
+        <div className="syscard-meta" title={meta.length ? meta.join(' · ') : undefined}>
+          {meta.length ? meta.join(' · ') : 'no data yet'}
+        </div>
       </div>
     </Link>
   );

@@ -20,6 +20,7 @@ import {
   ProcessDetailPage,
   ProcessesPage,
   ServiceDetailPage,
+  ServicesPage,
 } from './features/nodes/NodeLists';
 import { AppsPage } from './features/apps/AppsPage';
 import { EventDetailPage, EventsPage } from './features/events/EventsPage';
@@ -87,7 +88,7 @@ export function App() {
               <Route path="network" element={<NetworkPage />} />
               <Route path="processes" element={<ProcessesPage />} />
               <Route path="processes/:pid" element={<ProcessDetailPage />} />
-              <Route path="services" element={<FleetServicesPage />} />
+              <Route path="services" element={<ServicesPage />} />
               <Route path="services/:unit" element={<ServiceDetailPage />} />
               <Route path="containers" element={<ContainersPage />} />
               <Route path="containers/:containerId" element={<ContainerDetailPage />} />

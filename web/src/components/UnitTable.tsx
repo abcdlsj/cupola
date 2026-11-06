@@ -142,7 +142,10 @@ export function UnitTable({
                     <span className="unit-desc" title={unit.description}>
                       {unit.description}
                     </span>
-                    <span className="unit-sub">
+                    <span
+                      className="unit-sub"
+                      title={showNode ? [nodeName, unit.enabled].filter(Boolean).join(' · ') : changed}
+                    >
                       {showNode
                         ? [nodeName, unit.enabled].filter(Boolean).join(' · ')
                         : changed}

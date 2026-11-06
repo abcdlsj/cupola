@@ -1918,10 +1918,7 @@ h1.panel-title {
 }
 }
 
-@media (max-width: 640px) {
-  /* --app-height flex shell: the page itself does not scroll, so the bottom bar
-     is a flex child at the visual viewport's bottom instead of a fixed element
-     that iOS clips below the visible area. */
+@media (max-width: 900px) {
   .shell {
     display: flex;
     flex-direction: column;
@@ -1985,7 +1982,8 @@ h1.panel-title {
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    padding: 0 6px var(--app-safe-bottom);
+    min-height: calc(56px + var(--app-safe-bottom));
+    padding: 6px 6px calc(6px + var(--app-safe-bottom));
     border-right: 0;
     border-top: 1px solid var(--border);
     background: var(--ground);
@@ -2024,6 +2022,9 @@ h1.panel-title {
     top: 4px;
     right: 4px;
   }
+}
+
+@media (max-width: 640px) {
   .content {
     padding: 16px calc(16px + env(safe-area-inset-right, 0px)) 24px
       calc(16px + env(safe-area-inset-left, 0px));

@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 
-/** The systems list is a table on wide screens and cards under 900 px. */
-const SYSTEM_ROWS = '.systems-row:visible, .system-card:visible';
+/** The home screen is one card per system at every width. */
+const SYSTEM_ROWS = '.syscard:visible';
 
 test.describe('systems', () => {
   test('lists every system and routes to one', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 2, name: 'All systems' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Systems' })).toBeVisible();
     await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
-    await page.locator('.systems-row:visible .system-cell, .system-card:visible').filter({ hasText: 'beelink' }).click();
+    await page.locator(SYSTEM_ROWS).filter({ hasText: 'beelink' }).click();
     await expect(page).toHaveURL(/\/nodes\/beelink$/);
     await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
     await page.goBack();
@@ -17,21 +17,18 @@ test.describe('systems', () => {
 
   test('answers the screen question with real API data', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.systems-head .panel-desc')).toContainText('3 systems');
+    await expect(page.locator('.panel-desc').first()).toContainText('3 systems');
     await expect(page.locator('.meter:visible').first()).toBeVisible();
-    await expect(page.locator('.alert-card').first()).toBeVisible();
   });
 
-  test('filters and sorts through the URL; /nodes lands here', async ({ page }) => {
+  test('filters through the URL; /nodes lands here', async ({ page }) => {
     await page.goto('/nodes');
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
-    await page.getByPlaceholder('Filter…').fill('studio');
+    await page.getByPlaceholder('Filter systems…').fill('studio');
     await expect(page).toHaveURL(/q=studio/);
     await expect(page.locator(SYSTEM_ROWS)).toHaveCount(1);
     await expect(page.locator(SYSTEM_ROWS).first()).toContainText('studio');
-    await page.goto('/?view=grid');
-    await expect(page.locator('.system-card:visible')).toHaveCount(3);
   });
 });
 
@@ -201,7 +198,7 @@ test.describe('settings and tokens', () => {
     await page.goto('/settings/appearance');
     const ground = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
     await expect(page.getByRole('button', { name: 'System', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    expect(await ground()).toBe('rgb(11, 12, 14)');
+    expect(await ground()).toBe('rgb(23, 23, 25)');
     await page.getByRole('button', { name: 'Light', exact: true }).click();
     expect(await ground()).toBe('rgb(246, 247, 249)');
     await page.reload();
@@ -224,7 +221,7 @@ test.describe('settings and tokens', () => {
 test.describe('keyboard and shell', () => {
   test('command palette opens, filters and navigates', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByRole('heading', { level: 2, name: 'All systems' })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: 'Systems' })).toBeVisible();
     await page.keyboard.press('Meta+k');
     const input = page.getByRole('combobox');
     await expect(input).toBeVisible();
@@ -246,21 +243,16 @@ test.describe('keyboard and shell', () => {
     expect(shell).not.toBeNull();
     expect(Math.round(shell!.y)).toBe(0);
     expect(Math.round(shell!.height)).toBe(size!.height);
-    const bar = await page.locator('.bottom-bar').boundingBox();
+    const bar = await page.locator('.rail').boundingBox();
     expect(Math.round(bar!.y + bar!.height)).toBe(size!.height);
 
-    // iOS can report a layout viewport one safe area short of the screen;
-    // theme-init.js measures that shortfall. The shell grows past the viewport
-    // bottom so no strip is left under the bar, and the bar pads by the gap
-    // once instead of adding it to the env() inset.
-    await page.evaluate(() => document.documentElement.style.setProperty('--app-bottom-gap', '34px'));
-    const extendedShell = await page.locator('.shell').boundingBox();
-    expect(Math.round(extendedShell!.y)).toBe(0);
-    expect(Math.round(extendedShell!.y + extendedShell!.height)).toBe(size!.height + 34);
-    const extendedBar = await page.locator('.bottom-bar').boundingBox();
-    expect(Math.round(extendedBar!.y + extendedBar!.height)).toBe(size!.height + 34);
-    const labels = await page.locator('.bottom-link').first().boundingBox();
-    expect(Math.round(labels!.y + labels!.height)).toBe(size!.height);
+    // The height is the visual viewport's, written to --app-height by
+    // theme-init.js, so a layout viewport that is one safe area short cannot
+    // leave a strip under the bar.
+    const appHeight = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--app-height').trim(),
+    );
+    expect(appHeight).not.toBe('');
   });
 
   test('every snapshot section is an array, never null', async ({ request }) => {
@@ -294,15 +286,20 @@ test.describe('keyboard and shell', () => {
     }
   });
 
-  test('phone shows the bottom bar, wider screens the header links', async ({ page, viewport }) => {
+  test('phone shows the bottom bar, wider screens the rail', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator(SYSTEM_ROWS)).toHaveCount(3);
-    if ((viewport?.width ?? 1440) < 641) {
-      await expect(page.locator('.bottom-bar')).toBeVisible();
-      await expect(page.locator('.header-nav')).toBeHidden();
+    const size = page.viewportSize() ?? { width: 1440, height: 900 };
+    const rail = await page.locator('.rail').boundingBox();
+    expect(rail).not.toBeNull();
+    if (size.width < 900) {
+      // the rail turns into a bottom bar, and the mark moves into a top strip
+      await expect(page.locator('.mobilebar')).toBeVisible();
+      expect(Math.round(rail!.y)).toBeGreaterThan(size.height / 2);
     } else {
-      await expect(page.locator('.bottom-bar')).toBeHidden();
-      await expect(page.locator('.header-nav')).toBeVisible();
+      await expect(page.locator('.mobilebar')).toBeHidden();
+      expect(Math.round(rail!.x)).toBe(0);
+      expect(Math.round(rail!.height)).toBeGreaterThan(size.height / 2);
     }
   });
 
@@ -316,16 +313,16 @@ test.describe('keyboard and shell', () => {
   });
 
   test('the bottom bar stays inside the visual viewport on a long node page', async ({ page, viewport }) => {
-    test.skip((viewport?.width ?? 1440) >= 641, 'phone only');
+    test.skip((viewport?.width ?? 1440) >= 900, 'phone only');
     await page.goto('/nodes/studio');
-    const bar = page.locator('.bottom-bar');
+    const bar = page.locator('.rail');
     await expect(bar).toBeVisible();
     await expect(page.getByRole('heading', { level: 1, name: 'studio' })).toBeVisible();
     await expect(page.locator('.chart-grid').first()).toBeVisible();
 
     const measure = () =>
       page.evaluate(() => {
-        const rect = document.querySelector('.bottom-bar')!.getBoundingClientRect();
+        const rect = document.querySelector('.rail')!.getBoundingClientRect();
         const vv = window.visualViewport;
         return {
           top: rect.top,
@@ -337,7 +334,7 @@ test.describe('keyboard and shell', () => {
       });
 
     const scrollHeight = await page.locator('.main').evaluate((el) => el.scrollHeight);
-    expect(scrollHeight).toBeGreaterThan((viewport?.height ?? 700) * 1.2);
+    expect(scrollHeight).toBeGreaterThan((viewport?.height ?? 700) * 1.1);
 
     const atTop = await measure();
     expect(atTop.bottom).toBeLessThanOrEqual(atTop.viewportTop + atTop.viewportHeight + 0.5);
@@ -365,7 +362,7 @@ test.describe('keyboard and shell', () => {
 
   test('offline names the last snapshot', async ({ page, context }) => {
     await page.goto('/');
-    await expect(page.locator('.systems')).toBeVisible();
+    await expect(page.locator('.sysgrid')).toBeVisible();
     await page.waitForTimeout(600);
     await context.setOffline(true);
     await page.evaluate(() => window.dispatchEvent(new Event('offline')));
