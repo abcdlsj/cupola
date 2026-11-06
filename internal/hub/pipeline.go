@@ -24,9 +24,6 @@ func normaliseSections(snap *model.Snapshot) {
 	if snap.Processes == nil {
 		snap.Processes = []model.Process{}
 	}
-	if snap.Agents == nil {
-		snap.Agents = []model.AgentSession{}
-	}
 	if snap.Ports == nil {
 		snap.Ports = []model.Port{}
 	}

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import {
   ArrowsClockwise,
@@ -13,13 +13,11 @@ import {
 } from '@phosphor-icons/react';
 import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { AgentMark } from '../../components/AgentMark';
 import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
 import { RunActionDialog } from '../apps/RunActionDialog';
 import { useActions, useContainerHistory, useNode, useRuns } from '../../data/queries';
-import { agentTypeInfo } from '../../data/registry';
-import type { Action, AgentSession, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
+import type { Action, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { seriesColor } from '../../lib/chart';
 import { useRange } from './RangeControl';
@@ -168,125 +166,6 @@ export function ProcessDetailPage() {
         <p className="note" style={{ marginTop: 12 }}>
           Arguments are redacted by the agent. Read-only: Cupola never kills a process in v1.
         </p>
-      </div>
-    </Panel>
-  );
-}
-
-export function AgentsTab() {
-  const view = useSnap();
-  const { nodeId = '' } = useParams();
-  const snap = view.snapshot;
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
-  const groups = new Map<string, AgentSession[]>();
-  for (const session of snap.agents) {
-    const list = groups.get(session.type) ?? [];
-    list.push(session);
-    groups.set(session.type, list);
-  }
-  return (
-    <Panel title="AI agent sessions" meta={`${snap.agents.length} sessions · ${groups.size} tools`} flush>
-      {snap.agents.length === 0 ? (
-        <Empty>Cupola matches process names and working directories against a small registry of coding agents and model servers. Nothing matched.</Empty>
-      ) : (
-        <Table label="AI agent sessions">
-          <THead>
-            <Th>Project</Th>
-            <Th>Type</Th>
-            <Th num>PID</Th>
-            <Th num>Runtime</Th>
-            <Th num>CPU</Th>
-            <Th num>Memory</Th>
-            <Th>TTY</Th>
-          </THead>
-          <TBody>
-            {[...groups.entries()].map(([type, sessions]) => (
-              <Fragment key={type}>
-                <tr className="roster-group-row">
-                  <td colSpan={7} data-cell="figures">
-                    <div className="roster-group">
-                      <AgentMark type={type} strong />
-                      <span className="roster-group-name">{agentTypeInfo(type).label}</span>
-                      <span className="roster-group-cat">{agentTypeInfo(type).category}</span>
-                      <span className="roster-group-figures">
-                        <span>
-                          <b>{sessions.length}</b> {sessions.length === 1 ? 'session' : 'sessions'}
-                        </span>
-                        <span>
-                          <b>{percent(sessions.reduce((sum, item) => sum + item.cpu_percent, 0), 1)}</b> CPU
-                        </span>
-                        <span>
-                          <b>{size(sessions.reduce((sum, item) => sum + item.rss_bytes, 0))}</b> RAM
-                        </span>
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-                {sessions.map((session) => (
-                  <tr key={session.id}>
-                    <Td cell="primary">
-                      <Link className="row-name" to={`/nodes/${nodeId}/agents/${session.id}`}>
-                        {session.project || session.label}
-                      </Link>
-                    </Td>
-                    <Td cell="field" label="Type">
-                      <span className="agent-cell">
-                        <AgentMark type={session.type} />
-                        {session.label}
-                      </span>
-                    </Td>
-                    <Td num cell="field" label="PID">
-                      {session.pid}
-                    </Td>
-                    <Td num cell="field" label="Runtime">
-                      {duration((Date.now() - session.started_at) / 1000)}
-                    </Td>
-                    <Td num cell="key">
-                      {percent(session.cpu_percent, 1)}
-                    </Td>
-                    <Td num cell="field" label="Memory">
-                      {size(session.rss_bytes)}
-                    </Td>
-                    <Td cell="field" label="TTY">
-                      {session.tty || '—'}
-                    </Td>
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-          </TBody>
-        </Table>
-      )}
-      <div className="panel-foot">
-        <span className="note">Arguments are redacted. Cupola reads the process name, working directory and tty; it never reads prompts, files or environment variables.</span>
-      </div>
-    </Panel>
-  );
-}
-
-export function AgentDetailPage() {
-  const view = useSnap();
-  const { nodeId = '', sessionId = '' } = useParams();
-  const session = view.snapshot?.agents.find((entry) => entry.id === sessionId);
-  if (!session) return <NotFound what="This session" to={`/nodes/${nodeId}/agents`} />;
-  return (
-    <Panel title={session.label} flush>
-      <div className="panel-body">
-        <Kv
-          rows={[
-            { label: 'Type', value: <span className="agent-cell"><AgentMark type={session.type} /> {session.label}</span> },
-            { label: 'Project', value: session.project || '—' },
-            { label: 'PID', value: <Link className="link" to={`/nodes/${nodeId}/processes/${session.pid}`}>{session.pid}</Link> },
-            { label: 'Parent', value: session.parent || '—' },
-            { label: 'Runtime', value: duration((Date.now() - session.started_at) / 1000) },
-            { label: 'CPU', value: percent(session.cpu_percent, 1) },
-            { label: 'Memory', value: size(session.rss_bytes) },
-            { label: 'TTY', value: session.tty || '—' },
-            { label: 'Working directory', value: session.cwd || '—' },
-            { label: 'Command', value: <span className="fig">{session.command}</span> },
-            { label: 'Container', value: session.container || '—' },
-          ]}
-        />
       </div>
     </Panel>
   );

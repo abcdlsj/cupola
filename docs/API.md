@@ -28,9 +28,8 @@ agent token from `agent.token` (0600). There is no write route except actions.
 | Method | Path | Returns |
 | --- | --- | --- |
 | GET | `/healthz` | `{ok, version}` (no token) |
-| GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size); `?slim=1` omits `services`, `ports`, `processes` and `agents`, which are most of the bytes |
-| GET | `/v1/processes` | `{ts, processes, agents}` — agents ride the same clock; an older agent answers `{ts, processes}` and the hub then asks `/v1/agents` |
-| GET | `/v1/agents` | `{ts, agents}` |
+| GET | `/v1/snapshot` | the full snapshot (see below); gzip when the client sends `Accept-Encoding: gzip` (about 10 % of the plain size); `?slim=1` omits `services`, `ports` and `processes`, which are most of the bytes |
+| GET | `/v1/processes` | `{ts, processes}` |
 | GET | `/v1/services` | `{ts, services}` |
 | GET | `/v1/containers` | `{ts, containers, images}` |
 | GET | `/v1/ports` | `{ts, ports}` |
@@ -68,12 +67,6 @@ agent token from `agent.token` (0600). There is no write route except actions.
                   "command": "codex [4 args redacted]", "cpu_percent": 12.9,
                   "rss_bytes": 536870912, "threads": 9, "started_at": 1793503985715,
                   "state": "S", "read_bps": 0, "write_bps": 0}],
-  "agents": [{"id": "atlas-6741", "type": "codex", "label": "Codex",
-               "category": "coding agent", "pid": 6741, "project": "relay-worker",
-               "cwd": "/srv/relay-worker", "command": "codex [4 args redacted]",
-               "started_at": 1793503985715, "runtime_sec": 18000,
-               "cpu_percent": 12.9, "rss_bytes": 536870912, "tty": "pts/3",
-               "parent": "bash"}],
   "ports": [{"proto": "tcp", "address": "0.0.0.0", "port": 443, "state": "LISTEN",
               "inode": 1234, "pid": 903, "process": "caddy"}],
   "services": [{"name": "ssh.service", "description": "OpenBSD Secure Shell server",
@@ -128,12 +121,11 @@ session.
 | POST | `/nodes/{id}/test` | polls once and reports the result |
 | GET | `/nodes/{id}/snapshot` | latest snapshot |
 | GET | `/nodes/{id}/series?metric=&range=` | min/avg/max points; `range` is `1h`, `6h`, `24h`, `7d`, `30d`, `13mo`, or `from`/`to` RFC 3339 |
-| GET | `/nodes/{id}/{processes,agents,services,containers,ports}` | from the latest snapshot; `containers` also carries `images` |
+| GET | `/nodes/{id}/{processes,services,containers,ports}` | from the latest snapshot; `containers` also carries `images` |
 | GET | `/nodes/{id}/actions` | advertised actions |
 | POST | `/nodes/{id}/actions/{action}/run` | `read`+`actions:run`; agent `allow_api` and allowlists apply |
 | GET | `/nodes/{id}/action-runs`, `/action-runs` | audit rows |
 | GET | `/nodes/{id}/containers/series?range=&ids=` | per-container CPU and memory buckets; `ids` is a comma list, max 8 |
-| GET | `/agents` | sessions from every node |
 | GET | `/actions` | actions from every node |
 | GET | `/events?node=&kind=&severity=&q=&since=&limit=` | newest first |
 | GET | `/events/{id}` | one event |

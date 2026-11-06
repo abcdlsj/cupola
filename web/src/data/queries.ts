@@ -18,7 +18,6 @@ import type {
   Delivery,
   Event,
   FleetAction,
-  FleetAgent,
   FleetSummary,
   HubSettings,
   JoinCode,
@@ -42,7 +41,6 @@ const V1 = '/api/v1';
   node: (id: string) => ['node', id] as const,
   series: (id: string, metric: string, range: string) => ['series', id, metric, range] as const,
   containerSeries: (id: string, range: string, ids: string) => ['container-series', id, range, ids] as const,
-  agents: ['fleet-agents'] as const,
   actions: (id?: string) => ['actions', id ?? 'fleet'] as const,
   runs: (id?: string) => ['runs', id ?? 'fleet'] as const,
   events: (filter?: EventFilter) => ['events', filter ?? {}] as const,
@@ -62,7 +60,6 @@ const V1 = '/api/v1';
 /** Anything the hub pushed means the cached reads are stale. */
 export function invalidateLive(client: QueryClient): void {
   void client.invalidateQueries({ queryKey: keys.fleet });
-  void client.invalidateQueries({ queryKey: keys.agents });
   void client.invalidateQueries({ queryKey: ['node'] });
   void client.invalidateQueries({ queryKey: ['series'] });
   void client.invalidateQueries({ queryKey: keys.actions() });
@@ -144,7 +141,6 @@ const SNAPSHOT_SECTIONS = [
   'disks',
   'network',
   'processes',
-  'agents',
   'ports',
   'services',
   'containers',
@@ -306,14 +302,7 @@ export function useTestNode() {
   });
 }
 
-// ---------- agents and actions ----------
-
-export function useFleetAgents() {
-  return useQuery({
-    queryKey: keys.agents,
-    queryFn: () => api<FleetAgent[]>(`${V1}/agents`),
-  });
-}
+// ---------- actions ----------
 
 export function useActions(nodeId: string | undefined) {
   return useQuery({

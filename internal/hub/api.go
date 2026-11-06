@@ -288,9 +288,7 @@ func (h *Hub) handleNodePart(part string) http.Handler {
 		}
 		switch part {
 		case "processes":
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes, "agents": snap.Agents})
-		case "agents":
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "agents": snap.Agents})
+			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes})
 		case "services":
 			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "services": snap.Services})
 		case "containers":
@@ -1160,7 +1158,6 @@ func (h *Hub) routesHandler() http.Handler {
 
 	mux.Handle("GET /api/v1/fleet/summary", h.requireRead(http.HandlerFunc(h.handleFleetSummary)))
 	mux.Handle("GET /api/v1/nodes", h.requireRead(http.HandlerFunc(h.handleListNodes)))
-	mux.Handle("GET /api/v1/agents", h.requireRead(http.HandlerFunc(h.handleFleetAgents)))
 	mux.Handle("GET /api/v1/actions", h.requireRead(http.HandlerFunc(h.handleFleetActions)))
 	mux.Handle("POST /api/v1/nodes", h.requireAdmin(http.HandlerFunc(h.handleCreateNode)))
 	mux.Handle("GET /api/v1/nodes/{id}", h.requireRead(http.HandlerFunc(h.handleGetNode)))
@@ -1269,31 +1266,6 @@ func truncate(value string, max int) string {
 		return value
 	}
 	return value[:max]
-}
-
-// handleFleetAgents lists the AI sessions from every node's latest snapshot.
-func (h *Hub) handleFleetAgents(w http.ResponseWriter, r *http.Request) {
-	nodes, err := h.store.ListNodeRecords(r.Context())
-	if err != nil {
-		apiError(w, http.StatusInternalServerError, "store", err.Error())
-		return
-	}
-	type row struct {
-		NodeID   string `json:"node_id"`
-		NodeName string `json:"node_name"`
-		model.AgentSession
-	}
-	out := make([]row, 0)
-	for _, node := range nodes {
-		snap, err := h.store.GetState(r.Context(), node.ID)
-		if err != nil || snap == nil {
-			continue
-		}
-		for _, session := range snap.Agents {
-			out = append(out, row{NodeID: node.ID, NodeName: node.Name, AgentSession: session})
-		}
-	}
-	writeJSON(w, http.StatusOK, out)
 }
 
 // handleFleetActions lists the actions advertised by every node.

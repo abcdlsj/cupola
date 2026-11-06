@@ -18,7 +18,6 @@ func nodeHealth(node model.NodeRecord, snap *model.Snapshot, daysToFull float64,
 	health.Load5 = snap.CPU.Load5
 	health.Load15 = snap.CPU.Load15
 	health.UptimeSec = snap.Node.UptimeSec
-	health.Agents = len(snap.Agents)
 	health.Containers = len(snap.Containers)
 	health.MemUsed = snap.Memory.Used
 	health.MemTotal = snap.Memory.Total

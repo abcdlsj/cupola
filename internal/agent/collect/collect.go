@@ -7,8 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -76,8 +74,6 @@ type Collector struct {
 	prevNet   map[string]netDelta
 	prevDisk  map[string]diskDelta
 
-	allProcs   []model.Process
-	allProcsAt time.Time
 
 	containerPids map[int32]string
 	dockerWarnAt  time.Time
@@ -136,7 +132,6 @@ func (c *Collector) Snapshot(ctx context.Context) (*model.Snapshot, error) {
 		Disks:      []model.DiskStats{},
 		Network:    []model.NetStats{},
 		Processes:  []model.Process{},
-		Agents:     []model.AgentSession{},
 		Ports:      []model.Port{},
 		Services:   []model.Service{},
 		Containers: []model.Container{},
@@ -164,7 +159,6 @@ func (c *Collector) Snapshot(ctx context.Context) (*model.Snapshot, error) {
 	c.collectDisks(ctx, &snap.Disks, warn)
 	c.collectNetwork(ctx, &snap.Network, warn)
 	c.collectProcesses(ctx, &snap.Processes, warn)
-	snap.Agents = c.collectAgents(snap.Processes, now)
 	c.collectPorts(&snap.Ports, warn)
 	c.collectServices(&snap.Services, warn)
 	c.collectContainers(ctx, &snap.Containers, &snap.Images, warn)
@@ -365,9 +359,9 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 		return candidates[i].cpuPercent > candidates[j].cpuPercent
 	})
 
-	keep := make(map[int32]bool, c.opts.Processes+8)
+	keep := make(map[int32]bool, c.opts.Processes)
 	for index, cand := range candidates {
-		if index >= c.opts.Processes && !looksLikeAgent(cand.name) {
+		if index >= c.opts.Processes {
 			continue
 		}
 		keep[cand.pid] = true
@@ -435,8 +429,6 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 	}
 
 	c.prevProcs = next
-	c.allProcs = all
-	c.allProcsAt = now
 
 	sort.Slice(all, func(i, j int) bool {
 		if all[i].CPUPercent == all[j].CPUPercent {
@@ -449,24 +441,6 @@ func (c *Collector) collectProcesses(ctx context.Context, out *[]model.Process, 
 		limit = len(all)
 	}
 	*out = append(*out, all[:limit]...)
-}
-
-// looksLikeAgent is the cheap pass-one test: the process name enough to keep a
-// session in the snapshot. ComfyUI needs the command line, so a Python process
-// is kept too and decided properly in pass two.
-func looksLikeAgent(name string) bool {
-	base := strings.ToLower(filepath.Base(name))
-	if strings.HasPrefix(base, "python") {
-		return true
-	}
-	for _, def := range agentRegistry {
-		for _, candidate := range def.names {
-			if base == candidate || strings.HasPrefix(base, candidate+"-") {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // redactCommand keeps the executable name and the argument count. Arguments
@@ -482,124 +456,6 @@ func redactCommand(name string, argv []string) string {
 		return fmt.Sprintf("%s [%d args redacted]", name, args-1)
 	}
 	return name
-}
-
-func (c *Collector) collectAgents(top []model.Process, now time.Time) []model.AgentSession {
-	all := c.allProcs
-	if len(all) == 0 {
-		all = top
-	}
-	byPID := make(map[int32]model.Process, len(all))
-	for _, proc := range all {
-		byPID[proc.PID] = proc
-	}
-	projectOf := func(cwd string) string {
-		if cwd == "" {
-			return ""
-		}
-		home, _ := os.UserHomeDir()
-		if cwd == "/" || (home != "" && cwd == home) {
-			return ""
-		}
-		return filepath.Base(cwd)
-	}
-	sessions := make([]model.AgentSession, 0)
-	for _, proc := range all {
-		def, ok := matchAgent(proc.Name, proc.Command, proc.Cwd)
-		if !ok {
-			continue
-		}
-		session := model.AgentSession{
-			ID:         fmt.Sprintf("%s-%d", c.opts.NodeID, proc.PID),
-			Type:       def.Type,
-			Label:      def.Label,
-			Category:   def.Category,
-			PID:        proc.PID,
-			PPID:       proc.PPID,
-			Cwd:        proc.Cwd,
-			Command:    proc.Command,
-			StartedAt:  proc.StartedAt,
-			CPUPercent: proc.CPUPercent,
-			RSSBytes:   proc.RSSBytes,
-			TTY:        proc.TTY,
-			Container:  proc.Container,
-			Project:    projectOf(proc.Cwd),
-		}
-		if proc.StartedAt > 0 {
-			session.RuntimeSec = now.Unix() - proc.StartedAt/1000
-			if session.RuntimeSec < 0 {
-				session.RuntimeSec = 0
-			}
-		}
-		if parent, ok := byPID[proc.PPID]; ok {
-			session.Parent = parent.Name
-		}
-		sessions = append(sessions, session)
-	}
-	sort.Slice(sessions, func(i, j int) bool {
-		if sessions[i].RuntimeSec == sessions[j].RuntimeSec {
-			return sessions[i].PID < sessions[j].PID
-		}
-		return sessions[i].RuntimeSec > sessions[j].RuntimeSec
-	})
-	return sessions
-}
-
-type agentDef struct {
-	Type     string
-	Label    string
-	Category string
-	names    []string
-	tokens   []string
-}
-
-var agentRegistry = []agentDef{
-	{Type: "codex", Label: "Codex", Category: "coding agent", names: []string{"codex"}},
-	{Type: "claude", Label: "Claude Code", Category: "coding agent", names: []string{"claude", "claude-code"}},
-	{Type: "cursor-agent", Label: "Cursor Agent", Category: "coding agent", names: []string{"cursor-agent"}},
-	{Type: "aider", Label: "Aider", Category: "coding agent", names: []string{"aider"}},
-	{Type: "opencode", Label: "OpenCode", Category: "coding agent", names: []string{"opencode"}},
-	{Type: "gemini", Label: "Gemini CLI", Category: "coding agent", names: []string{"gemini"}},
-	{Type: "pi", Label: "Pi", Category: "coding agent", names: []string{"pi"}, tokens: []string{"--agent", "agent"}},
-	{Type: "goose", Label: "Goose", Category: "coding agent", names: []string{"goose"}},
-	{Type: "cline", Label: "Cline", Category: "coding agent", names: []string{"cline"}},
-	{Type: "roo", Label: "Roo", Category: "coding agent", names: []string{"roo"}},
-	{Type: "continue", Label: "Continue", Category: "coding agent", names: []string{"continue"}},
-	{Type: "ollama", Label: "Ollama", Category: "model server", names: []string{"ollama", "ollama_llama_server"}},
-	{Type: "llamacpp", Label: "llama.cpp", Category: "model server", names: []string{"llama-server", "llama-cli", "llama.cpp"}},
-	{Type: "vllm", Label: "vLLM", Category: "model server", names: []string{"vllm"}},
-	{Type: "comfyui", Label: "ComfyUI", Category: "model server", names: []string{"comfyui"}, tokens: []string{"comfyui"}},
-}
-
-func matchAgent(name, command, cwd string) (agentDef, bool) {
-	base := strings.ToLower(filepath.Base(name))
-	lowerCmd := strings.ToLower(command)
-	lowerCwd := strings.ToLower(cwd)
-	for _, def := range agentRegistry {
-		for _, candidate := range def.names {
-			if base == candidate || strings.HasPrefix(base, candidate+"-") {
-				if def.Type == "pi" && !strings.Contains(lowerCmd, "agent") && !strings.Contains(lowerCwd, "pi") {
-					// The Pi agent binary is `pi`; a random process called pi (Raspberry
-					// Pi tools) is not a coding session.
-					continue
-				}
-				if def.Type == "comfyui" && !strings.Contains(lowerCwd, "comfyui") && !strings.Contains(lowerCmd, "comfyui") {
-					continue
-				}
-				return def, true
-			}
-		}
-	}
-	// ComfyUI runs as a Python process; the directory or command line is the
-	// only signal.
-	if strings.Contains(lowerCwd, "comfyui") || strings.Contains(lowerCmd, "comfyui") {
-		for _, def := range agentRegistry {
-			if def.Type == "comfyui" {
-				return def, true
-			}
-		}
-	}
-	return agentDef{}, false
 }
 
 // hardwareCPUModel uses ghw for the inventory string; it is optional and must

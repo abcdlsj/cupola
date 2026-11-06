@@ -34,7 +34,6 @@ func fakeAgent(t *testing.T) *httptest.Server {
 			CPU:  model.CPUStats{Percent: 55, Load1: 1.5, Procs: 100},
 			Memory: model.MemoryStats{Total: 16 << 30, Used: 8 << 30, UsedPercent: 50},
 			Disks:  []model.DiskStats{{Mount: "/", Total: 100 << 30, Used: 50 << 30, UsedPct: 50}},
-			Agents: []model.AgentSession{{ID: "test-1", Type: "codex", PID: 1}},
 		}
 		_ = json.NewEncoder(w).Encode(snap)
 	}))

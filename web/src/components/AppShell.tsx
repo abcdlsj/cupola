@@ -6,7 +6,6 @@ import {
   MagnifyingGlass,
   Moon,
   PlayCircle,
-  Robot,
   SlidersHorizontal,
   Sun,
 } from '@phosphor-icons/react';
@@ -23,13 +22,12 @@ import { setThemePreference, useResolvedTheme } from '../lib/theme';
 
 const NAV = [
   { to: '/', label: 'Systems', icon: HardDrives, match: (path: string) => path === '/' || path.startsWith('/nodes') },
-  { to: '/agents', label: 'Agents', icon: Robot, match: (path: string) => path.startsWith('/agents') },
   { to: '/apps', label: 'Apps', icon: PlayCircle, match: (path: string) => path.startsWith('/apps') },
   { to: '/alerts', label: 'Alerts', icon: Bell, match: (path: string) => path.startsWith('/alerts') },
   { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-const BOTTOM = ['/', '/agents', '/apps', '/alerts'];
+const BOTTOM = ['/', '/apps', '/alerts', '/events'];
 
 function IconButton({ label, onClick, to, active, children }: { label: string; onClick?: () => void; to?: string; active?: boolean; children: React.ReactNode }) {
   const trigger = to ? (

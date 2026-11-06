@@ -14,7 +14,7 @@ It must be:
 
 - **simpler than a full observability stack** — no Prometheus, Grafana,
   Kubernetes or external database;
-- **deeper than a status page** — processes, AI agent sessions, systemd units,
+- **deeper than a status page** — processes, systemd units,
   containers, ports, sensors, SMART, GPU, pressure stalls;
 - **better on a phone than most dashboards** — installable PWA, iOS-safe
   layout, touch-first tables, offline last-known state;
@@ -100,7 +100,6 @@ need. The dependency budget is deliberate; these are the chosen libraries.
 | SQLite | `modernc.org/sqlite` | pure Go, no CGO |
 | Password hashing | `golang.org/x/crypto/argon2` | admin password |
 | Process enumeration | `gopsutil/process` + `procfs` | process list; `procfs` only for cgroup/port mapping |
-| AI agent detection | small in-repo registry | no library exists; parse `cmdline`/`exe` basename |
 | Pending updates | `apt`/`dnf` exec, cached | no reliable cross-distro library; opt-in |
 | Wake-on-LAN | tiny in-repo packet builder | 102-byte magic packet; no dependency needed |
 
@@ -126,7 +125,6 @@ Linux-first. macOS builds for local development with reduced collectors.
 | disk | 5 s | per mount usage/inodes; read/write Bps, IOPS, latency |
 | network | 5 s | per interface rx/tx, errors/drops; retransmits, conntrack |
 | processes | 5 s | top by CPU/RAM/IO, full list on demand, cgroups |
-| AI agents | 5 s | detection registry below |
 | ports | 15 s | listening sockets → inode → pid → cgroup → service/container |
 | systemd | 15 s | state, enabled, restarts, failed units |
 | containers | 15 s | state, image, uptime, CPU/RAM, restarts |
@@ -140,37 +138,6 @@ Also: file descriptor count, inode usage, TCP retransmits, listen backlog,
 disk fill prediction (linear fit over 7 days), and a **changes timeline**
 (reboots, failed units, container restarts, new listening ports, threshold
 crossings).
-
-### 4.1 AI agent roster
-
-Embedded registry maps process patterns to a display name and category:
-
-| Display | Match | Category |
-| --- | --- | --- |
-| Codex | `codex` | coding agent |
-| Claude Code | `claude`, `claude-code` | coding agent |
-| Cursor Agent | `cursor-agent` | coding agent |
-| Aider | `aider` | coding agent |
-| OpenCode | `opencode` | coding agent |
-| Gemini CLI | `gemini` | coding agent |
-| Pi | `pi` with agent args | coding agent |
-| Goose | `goose` | coding agent |
-| Cline / Roo / Continue | known binaries | coding agent |
-| Ollama | `ollama`, runner | model server |
-| llama.cpp | `llama-server`, `llama-cli` | model server |
-| vLLM | `vllm` | model server |
-| ComfyUI | `comfyui`, ComfyUI `main.py` cwd | model server |
-
-Per session: type, pid, CPU%, RSS, start time, runtime, project directory
-basename, tty, parent chain, container/service. Command arguments after a safe
-prefix are redacted by default. Never read env, prompts or file contents.
-
-**Icons:** use the preset agent marks from Warren, copied to
-`web/public/agents/` and rendered as monochrome CSS masks at 16 px. Source:
-`warren/Packages/WarrenIOS/Sources/WarrenIOS/Resources/PresetIcons.xcassets`
-(Codex, Claude, Pi, OpenCode, Qoder, Antigravity, Trae, shell, zsh). Missing
-marks get a neutral terminal glyph and the type name; do not invent brand
-logos. Record provenance and trademark attribution in `docs/ASSETS.md`.
 
 ## 5. Remote actions / apps
 
@@ -400,17 +367,15 @@ icon squares.
    last seen; row links.
 3. **Node detail:** header (name, status, IP, OS, kernel, uptime, labels,
    actions); tabs Overview / CPU / Memory / Storage / Network / Processes /
-   Agents / Services / Containers / Apps / Events; URL-addressable tabs.
+   Services / Containers / Apps / Events; URL-addressable tabs.
 4. **Processes:** search, sort, filter; PID, PPID, user, CPU, RSS, IO,
    threads, started, command; expand for cwd/cgroup/container/ports; redact
    args by default; read-only.
-5. **Agents:** type cards + session table; pid, project, runtime, CPU, RAM,
-   tty, parent; empty state explains detection.
-6. **Services / Containers:** state, restarts, memory; failed filter.
-7. **Apps:** action tiles; run/confirm/result; custom icon upload.
-8. **Events:** timeline, filters; “Alert me about this” → webhook rule.
-9. **Alerts:** active/history, rule editor (metric/event), channels, test.
-10. **Settings:** nodes, tokens (scopes/allowlists), retention, appearance,
+5. **Services / Containers:** state, restarts, memory; failed filter.
+6. **Apps:** action tiles; run/confirm/result; custom icon upload.
+7. **Events:** timeline, filters; “Alert me about this” → webhook rule.
+8. **Alerts:** active/history, rule editor (metric/event), channels, test.
+9. **Settings:** nodes, tokens (scopes/allowlists), retention, appearance,
     about, export.
 
 ### 10.3 Phone / PWA
@@ -527,7 +492,7 @@ docs/
 
 | Milestone | Deliverable | Estimate |
 | --- | --- | --- |
-| M0 | Scaffold, design tokens, shell, fleet horizon, Overview/Node/Agents/Apps screens with fake data; taste-skill inspect; screenshots for approval | 2 d |
+| M0 | Scaffold, design tokens, shell, fleet horizon, Overview/Node/Services/Apps screens with fake data; taste-skill inspect; screenshots for approval | 2 d |
 | M1 | Agent: gopsutil/procfs/ghw collectors, processes, agents, actions, API, tests | 3 d |
 | M2 | Hub: SQLite, poller, history API, events, auth/tokens, URL routes | 3 d |
 | M3 | UI: all screens, charts, processes, agents, apps, mobile/PWA | 4 d |
@@ -542,7 +507,7 @@ The systems table is the home screen; `/nodes` redirects there (was option A).
 ### Acceptance
 
 - One command starts a hub; one binary starts an agent.
-- 3 nodes, 24 h history, processes, AI agents, services, containers, ports.
+- 3 nodes, 24 h history, processes, services, containers, ports.
 - Remote action tile runs a configured script/WOL; curl token can trigger only
   allowed actions; audit event exists.
 - Event webhook rule fires and can be tested.

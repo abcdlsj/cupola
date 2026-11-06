@@ -201,7 +201,6 @@ func (a *Agent) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		slim.Services = nil
 		slim.Ports = nil
 		slim.Processes = nil
-		slim.Agents = nil
 		writeJSON(w, http.StatusOK, &slim)
 		return
 	}
@@ -217,11 +216,7 @@ func (a *Agent) part(name string) http.Handler {
 		}
 		switch name {
 		case "processes":
-			// Agents ride along: the hub refreshes both on the same clock and
-			// reads them from this payload.
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes, "agents": snap.Agents})
-		case "agents":
-			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "agents": snap.Agents})
+			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "processes": snap.Processes})
 		case "services":
 			writeJSON(w, http.StatusOK, map[string]any{"ts": snap.Ts, "services": snap.Services})
 		case "containers":

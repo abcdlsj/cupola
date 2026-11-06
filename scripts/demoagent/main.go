@@ -38,7 +38,6 @@ func main() {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { write(w, 200, map[string]any{"ok": true}) })
 	mux.Handle("GET /v1/snapshot", d.auth(d.snapshot))
 	mux.Handle("GET /v1/agents", d.auth(func(w http.ResponseWriter, r *http.Request) {
-		write(w, 200, map[string]any{"ts": time.Now().UnixMilli(), "agents": d.build().Agents})
 	}))
 	mux.Handle("GET /v1/actions", d.auth(d.actions))
 	mux.Handle("POST /v1/actions/{id}/run", d.auth(d.run))
@@ -154,7 +153,6 @@ func (d *demo) build() *model.Snapshot {
 	snap.Disks = []model.DiskStats{}
 	snap.Network = []model.NetStats{}
 	snap.Processes = []model.Process{}
-	snap.Agents = []model.AgentSession{}
 	snap.Services = []model.Service{}
 	snap.Containers = []model.Container{}
 	snap.Images = []model.Image{}
@@ -182,7 +180,6 @@ func (d *demo) build() *model.Snapshot {
 		snap.Services = []model.Service{{Name: "ssh.service", Description: "OpenBSD Secure Shell server", ActiveState: "active", SubState: "running", Enabled: "enabled"}, {Name: "caddy.service", Description: "Caddy web server", ActiveState: "active", SubState: "running", Enabled: "enabled"}}
 		snap.Ports = []model.Port{{Proto: "tcp", Address: "0.0.0.0", Port: 22, State: "LISTEN", PID: 812, Process: "sshd"}, {Proto: "tcp", Address: "0.0.0.0", Port: 443, State: "LISTEN", PID: 903, Process: "caddy"}}
 		snap.Processes = []model.Process{{PID: 6741, Name: "codex", User: "deploy", Command: "codex [4 args redacted]", CPUPercent: 12.9, RSSBytes: 512 << 20, Threads: 9, StartedAt: now - 5*3600*1000}, {PID: 812, Name: "caddy", User: "root", Command: "caddy", CPUPercent: 1.2, RSSBytes: 64 << 20, Threads: 12, StartedAt: now - 41*24*3600*1000}}
-		snap.Agents = []model.AgentSession{{ID: "atlas-6741", Type: "codex", Label: "Codex", Category: "coding agent", PID: 6741, Project: "relay-worker", Cwd: "/srv/relay-worker", Command: "codex [4 args redacted]", StartedAt: now - 5*3600*1000, RuntimeSec: 5 * 3600, CPUPercent: 12.9, RSSBytes: 512 << 20, TTY: "pts/3", Parent: "bash"}}
 	case "beelink":
 		snap.Node.OS = "linux"
 		snap.Node.Platform = "Ubuntu 24.04.1 LTS"
@@ -213,10 +210,6 @@ func (d *demo) build() *model.Snapshot {
 		snap.Sensors = []model.Sensor{{Chip: "k10temp", Label: "CPU package", Kind: "temperature", Value: 48, Unit: "°C"}, {Chip: "nvme", Label: "NVMe composite", Kind: "temperature", Value: 39, Unit: "°C"}}
 		snap.SMART = []model.SMARTDevice{{Device: "/dev/nvme0n1", Model: "Samsung SSD 980 PRO 1TB", Type: "nvme", Health: "passed", TemperatureC: 39, WearPercent: 2, PowerOnHours: 8210}}
 		snap.Processes = []model.Process{{PID: 2210, Name: "opencode", User: "ops", Command: "opencode [1 arg redacted]", CPUPercent: 7.2, RSSBytes: 318 << 20, Threads: 11, StartedAt: now - 26*60*1000}, {PID: 941, Name: "dockerd", User: "root", Command: "dockerd", CPUPercent: 2.1, RSSBytes: 142 << 20, Threads: 38, StartedAt: now - 12*24*3600*1000}}
-		snap.Agents = []model.AgentSession{
-			{ID: "beelink-1187", Type: "ollama", Label: "Ollama", Category: "model server", PID: 1187, Project: "models", Cwd: "/srv/models", Command: "ollama [1 arg redacted]", StartedAt: now - 3*24*3600*1000, RuntimeSec: 3 * 24 * 3600, CPUPercent: 34.6, RSSBytes: 4_910 << 20, TTY: "none", Parent: "systemd"},
-			{ID: "beelink-2210", Type: "opencode", Label: "OpenCode", Category: "coding agent", PID: 2210, Project: "infra", Cwd: "/home/ops/src/infra", Command: "opencode [1 arg redacted]", StartedAt: now - 26*60*1000, RuntimeSec: 26 * 60, CPUPercent: 7.2, RSSBytes: 318 << 20, TTY: "pts/0", Parent: "bash"},
-		}
 		if trigged {
 			snap.Services = append(snap.Services, model.Service{Name: "restic-backup.service", Description: "Nightly restic backup", ActiveState: "failed", SubState: "failed", Enabled: "enabled", Restarts: 1})
 			snap.Ports = append(snap.Ports, model.Port{Proto: "tcp", Address: "0.0.0.0", Port: 8080, State: "LISTEN", PID: 1102, Process: "docker-proxy"})
@@ -265,12 +258,6 @@ func (d *demo) build() *model.Snapshot {
 			{PID: 39221, Name: "ollama", User: "dev", Command: "ollama serve", CPUPercent: 34.6, RSSBytes: 4910 << 20, Threads: 24, StartedAt: now - 4*3600*1000},
 			{PID: 39214, Name: "claude", User: "dev", Command: "claude [2 args redacted]", CPUPercent: 21.4, RSSBytes: 962 << 20, Threads: 12, StartedAt: now - 68*60*1000},
 			{PID: 47210, Name: "node", User: "dev", Command: "node vite", CPUPercent: 6.8, RSSBytes: 512 << 20, Threads: 11, StartedAt: now - 62*60*1000},
-		}
-		snap.Agents = []model.AgentSession{
-			{ID: "studio-41822", Type: "codex", Label: "Codex", Category: "coding agent", PID: 41822, Project: "cupola", Cwd: "/home/dev/src/cupola", Command: "codex [6 args redacted]", StartedAt: now - 134*60*1000, RuntimeSec: 134 * 60, CPUPercent: 42.1, RSSBytes: 1240 << 20, TTY: "pts/2", Parent: "zsh"},
-			{ID: "studio-39214", Type: "claude", Label: "Claude Code", Category: "coding agent", PID: 39214, Project: "inference-api", Cwd: "/home/dev/src/inference-api", Command: "claude [2 args redacted]", StartedAt: now - 68*60*1000, RuntimeSec: 68 * 60, CPUPercent: 21.4, RSSBytes: 962 << 20, TTY: "pts/1", Parent: "zsh"},
-			{ID: "studio-50190", Type: "codex", Label: "Codex", Category: "coding agent", PID: 50190, Project: "bolthole", Cwd: "/home/dev/src/bolthole", Command: "codex [3 args redacted]", StartedAt: now - 38*60*1000, RuntimeSec: 38 * 60, CPUPercent: 12.6, RSSBytes: 868 << 20, TTY: "pts/5", Parent: "zsh"},
-			{ID: "studio-52903", Type: "pi", Label: "Pi", Category: "coding agent", PID: 52903, Project: "cupola", Cwd: "/home/dev/src/cupola", Command: "pi [3 args redacted]", StartedAt: now - 11*60*1000, RuntimeSec: 11 * 60, CPUPercent: 9.8, RSSBytes: 402 << 20, TTY: "pts/7", Parent: "zsh"},
 		}
 	}
 	snap.FD = model.FDStats{Allocated: 2432, Max: 9223372036854775807, Conntrack: 184}

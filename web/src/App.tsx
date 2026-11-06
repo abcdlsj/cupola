@@ -11,8 +11,6 @@ import { NodeLayout } from './features/nodes/NodeLayout';
 import { NodeOverview } from './features/nodes/NodeOverview';
 import { CpuPage, MemoryPage, NetworkPage, StoragePage } from './features/nodes/MetricPages';
 import {
-  AgentDetailPage,
-  AgentsTab,
   AppDetailPage,
   AppsTab,
   ContainerDetailPage,
@@ -23,7 +21,6 @@ import {
   ServiceDetailPage,
   ServicesPage,
 } from './features/nodes/NodeLists';
-import { AgentsPage } from './features/agents/AgentsPage';
 import { AppsPage } from './features/apps/AppsPage';
 import { EventDetailPage, EventsPage } from './features/events/EventsPage';
 import { AlertsPage } from './features/alerts/AlertsPage';
@@ -89,8 +86,6 @@ export function App() {
               <Route path="network" element={<NetworkPage />} />
               <Route path="processes" element={<ProcessesPage />} />
               <Route path="processes/:pid" element={<ProcessDetailPage />} />
-              <Route path="agents" element={<AgentsTab />} />
-              <Route path="agents/:sessionId" element={<AgentDetailPage />} />
               <Route path="services" element={<ServicesPage />} />
               <Route path="services/:unit" element={<ServiceDetailPage />} />
               <Route path="containers" element={<ContainersPage />} />
@@ -99,7 +94,6 @@ export function App() {
               <Route path="apps/:actionId" element={<AppDetailPage />} />
               <Route path="events" element={<NodeEventsPage />} />
             </Route>
-            <Route path="agents" element={<AgentsPage />} />
             <Route path="apps" element={<AppsPage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="events/:eventId" element={<EventDetailPage />} />

@@ -10,12 +10,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['agents/*.svg', 'fonts/*.woff2', 'icons/*.png', 'icons/*.svg'],
+      includeAssets: ['fonts/*.woff2', 'icons/*.png', 'icons/*.svg'],
       manifest: {
         name: 'Cupola',
         short_name: 'Cupola',
         description:
-          'Self-hosted monitoring for the Linux boxes you run: metrics, processes, AI agents and apps.',
+          'Self-hosted monitoring for the Linux boxes you run: metrics, processes, services and apps.',
         start_url: '/',
         scope: '/',
         display: 'standalone',

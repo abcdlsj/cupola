@@ -15,7 +15,6 @@ type Snapshot struct {
 	Disks    []DiskStats       `json:"disks"`
 	Network  []NetStats        `json:"network"`
 	Processes []Process        `json:"processes"`
-	Agents   []AgentSession    `json:"agents"`
 	Ports    []Port            `json:"ports"`
 	Services []Service         `json:"services"`
 	Containers []Container     `json:"containers"`
@@ -137,26 +136,6 @@ type Process struct {
 	State      string  `json:"state"`
 	ReadBps    float64 `json:"read_bps"`
 	WriteBps   float64 `json:"write_bps"`
-}
-
-type AgentSession struct {
-	ID         string  `json:"id"`
-	Type       string  `json:"type"`
-	Label      string  `json:"label"`
-	Category   string  `json:"category"`
-	PID        int32   `json:"pid"`
-	PPID       int32   `json:"ppid"`
-	Project    string  `json:"project"`
-	Cwd        string  `json:"cwd"`
-	Command    string  `json:"command"`
-	StartedAt  int64   `json:"started_at"`
-	RuntimeSec int64   `json:"runtime_sec"`
-	CPUPercent float64 `json:"cpu_percent"`
-	RSSBytes   uint64  `json:"rss_bytes"`
-	TTY        string  `json:"tty"`
-	Parent     string  `json:"parent"`
-	Container  string  `json:"container,omitempty"`
-	Service    string  `json:"service,omitempty"`
 }
 
 type Port struct {
@@ -361,7 +340,6 @@ type NodeHealth struct {
 	Load5        float64  `json:"load5"`
 	Load15       float64  `json:"load15"`
 	UptimeSec    int64    `json:"uptime_sec"`
-	Agents        int     `json:"agents"`
 	FailedUnits   int     `json:"failed_units"`
 	Containers    int     `json:"containers"`
 	Apps          int     `json:"apps"`

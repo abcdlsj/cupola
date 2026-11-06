@@ -5,16 +5,14 @@ import { Panel } from '../../components/Panel';
 import { Fig as Figure } from '../../components/Fig';
 import { Meter } from '../../components/Meter';
 import { StatusDot } from '../../components/StatusPill';
-import { AgentMark } from '../../components/AgentMark';
 import { Empty, ErrorPanel } from '../../components/States';
 import { RunActionDialog } from '../apps/RunActionDialog';
-import { useEvents, useFleet, useFleetActions, useFleetAgents, useSettings } from '../../data/queries';
+import { useEvents, useFleet, useFleetActions, useSettings } from '../../data/queries';
 import type { Action, FleetAction, NodeView } from '../../data/types';
-import { agentTypeInfo } from '../../data/registry';
-import { duration, netRate, relative } from '../../lib/format';
+import { netRate, relative } from '../../lib/format';
 import { findings, nodeFigures, type NodeFigures } from '../../lib/fleet';
 
-type SortKey = 'name' | 'cpu' | 'mem' | 'disk' | 'gpu' | 'net' | 'load' | 'temp' | 'agents';
+type SortKey = 'name' | 'cpu' | 'mem' | 'disk' | 'gpu' | 'net' | 'load' | 'temp';
 
 interface Row {
   view: NodeView;
@@ -28,8 +26,6 @@ function sortValue(row: Row, key: SortKey): number | string {
       return row.view.node.name.toLowerCase();
     case 'load':
       return fig.load?.[0] ?? -1;
-    case 'agents':
-      return fig.agents;
     default:
       return fig[key] ?? -1;
   }
@@ -103,8 +99,6 @@ function SystemsTable({ rows, showGpu, hubVersion, sort, dir, onSort }: {
             <SortHeader id="net" label="Net" num {...head} />
             <SortHeader id="load" label="Load avg" num {...head} />
             <SortHeader id="temp" label="Temp" num {...head} />
-            <SortHeader id="agents" label="Agents" num {...head} />
-            <th scope="col">Agent</th>
             <th scope="col" className="systems-go">
               <span className="sr-only">Open</span>
             </th>
@@ -166,7 +160,6 @@ function SystemsTable({ rows, showGpu, hubVersion, sort, dir, onSort }: {
                   )}
                 </td>
                 <td className="num">
-                  <Fig muted={!fig.online}>{fig.online ? fig.agents : '—'}</Fig>
                 </td>
                 <td>
                   <span className="agent-version" title={tone === 'warning' ? `The hub runs ${hubVersion}` : undefined}>
@@ -231,7 +224,6 @@ export function OverviewPage() {
   const fleet = useFleet();
   const events = useEvents({ limit: 60 });
   const actions = useFleetActions();
-  const agents = useFleetAgents();
   const settings = useSettings();
   const [params, setParams] = useSearchParams();
   const [selected, setSelected] = useState<FleetAction | null>(null);
@@ -302,7 +294,6 @@ export function OverviewPage() {
   };
   const showGpu = nodes.some((entry) => entry.health.gpu_pct != null);
   const fleetActions = actions.data ?? [];
-  const sessions = [...(agents.data ?? [])].sort((a, b) => a.runtime_sec - b.runtime_sec);
 
   return (
     <>
@@ -458,36 +449,6 @@ export function OverviewPage() {
                   </button>
                 ))}
               </div>
-            )}
-          </Panel>
-        </div>
-        <div className="span-6">
-          <Panel
-            title="Agent sessions"
-            desc="AI coding agents running across the fleet."
-            meta={
-              <Link className="text-link" to="/agents">
-                {sessions.length ? `All ${sessions.length}` : 'Agents'}
-              </Link>
-            }
-          >
-            {sessions.length === 0 ? (
-              <p className="note">No AI agent session is running on any system.</p>
-            ) : (
-              <ul className="session-list">
-                {sessions.slice(0, 4).map((session) => (
-                  <li key={`${session.node_id}-${session.id}`}>
-                    <Link className="session-row" to={`/nodes/${session.node_id}/agents/${session.id}`}>
-                      <AgentMark type={session.type} />
-                      <span className="session-kind">{agentTypeInfo(session.type).label}</span>
-                      <span className="session-where">
-                        {session.node_name} · {session.project || session.cwd || 'no project'}
-                      </span>
-                      <span className="session-age fig">{duration(session.runtime_sec)}</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
             )}
           </Panel>
         </div>

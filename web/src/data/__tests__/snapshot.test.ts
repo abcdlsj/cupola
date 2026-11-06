@@ -14,7 +14,6 @@ const EMPTY: Partial<Snapshot> = {
   disks: [],
   network: [],
   processes: [],
-  agents: [],
   ports: [],
   services: [],
   containers: [],
@@ -28,9 +27,9 @@ const EMPTY: Partial<Snapshot> = {
 describe('filledNode', () => {
   it('replaces a null section with an empty array', () => {
     // A Go nil slice arrives as JSON null; every node screen reads .length.
-    const patched = filledNode(view({ agents: null as unknown as Snapshot['agents'] }));
-    expect(patched.snapshot?.agents).toEqual([]);
-    expect(filledNode(view({ agents: null as unknown as Snapshot['agents'] })).snapshot?.agents.length).toBe(0);
+    const patched = filledNode(view({ processes: null as unknown as Snapshot['processes'] }));
+    expect(patched.snapshot?.processes).toEqual([]);
+    expect(filledNode(view({ processes: null as unknown as Snapshot['processes'] })).snapshot?.processes.length).toBe(0);
   });
 
   it('keeps the sections that did arrive, and the same object when nothing is null', () => {

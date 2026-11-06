@@ -152,24 +152,6 @@ export interface ProcessInfo {
   container?: string;
 }
 
-export interface AgentSession {
-  id: string;
-  type: string;
-  label: string;
-  category: string;
-  pid: number;
-  project: string;
-  cwd: string;
-  command: string;
-  started_at: number;
-  runtime_sec: number;
-  cpu_percent: number;
-  rss_bytes: number;
-  tty: string;
-  parent: string;
-  container?: string;
-}
-
 export interface PortInfo {
   proto: string;
   address: string;
@@ -288,7 +270,6 @@ export interface Snapshot {
   disks: DiskStats[];
   network: NetStats[];
   processes: ProcessInfo[];
-  agents: AgentSession[];
   ports: PortInfo[];
   services: Service[];
   containers: Container[];
@@ -383,11 +364,6 @@ export interface Event {
   severity: Severity;
   message: string;
   meta?: string;
-}
-
-export interface FleetAgent extends AgentSession {
-  node_id: string;
-  node_name: string;
 }
 
 export interface AlertRule {

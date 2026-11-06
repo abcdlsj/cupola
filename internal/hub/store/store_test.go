@@ -30,7 +30,6 @@ func testSnapshot(nodeID string, ts int64) *model.Snapshot {
 		Disks:     []model.DiskStats{{Mount: "/", Device: "/dev/vda1", FsType: "ext4", Total: 100 << 30, Used: 90 << 30, UsedPct: 90, InodePct: 10}},
 		Network:   []model.NetStats{{Iface: "eth0", RxBps: 1000, TxBps: 500}},
 		Processes: []model.Process{{PID: 1, Name: "systemd", CPUPercent: 1, RSSBytes: 1024}},
-		Agents:    []model.AgentSession{{ID: nodeID + "-42", Type: "codex", Label: "Codex", PID: 42}},
 	}
 }
 

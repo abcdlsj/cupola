@@ -68,15 +68,6 @@ test.describe('nodes', () => {
   });
 });
 
-test.describe('agents', () => {
-  test('the roster groups real sessions', async ({ page }) => {
-    await page.goto('/agents');
-    await expect(page.getByRole('heading', { level: 1, name: 'Agents' })).toBeVisible();
-    await expect(page.locator('.page-finding')).toContainText('7 sessions', { timeout: 15_000 });
-    await expect(page.locator('.agent-mark').first()).toBeVisible();
-  });
-});
-
 test.describe('apps', () => {
   test('a failed action reports its exit code', async ({ page }) => {
     await page.goto('/apps');
@@ -276,7 +267,7 @@ test.describe('keyboard and shell', () => {
     // A Go nil slice is JSON null, and every node screen reads .length on these
     // sections; one null section blanks the tab content. The hub fills them
     // before it stores a snapshot.
-    const sections = ['disks', 'network', 'processes', 'agents', 'ports', 'services', 'containers', 'images', 'sensors', 'gpus', 'smart', 'users'];
+    const sections = ['disks', 'network', 'processes', 'ports', 'services', 'containers', 'images', 'sensors', 'gpus', 'smart', 'users'];
     const read = async (): Promise<Record<string, unknown> | undefined> => {
       const response = await request.get('/api/v1/nodes/beelink');
       expect(response.ok()).toBe(true);
@@ -295,7 +286,7 @@ test.describe('keyboard and shell', () => {
   });
 
   test('every node tab renders', async ({ page }) => {
-    for (const tab of ['', '/storage', '/processes', '/agents', '/containers', '/apps', '/events']) {
+    for (const tab of ['', '/storage', '/processes', '/containers', '/apps', '/events']) {
       await page.goto(`/nodes/beelink${tab}`);
       await expect(page.getByRole('heading', { level: 1, name: 'beelink' })).toBeVisible();
       await expect(page.getByRole('navigation', { name: 'System views' })).toBeVisible();

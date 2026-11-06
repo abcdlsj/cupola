@@ -39,14 +39,14 @@ rail, fleet profile) is kept in `docs/design/direction.json` for history.
 ## Shell
 
 - **Header (all widths):** 56 px, sticky, on the ground with a 1 px rule. The
-  Cupola mark and word, then the five destinations as words (Systems, Agents,
-  Apps, Alerts with a firing count, Events), the selected one underlined by a
-  1 px accent line. On the right: the freshness stamp, search (⌘K), the theme
+  Cupola mark and word, then the five destinations as words (Systems,
+  Services, Apps, Alerts with a firing count, Events), the selected one
+  underlined by a 1 px accent line. On the right: the freshness stamp, search (⌘K), the theme
   switch and settings, all 34 px bordered controls.
 - **Content:** max width 1440, 32 px side padding (24 on tablets, 16 on
   phones), 16 px gap between cards.
 - **Phone (≤ 640 px):** the header keeps the mark and the three icon buttons
-  (40 px); the destinations move to a bottom bar of four (Systems, Agents,
+  (40 px); the destinations move to a bottom bar of four (Systems, Services,
   Apps, Alerts) above the home indicator.
 
 ## Cards
@@ -97,7 +97,7 @@ Never run, severity).
 - **CPU / Memory / Storage / Network** — the tab's chart beside a breakdown
   card, then its table (per-core meters, largest residents, filesystems and
   drive health, interfaces).
-- **Lists** (processes, agents, services, containers, apps, events, alerts,
+- **Lists** (processes, services, containers, apps, events, alerts,
   settings) — one card per question, filters in the card head, the URL holds
   the filter.
 - **Events fold repeats.** One node repeating the same message shape (kind,

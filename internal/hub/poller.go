@@ -557,7 +557,6 @@ type slowSections struct {
 	portsAt          time.Time
 	portsFetched     bool
 	processes        []model.Process
-	agents           []model.AgentSession
 	processesAt      time.Time
 	processesFetched bool
 }
@@ -593,7 +592,6 @@ func (p *poller) mergeSlowSections(ctx context.Context, nodeID string, endpoint 
 	}
 	if cached.processesFetched {
 		snap.Processes = copyOf(cached.processes)
-		snap.Agents = copyOf(cached.agents)
 	}
 }
 
@@ -644,24 +642,14 @@ func (p *poller) refreshProcesses(ctx context.Context, nodeID string, maxAge tim
 		return
 	}
 	var payload struct {
-		Processes []model.Process      `json:"processes"`
-		Agents    []model.AgentSession `json:"agents"`
+		Processes []model.Process `json:"processes"`
 	}
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		return
 	}
-	// Agents ride the process refresh, but agents before 1.4.7 answer
-	// /v1/processes without them; ask the part endpoint rather than storing a
-	// null section.
-	if payload.Agents == nil {
-		if agents, err := fetchPart[model.AgentSession](ctx, endpoint, "agents", "agents"); err == nil {
-			payload.Agents = agents
-		}
-	}
 	p.slowMu.Lock()
 	current := p.slow[nodeID]
 	current.processes = payload.Processes
-	current.agents = payload.Agents
 	current.processesAt = time.Now()
 	current.processesFetched = true
 	p.slow[nodeID] = current

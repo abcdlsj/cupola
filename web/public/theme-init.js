@@ -39,7 +39,7 @@
       if (lastGood && h < lastGood - 120) return;
       lastGood = h;
       root.style.setProperty('--app-height', h + 'px');
-    } catch (err) {
+    } catch {
       // no metrics: the stylesheet keeps its 100dvh fallback
     }
   }

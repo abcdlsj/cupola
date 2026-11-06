@@ -43,9 +43,9 @@ func decodeSnapshot(t *testing.T, agent *Agent, target string) model.Snapshot {
 func TestSlimSnapshotDropsServicesAndPorts(t *testing.T) {
 	agent := cachedAgent()
 	slim := decodeSnapshot(t, agent, "/v1/snapshot?slim=1")
-	if len(slim.Services) != 0 || len(slim.Ports) != 0 || len(slim.Processes) != 0 || len(slim.Agents) != 0 {
-		t.Fatalf("slim snapshot kept services=%d ports=%d processes=%d agents=%d",
-			len(slim.Services), len(slim.Ports), len(slim.Processes), len(slim.Agents))
+	if len(slim.Services) != 0 || len(slim.Ports) != 0 || len(slim.Processes) != 0 {
+		t.Fatalf("slim snapshot kept services=%d ports=%d processes=%d",
+			len(slim.Services), len(slim.Ports), len(slim.Processes))
 	}
 	if slim.Node.ID != "test" {
 		t.Fatalf("slim snapshot lost the fast sections: %+v", slim)

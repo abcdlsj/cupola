@@ -23,7 +23,6 @@ function tabs(view: NodeView): Array<{ to: string; label: string; count?: ReactN
     { to: '/storage', label: 'Storage', count: snap?.disks.length || undefined },
     { to: '/network', label: 'Network' },
     { to: '/processes', label: 'Processes', count: snap?.cpu.procs || undefined },
-    { to: '/agents', label: 'Agents', count: snap?.agents.length || undefined },
     {
       to: '/services',
       label: 'Services',
