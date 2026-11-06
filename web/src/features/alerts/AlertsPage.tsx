@@ -1,6 +1,6 @@
 import { Fig } from '../../components/Fig';
 import { Link } from 'react-router-dom';
-import { PageHeader, Panel } from '../../components/Panel';
+import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { Empty, PageSkeleton } from '../../components/States';
 import { useAlerts, useChannels, useDeliveries, useRules } from '../../data/queries';
@@ -18,17 +18,17 @@ export function AlertsPage() {
 
   return (
     <>
-      <PageHeader
+      <Panel
         title="Alerts"
-        finding={`${firing.data?.length ?? 0} firing · ${history.data?.length ?? 0} in history · ${rules.data?.length ?? 0} rules · ${channels.data?.length ?? 0} channels.`}
-        actions={
-          <>
-            <Link className="btn btn-ghost" to="/alerts/rules/new">
-              New rule
-            </Link>
-</>
+        level={1}
+        desc={`${firing.data?.length ?? 0} firing · ${history.data?.length ?? 0} in history · ${rules.data?.length ?? 0} rules · ${channels.data?.length ?? 0} channels`}
+        meta={
+          <Link className="btn" to="/alerts/rules/new">
+            New rule
+          </Link>
         }
-      />
+        flush
+      >
       <div className="kpi-row" data-count="3">
         <div className="kpi-cell">
           <div className="kpi-label">Firing</div>
@@ -46,7 +46,8 @@ export function AlertsPage() {
           <div className="kpi-sub">recent attempts</div>
         </div>
       </div>
-      <Panel title="Firing" meta={`${firing.data?.length ?? 0} alerts`} flush>
+      </Panel>
+      <Panel title="Firing" desc="Rules that are over their threshold right now." meta={`${firing.data?.length ?? 0} alerts`} flush>
         {!firing.data || firing.data.length === 0 ? (
           <Empty>Nothing is firing. Rules evaluate on every poll; an event rule fires as soon as its event arrives.</Empty>
         ) : (
@@ -77,7 +78,7 @@ export function AlertsPage() {
           </Table>
         )}
       </Panel>
-      <Panel title="Rules" meta={`${rules.data?.length ?? 0} rules`} flush>
+      <Panel title="Rules" desc="Metric thresholds, event matches and delivery targets." meta={`${rules.data?.length ?? 0} rules`} flush>
         {!rules.data || rules.data.length === 0 ? (
           <Empty>
             No rule yet. <Link className="link" to="/alerts/rules/new">Create the first rule</Link> or add one from an event.
@@ -115,7 +116,7 @@ export function AlertsPage() {
           </Table>
         )}
       </Panel>
-      <Panel title="History" meta={`${history.data?.length ?? 0} alerts`} flush>
+      <Panel title="History" desc="Every alert that fired, newest first." meta={`${history.data?.length ?? 0} alerts`} flush>
         {!history.data || history.data.length === 0 ? (
           <Empty>No alert has fired yet.</Empty>
         ) : (
@@ -144,7 +145,7 @@ export function AlertsPage() {
           </Table>
         )}
       </Panel>
-      <Panel title="Deliveries" meta={`${deliveries.data?.length ?? 0} attempts`} flush>
+      <Panel title="Deliveries" desc="Webhook and channel attempts, with their status." meta={`${deliveries.data?.length ?? 0} attempts`} flush>
         {!deliveries.data || deliveries.data.length === 0 ? (
           <Empty>No delivery yet. Test a channel in Settings → Alerts.</Empty>
         ) : (

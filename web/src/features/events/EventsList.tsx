@@ -5,12 +5,63 @@ import { Panel } from '../../components/Panel';
 import { SeverityPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel } from '../../components/States';
 import { useEvents } from '../../data/queries';
-import type { Event } from '../../data/types';
+import type { Event, Severity } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
 import { groupEvents, type EventGroup } from '../../lib/events';
 
-const KINDS = ['', 'node', 'service', 'container', 'system', 'network', 'action', 'disk', 'agent'];
+const KINDS = ['', 'node', 'service', 'container', 'system', 'network', 'action', 'disk'];
 const SEVERITIES = ['', 'info', 'warning', 'critical'];
+
+/** One word per kind, so the group header reads as a noun, not a key. */
+const KIND_LABEL: Record<string, string> = {
+  node: 'Node',
+  service: 'Service',
+  container: 'Container',
+  system: 'System',
+  network: 'Network',
+  action: 'Action',
+  disk: 'Disk',
+  agent: 'Agent',
+};
+
+const SEVERITY_RANK: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+
+interface KindGroup {
+  kind: string;
+  groups: EventGroup[];
+  /** Occurrences, not rows: a folded row of twenty counts as twenty. */
+  count: number;
+  worst: Severity;
+}
+
+/**
+ * Rows grouped by kind, worst first. Time order survives inside a kind; across
+ * kinds the question is "which part of the system is talking", not "what
+ * happened at 14:02", so the worst kind leads.
+ */
+function groupByKind(groups: EventGroup[]): KindGroup[] {
+  const buckets = new Map<string, EventGroup[]>();
+  for (const group of groups) {
+    const list = buckets.get(group.latest.kind) ?? [];
+    list.push(group);
+    buckets.set(group.latest.kind, list);
+  }
+  const out: KindGroup[] = [];
+  for (const [kind, list] of buckets) {
+    let worst: Severity = 'info';
+    let count = 0;
+    for (const group of list) {
+      count += group.count;
+      if ((SEVERITY_RANK[group.latest.severity] ?? 3) < (SEVERITY_RANK[worst] ?? 3)) {
+        worst = group.latest.severity;
+      }
+    }
+    out.push({ kind, groups: list, count, worst });
+  }
+  return out.sort(
+    (a, b) => (SEVERITY_RANK[a.worst] ?? 3) - (SEVERITY_RANK[b.worst] ?? 3) || b.count - a.count,
+  );
+}
 
 function EventLink({ event }: { event: Event }) {
   return (
@@ -23,16 +74,21 @@ function EventLink({ event }: { event: Event }) {
 export function EventsList({
   nodeId,
   title = 'Events',
+  desc,
+  level = 2,
   compact = false,
 }: {
   nodeId?: string;
   title?: string;
+  desc?: string;
+  level?: 1 | 2;
   compact?: boolean;
 }) {
   const [params, setParams] = useSearchParams();
   const [severity, setSeverity] = useState(params.get('severity') ?? '');
   const [kind, setKind] = useState(params.get('kind') ?? '');
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const query = useEvents({
     node: nodeId,
     severity: severity || undefined,
@@ -53,7 +109,17 @@ export function EventsList({
 
   const events = query.data ?? [];
   const groups = groupEvents(events);
+  const kinds = groupByKind(groups);
   const folded = events.length - groups.length;
+
+  const toggleKind = (kind: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  };
 
   const toggle = (id: number) => {
     setOpen((current) => {
@@ -124,6 +190,8 @@ export function EventsList({
   return (
     <Panel
       title={title}
+      level={level}
+      desc={desc}
       meta={
         <>
           {!compact ? (
@@ -179,7 +247,30 @@ export function EventsList({
       ) : groups.length === 0 ? (
         <Empty>No events match this filter. Events appear when a unit fails, a container restarts, a port opens or a threshold fires.</Empty>
       ) : (
-        <ul className="event-list">{groups.map(renderGroup)}</ul>
+        <ul className="event-list">
+          {kinds.map((entry) => {
+            const hidden = collapsed.has(entry.kind);
+            return (
+              <li className="event-kind" key={entry.kind}>
+                <button
+                  type="button"
+                  className="event-kind-head"
+                  aria-expanded={!hidden}
+                  onClick={() => toggleKind(entry.kind)}
+                >
+                  <CaretRight size={12} aria-hidden="true" data-open={hidden ? undefined : 'true'} />
+                  <span className="event-kind-name">{KIND_LABEL[entry.kind] ?? entry.kind}</span>
+                  <SeverityPill severity={entry.worst} />
+                  <span className="event-kind-count">
+                    {entry.groups.length} {entry.groups.length === 1 ? 'row' : 'rows'} · {entry.count}{' '}
+                    {entry.count === 1 ? 'event' : 'events'}
+                  </span>
+                </button>
+                {hidden ? null : <ul className="event-kind-body">{entry.groups.map(renderGroup)}</ul>}
+              </li>
+            );
+          })}
+        </ul>
       )}
     </Panel>
   );

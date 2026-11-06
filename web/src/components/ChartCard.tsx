@@ -17,7 +17,7 @@ export function ChartCard({
   maxValue,
   pending = false,
   empty = 'No sample in this window yet.',
-  height = 188,
+  height = 152,
   legend,
 }: {
   title: string;

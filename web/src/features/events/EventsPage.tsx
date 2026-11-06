@@ -9,13 +9,11 @@ import { EventsList } from './EventsList';
 
 export function EventsPage() {
   return (
-    <>
-      <PageHeader
-        title="Events"
-        finding="Changes the hub derived from the snapshots: units, containers, reboots, ports and alert transitions."
-      />
-      <EventsList title="Fleet events" />
-    </>
+    <EventsList
+      title="Events"
+      level={1}
+      desc="Changes the hub derived from the snapshots: units, containers, reboots, ports and alert transitions."
+    />
   );
 }
 

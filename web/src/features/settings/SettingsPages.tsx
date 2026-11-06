@@ -2,7 +2,7 @@ import { Fig } from '../../components/Fig';
 import { useId, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Link, NavLink, useNavigate, useSearchParams } from 'react-router-dom';
-import { PageHeader, Panel } from '../../components/Panel';
+import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import { StatusPill } from '../../components/StatusPill';
 import { Empty } from '../../components/States';
@@ -54,6 +54,23 @@ function SettingsNav() {
         </NavLink>
       ))}
     </nav>
+  );
+}
+
+/** Every settings screen shares one head: the screen name, then the sections. */
+function SettingsHead({ desc }: { desc?: string }) {
+  return (
+    <Panel
+      title="Settings"
+      level={1}
+      desc={
+        desc ??
+        'Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention.'
+      }
+      flush
+    >
+      <SettingsNav />
+    </Panel>
   );
 }
 
@@ -350,11 +367,7 @@ export function NodesSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-      />
-      <SettingsNav />
+      <SettingsHead />
       {admin ? <JoinPanel /> : null}
       <Panel title="Nodes" meta={`${fleet.data?.nodes.length ?? 0} registered`} flush>
         {!fleet.data || fleet.data.nodes.length === 0 ? (
@@ -585,11 +598,7 @@ export function AlertsSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-      />
-      <SettingsNav />
+      <SettingsHead />
       <Panel title="Channels" meta={`${channels.data?.length ?? 0} configured`} flush>
         {!channels.data || channels.data.length === 0 ? (
           <Empty>No channel yet. Alerts are still recorded in the app when no channel is attached.</Empty>
@@ -743,11 +752,7 @@ export function TokensSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-      />
-      <SettingsNav />
+      <SettingsHead />
       <Panel title="API tokens" meta={`${tokens.data?.length ?? 0} issued`} flush>
         {!tokens.data || tokens.data.length === 0 ? (
           <Empty>No token yet. Tokens are needed for curl and for a static PWA that connects to a remote hub.</Empty>
@@ -856,8 +861,7 @@ export function RetentionSettingsPage() {
   const settings = useSettings();
   return (
     <>
-      <PageHeader title="Settings" finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention." />
-      <SettingsNav />
+      <SettingsHead />
       <Panel title="Retention" flush>
         {settings.data ? (
           <div className="panel-body">
@@ -889,8 +893,7 @@ export function AppearanceSettingsPage() {
   const theme = useResolvedTheme();
   return (
     <>
-      <PageHeader title="Settings" finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention." />
-      <SettingsNav />
+      <SettingsHead />
       <Panel title="Appearance">
         <dl className="kv">
           <div className="kv-row">
@@ -975,8 +978,7 @@ export function AboutSettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention." />
-      <SettingsNav />
+      <SettingsHead />
       <div className="row">
         <div className="span-6">
           <Panel title="This hub" flush>
@@ -1148,11 +1150,7 @@ export function AccountSettingsPage() {
 
   return (
     <>
-      <PageHeader
-        title="Settings"
-        finding="Nodes the hub polls, the channels alerts go to, the API tokens you hand to scripts, and retention."
-      />
-      <SettingsNav />
+      <SettingsHead />
       <Panel title="Password" flush>
         {me.data?.mode === 'token' ? (
           <p className="empty">Sign in with the admin password to change it.</p>

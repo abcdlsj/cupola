@@ -15,7 +15,9 @@ import { niceMax, tickValue, type ChartUnit } from '../lib/axis';
 export type { ChartUnit };
 
 /** uPlot paints a flat translucent area under each line; no gradients. */
-const FILL_ALPHA = '2e';
+// Ten percent: enough to read the shape, not enough to make a colour field
+// out of ten stacked charts.
+const FILL_ALPHA = '1a';
 
 /** One thin line. The colour comes from a data hue, never from the chrome. */
 export interface ChartSeries {

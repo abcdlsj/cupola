@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { PageHeader, Panel } from '../../components/Panel';
+import { Panel } from '../../components/Panel';
 import { Empty, PageSkeleton } from '../../components/States';
 import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
@@ -21,16 +21,18 @@ export function AppsPage() {
 
   return (
     <>
-      <PageHeader
+      <Panel
         title="Apps"
-        finding={
+        level={1}
+        desc={
           failed.length > 0
             ? `${failed.length} of ${all.length} actions failed recently: ${failed
                 .map((action) => `${action.name} (${action.node_name})`)
                 .join('; ')}.`
             : `${all.length} actions on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${runs.data?.length ?? 0} runs recorded.`
         }
-      />
+        flush
+      >
       <div className="app-grid" data-columns={all.length % 3 === 0 ? '3' : '2'}>
         {all.map((action) => (
           <button
@@ -61,15 +63,14 @@ export function AppsPage() {
         ))}
       </div>
       {all.length === 0 ? (
-        <div className="panel">
-          <Empty>
-            No action is configured. Actions live in the agent config (0600) on each host; the hub cannot create them.
-            A push-mode node reports samples only, so actions need a pull node.{' '}
-            <Link className="link" to="/settings/nodes">See the nodes</Link>.
-          </Empty>
-        </div>
+        <Empty>
+          No action is configured. Actions live in the agent config (0600) on each host; the hub cannot create them.
+          A push-mode node reports samples only, so actions need a pull node.{' '}
+          <Link className="link" to="/settings/nodes">See the nodes</Link>.
+        </Empty>
       ) : null}
-      <Panel title="Recent runs" meta={`${runs.data?.length ?? 0} recorded`} flush>
+      </Panel>
+      <Panel title="Recent runs" desc="Every run is an event; the newest twelve here." meta={`${runs.data?.length ?? 0} recorded`} flush>
         {!runs.data || runs.data.length === 0 ? (
           <Empty>No run recorded yet.</Empty>
         ) : (
