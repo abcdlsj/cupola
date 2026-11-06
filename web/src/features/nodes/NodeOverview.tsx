@@ -56,7 +56,7 @@ export function NodeOverview() {
     const containers = [...(history.data?.containers ?? [])].sort((a, b) => peakOf(b.points, 'cpu') - peakOf(a.points, 'cpu')).slice(0, DOCKER_SERIES);
     return {
       cpu: [one('CPU', cpu.points, 0)],
-      mem: [one('Memory', mem.points, 1)],
+      mem: [one('Memory', mem.points, 0)],
       load: [one('1 min', load.points, 0)],
       psi: [one('CPU', psiCpu.points, 0), one('I/O', psiIo.points, 2)],
       disk: [one('Read', diskR.points, 0), one('Write', diskW.points, 1)],

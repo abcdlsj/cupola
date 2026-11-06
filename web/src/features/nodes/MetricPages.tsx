@@ -106,7 +106,7 @@ export function MemoryPage() {
   const [range] = useRange();
   const snap = view.snapshot;
   const mem = useMetric(nodeId, 'mem', range);
-  const chart = useMemo<ChartSeries[]>(() => [{ label: 'Memory', points: mem.points, color: seriesColor(1) }], [mem.points]);
+  const chart = useMemo<ChartSeries[]>(() => [{ label: 'Memory', points: mem.points, color: seriesColor(0) }], [mem.points]);
   if (!snap) return <WaitingForSnapshot />;
   const top = [...snap.processes].sort((a, b) => b.rss_bytes - a.rss_bytes).slice(0, 8);
   const swapPct = snap.memory.swap_total ? (snap.memory.swap_used / snap.memory.swap_total) * 100 : null;
@@ -198,7 +198,7 @@ export function StoragePage() {
     ],
     [read.points, write.points],
   );
-  const pressure = useMemo<ChartSeries[]>(() => [{ label: 'I/O pressure', points: io.points, color: seriesColor(2) }], [io.points]);
+  const pressure = useMemo<ChartSeries[]>(() => [{ label: 'I/O pressure', points: io.points, color: seriesColor(0) }], [io.points]);
   if (!snap) return <WaitingForSnapshot />;
   const readNow = snap.disks.reduce((sum, disk) => sum + disk.read_bps, 0);
   const writeNow = snap.disks.reduce((sum, disk) => sum + disk.write_bps, 0);
