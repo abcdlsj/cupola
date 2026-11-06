@@ -1,28 +1,49 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useNavigate } from 'react-router-dom';
+import {
+  Bell,
+  HardDrives,
+  ListBullets,
+  MagnifyingGlass,
+  PlayCircle,
+  Rows,
+  SlidersHorizontal,
+  type Icon,
+} from '@phosphor-icons/react';
 import { useFleet } from '../data/queries';
-import { StatusPill } from './StatusPill';
 import type { NodeStatus } from '../data/types';
 
 interface Item {
   id: string;
   label: string;
-  group: 'Go to' | 'Nodes';
+  group: 'Screens' | 'Systems';
   to: string;
+  icon: Icon;
   hint?: string;
   status?: NodeStatus;
 }
 
 const SCREENS: Item[] = [
-  { id: 'screen-systems', label: 'Systems', group: 'Go to', to: '/' },
-  { id: 'screen-services', label: 'Services', group: 'Go to', to: '/services' },
-  { id: 'screen-apps', label: 'Apps', group: 'Go to', to: '/apps' },
-  { id: 'screen-events', label: 'Events', group: 'Go to', to: '/events' },
-  { id: 'screen-alerts', label: 'Alerts', group: 'Go to', to: '/alerts' },
-  { id: 'screen-settings', label: 'Settings', group: 'Go to', to: '/settings/nodes' },
+  { id: 'screen-systems', label: 'Systems', group: 'Screens', to: '/', icon: HardDrives },
+  { id: 'screen-services', label: 'Services', group: 'Screens', to: '/services', icon: Rows },
+  { id: 'screen-apps', label: 'Apps', group: 'Screens', to: '/apps', icon: PlayCircle },
+  { id: 'screen-alerts', label: 'Alerts', group: 'Screens', to: '/alerts', icon: Bell },
+  { id: 'screen-events', label: 'Events', group: 'Screens', to: '/events', icon: ListBullets },
+  {
+    id: 'screen-settings',
+    label: 'Settings',
+    group: 'Screens',
+    to: '/settings/nodes',
+    icon: SlidersHorizontal,
+  },
 ];
 
+/**
+ * Command palette. One field, two groups, arrow keys and Enter. The selected
+ * row is the accent bar on its left edge, the same mark the rail uses, so the
+ * palette never needs an inverse block to say where the cursor is.
+ */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
   const fleet = useFleet();
@@ -34,9 +55,13 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     const nodes: Item[] = (fleet.data?.nodes ?? []).map((view) => ({
       id: `node-${view.node.id}`,
       label: view.node.name,
-      group: 'Nodes',
+      group: 'Systems',
       to: `/nodes/${view.node.id}`,
-      hint: view.health.status === 'offline' ? 'offline' : `${Math.round(view.health.cpu_pct)}% CPU`,
+      icon: HardDrives,
+      hint:
+        view.health.status === 'offline'
+          ? 'offline'
+          : `${Math.round(view.health.cpu_pct)}% CPU · ${Math.round(view.health.mem_pct)}% memory`,
       status: view.health.status,
     }));
     const all = [...SCREENS, ...nodes];
@@ -84,24 +109,31 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <Dialog.Portal>
         <Dialog.Overlay className="overlay" />
         <Dialog.Content className="dialog palette" aria-describedby={undefined}>
-          <Dialog.Title className="sr-only">Search nodes and screens</Dialog.Title>
-          <input
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Search nodes and screens"
-            aria-label="Search nodes and screens"
-            aria-controls="palette-list"
-            aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
-            role="combobox"
-            aria-expanded="true"
-          />
+          <Dialog.Title className="sr-only">Search systems and screens</Dialog.Title>
+          <div className="palette-field">
+            <MagnifyingGlass size={16} aria-hidden="true" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Search systems and screens"
+              aria-label="Search systems and screens"
+              aria-controls="palette-list"
+              aria-activedescendant={items[active] ? `palette-${items[active].id}` : undefined}
+              role="combobox"
+              aria-expanded="true"
+            />
+            <kbd className="palette-esc">esc</kbd>
+          </div>
           <div className="palette-list" id="palette-list" role="listbox" ref={listRef}>
-            {items.length === 0 ? <p className="empty">No node or screen matches “{query}”.</p> : null}
+            {items.length === 0 ? (
+              <p className="palette-empty">Nothing matches “{query}”.</p>
+            ) : null}
             {items.map((item, index) => {
               const header = item.group !== lastGroup ? item.group : null;
               lastGroup = item.group;
+              const Icon = item.icon;
               return (
                 <div key={item.id}>
                   {header ? <div className="palette-group">{header}</div> : null}
@@ -115,18 +147,27 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                     onMouseEnter={() => setActive(index)}
                     onClick={() => go(item)}
                   >
-                    <span>{item.label}</span>
-                    {item.status ? (
+                    <Icon size={15} aria-hidden="true" className="palette-icon" />
+                    <span className="palette-label">{item.label}</span>
+                    {item.hint ? (
                       <span className="palette-hint">
-                        <StatusPill status={item.status} />
+                        {item.hint}
+                        {item.status ? <span className="palette-dot" data-tone={item.status} /> : null}
                       </span>
-                    ) : item.hint ? (
-                      <span className="palette-hint">{item.hint}</span>
                     ) : null}
                   </button>
                 </div>
               );
             })}
+          </div>
+          <div className="palette-foot">
+            <span>
+              <kbd>↑</kbd>
+              <kbd>↓</kbd> to move
+            </span>
+            <span>
+              <kbd>↵</kbd> to open
+            </span>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

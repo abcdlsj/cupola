@@ -134,6 +134,12 @@ Never run, severity).
   the row and the rest one click away. The first screen shows the shapes, not
   every port. Raw events stay in the database and in each occurrence's own
   route; only the list folds.
+- **The command palette** (⌘K) is one field with a search glyph and an `esc`
+  key cap, two groups (`Screens`, `Systems`), and a row per destination with
+  its rail icon. The selected row is the same 2 px accent bar on its left edge
+  the rail uses — never an inverse block — with a 45 % wash. A system row
+  carries its CPU and memory figures and a status dot; a footer strip names
+  the arrow keys and Enter.
 - **Pagers** print the range (`1–12 of 18`) in mono on the left and page
   numbers with gaps (`1 … 4 5 6 … 12`) on the right; the current page is a
   raised square, the arrows are 26 px. The page size follows the breakpoint
