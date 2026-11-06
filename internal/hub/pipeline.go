@@ -30,6 +30,9 @@ func normaliseSections(snap *model.Snapshot) {
 	if snap.Services == nil {
 		snap.Services = []model.Service{}
 	}
+	// Older agents send every systemd unit type; keep the hub's stored shape
+	// identical to a current agent's so the UI, alerts and diffs agree.
+	snap.Services = model.PruneServices(snap.Services)
 	if snap.Containers == nil {
 		snap.Containers = []model.Container{}
 	}

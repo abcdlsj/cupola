@@ -56,7 +56,7 @@ export function FleetServicesPage() {
       title="Services"
       level={1}
       id="services-title"
-      desc={`${units.length} units on ${nodes} systems · ${failed} failed · sorted by state, then system`}
+      desc={`${units.length} services on ${nodes} systems · ${failed} failed · sorted by state, then system`}
       flush
       meta={
         <>

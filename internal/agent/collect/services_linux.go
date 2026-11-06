@@ -31,6 +31,9 @@ func (c *Collector) collectServices(out *[]model.Service, warn func(string, erro
 		warn("services", err)
 		return
 	}
+	// Drop the unit types nobody can act on before the per-unit stat calls
+	// below: a desktop lists ~500 units, of which ~25 matter.
+	services = model.PruneServices(services)
 	for i := range services {
 		services[i].Enabled = unitEnabled(services[i].Name)
 	}

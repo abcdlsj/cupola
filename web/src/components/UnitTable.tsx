@@ -48,12 +48,13 @@ export function UnitState({
   const set = onChange ?? setLocal;
   const counts: Record<string, number> = { all: units.length, failed: 0, active: 0, inactive: 0 };
   for (const unit of units) counts[unit.active_state] = (counts[unit.active_state] ?? 0) + 1;
-  const options: Array<[string, string]> = [
+  const all: Array<[string, string]> = [
     ['all', 'All'],
     ['failed', 'Failed'],
     ['active', 'Running'],
     ['inactive', 'Inactive'],
   ];
+  const options = all.filter(([key]) => key === 'all' || (counts[key] ?? 0) > 0);
   return (
     <div className="chips" role="group" aria-label="Filter by state">
       {options.map(([key, label]) => (

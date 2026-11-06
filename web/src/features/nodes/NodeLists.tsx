@@ -189,15 +189,15 @@ export function ServicesPage() {
             <input type="checkbox" checked={failedOnly} onChange={(event) => setFailedOnly(event.target.checked)} />
             Failed only
           </label>
-          <span>{services.length} of {snap.services.length} units</span>
+          <span>{services.length} of {snap.services.length} services</span>
         </>
       }
       flush
     >
       {services.length === 0 ? (
-        <Empty>{failedOnly ? 'No failed unit.' : 'The agent reported no systemd units.'}</Empty>
+        <Empty>{failedOnly ? 'No failed service.' : 'The agent reported no systemd services.'}</Empty>
       ) : (
-        <Table label="systemd units">
+        <Table label="systemd services">
           <THead>
             <Th>Unit</Th>
             <Th>State</Th>

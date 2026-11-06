@@ -173,7 +173,13 @@ The privileged side is the `cupola upgrade` command, run by the
 
 Services and ports are about 90 % of a snapshot (463 units is 96 kB of 115 kB),
 processes are another 11 kB, and all of them change on a much slower clock than
-CPU and memory. The hub asks for `?slim=1` every poll and refreshes the parts
+CPU and memory. The agent reports only the units it can be asked about: a
+running, starting, failed or restarting `.service`, plus any other unit type
+that failed. Devices, targets, slices, paths, idle sockets and timers, finished
+oneshots, inactive units and per-session scopes are dropped before the agent
+answers (`model.PruneServices`, also applied by the hub on ingest so older
+agents produce the same shape). A desktop drops from ~500 units to ~25 rows.
+The hub asks for `?slim=1` every poll and refreshes the parts
 itself: `/v1/services` every 60 s, `/v1/ports` every 30 s, `/v1/processes` every
 five minutes or when a node page is opened. The cached copies are spliced back
 into each poll, so on a 5 s cadence the payload is about 3 kB instead of 115 kB.
