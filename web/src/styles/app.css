@@ -3,12 +3,12 @@
    take the one shadow), 52 px table rows, meters for every percentage. */
 
 .shell {
-  min-height: 100dvh;
+  min-height: var(--app-height);
 }
 
 .main {
   min-width: 0;
-  min-height: 100dvh;
+  min-height: var(--app-height);
   display: flex;
   flex-direction: column;
 }
@@ -1016,7 +1016,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(480px, calc(100vw - 32px));
-  max-height: min(640px, calc(100dvh - 48px));
+  max-height: min(640px, calc(var(--app-height) - 48px));
   overflow: auto;
   padding: 22px;
   background: var(--surface);
@@ -1543,15 +1543,18 @@
 }
 
 @media (max-width: 640px) {
-  /* 100dvh flex shell: the page itself does not scroll, so the bottom bar is a
-     flex child at the visual viewport's bottom instead of a fixed element that
-     iOS clips below the visible area. */
+  /* --app-height flex shell: the page itself does not scroll, so the bottom bar
+     is a flex child at the visual viewport's bottom instead of a fixed element
+     that iOS clips below the visible area. */
   .shell {
     display: flex;
     flex-direction: column;
-    height: 100dvh;
+    height: var(--app-height);
     min-height: 0;
     overflow: hidden;
+    /* the bounce is what makes iOS re-measure; the shell already matches the
+       screen, so no page-level overscroll is wanted */
+    overscroll-behavior: none;
   }
   .main {
     flex: 1 1 auto;
@@ -1719,12 +1722,12 @@
   }
   .dialog {
     top: auto;
-    bottom: calc(-1 * var(--app-bottom-gap));
+    bottom: 0;
     left: 0;
     right: 0;
     transform: none;
     width: 100%;
-    max-height: calc(100dvh + var(--app-bottom-gap) - 32px);
+    max-height: calc(var(--app-height) - 32px);
     border-radius: var(--radius-card) var(--radius-card) 0 0;
     padding: 18px 16px calc(18px + var(--app-safe-bottom));
   }
@@ -1757,39 +1760,6 @@
 @media (min-width: 641px) {
   .bottom-bar {
     display: none;
-  }
-}
-
-/* In the installed app the layout viewport can stop one safe area short of the
-   screen bottom. Pinning the shell to `inset: 0` alone inherits that shortfall,
-   so a strip of ground is left under the bottom bar; 100dvh is short by the same
-   amount. theme-init.js measures the shortfall into --app-bottom-gap and the
-   shell's bottom edge is pushed down by it, while the bar pads by
-   --app-safe-bottom, which is the larger of that gap and the env() inset, so its
-   labels stay above the home indicator without doubling the padding. The
-   attribute is set from theme-init.js because iOS does not always match the
-   display-mode query; both selectors are kept. */
-@media (max-width: 640px) {
-  html[data-standalone] .shell {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: calc(-1 * var(--app-bottom-gap));
-    height: auto;
-    min-height: 0;
-  }
-}
-
-@media (max-width: 640px) and (display-mode: standalone) {
-  .shell {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: calc(-1 * var(--app-bottom-gap));
-    height: auto;
-    min-height: 0;
   }
 }
 
@@ -2346,7 +2316,7 @@
 }
 
 .boot {
-  min-height: 100dvh;
+  min-height: var(--app-height);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2356,7 +2326,7 @@
 }
 
 .login-page {
-  min-height: 100dvh;
+  min-height: var(--app-height);
   display: flex;
   align-items: center;
   justify-content: center;

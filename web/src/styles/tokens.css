@@ -57,12 +57,11 @@
   --control-height: 34px;
   --header-height: 56px;
 
-  /* iOS can report a layout viewport that stops one safe area short of the
-     screen in the installed app. --app-bottom-gap is that shortfall, set from
-     theme-init.js; --app-safe-bottom is the padding the bottom bar and the
-     dialogs need, so the two are never counted twice. */
-  --app-bottom-gap: 0px;
-  --app-safe-bottom: max(env(safe-area-inset-bottom, 0px), var(--app-bottom-gap));
+  /* theme-init.js writes the visual viewport height here before first paint.
+     100dvh is the fallback, and on iOS it is the one that lies: it can end
+     short of the screen at first paint and past it after a bounce. */
+  --app-height: 100dvh;
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
 
   --fs-title: 22px;
   --fs-section: 15px;
