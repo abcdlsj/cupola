@@ -177,7 +177,7 @@ func (d *demo) build() *model.Snapshot {
 		snap.Pressure = model.PressureStats{CPU: model.PressureStat{Some: 2.1}, IO: model.PressureStat{Some: 0.8}, Mem: model.PressureStat{Some: 0.4}}
 		snap.Disks = []model.DiskStats{{Device: "/dev/vda1", Mount: "/", FsType: "ext4", Total: 78 << 30, Used: 48 << 30, UsedPct: 62, InodePct: 21, ReadBps: 400 << 10, WriteBps: 1_200 << 10}}
 		snap.Network = []model.NetStats{{Iface: "eth0", Up: true, RxBps: 1_050_000, TxBps: 397_000, SpeedMbps: 1000, Driver: "virtio_net"}}
-		snap.Services = []model.Service{{Name: "ssh.service", Description: "OpenBSD Secure Shell server", ActiveState: "active", SubState: "running", Enabled: "enabled"}, {Name: "caddy.service", Description: "Caddy web server", ActiveState: "active", SubState: "running", Enabled: "enabled"}}
+		snap.Services = []model.Service{{Name: "ssh.service", Description: "OpenBSD Secure Shell server", ActiveState: "active", SubState: "running", Enabled: "enabled", Since: now - 41*24*3600*1000}, {Name: "caddy.service", Description: "Caddy web server", ActiveState: "active", SubState: "running", Enabled: "enabled", Since: now - 41*24*3600*1000}}
 		snap.Ports = []model.Port{{Proto: "tcp", Address: "0.0.0.0", Port: 22, State: "LISTEN", PID: 812, Process: "sshd"}, {Proto: "tcp", Address: "0.0.0.0", Port: 443, State: "LISTEN", PID: 903, Process: "caddy"}}
 		snap.Processes = []model.Process{{PID: 6741, Name: "codex", User: "deploy", Command: "codex [4 args redacted]", CPUPercent: 12.9, RSSBytes: 512 << 20, Threads: 9, StartedAt: now - 5*3600*1000}, {PID: 812, Name: "caddy", User: "root", Command: "caddy", CPUPercent: 1.2, RSSBytes: 64 << 20, Threads: 12, StartedAt: now - 41*24*3600*1000}}
 	case "beelink":
@@ -198,7 +198,7 @@ func (d *demo) build() *model.Snapshot {
 			{Device: "/dev/md0", Mount: "/srv", FsType: "btrfs", Total: 4000 << 30, Used: 2840 << 30, UsedPct: 71, InodePct: 3, ReadBps: 12_400_000, WriteBps: 22_800_000},
 		}
 		snap.Network = []model.NetStats{{Iface: "enp1s0", Up: true, RxBps: 7_800_000, TxBps: 1_850_000, SpeedMbps: 1000, Driver: "r8169"}}
-		snap.Services = []model.Service{{Name: "jellyfin.service", Description: "Jellyfin media server", ActiveState: "active", SubState: "running", Enabled: "enabled"}, {Name: "docker.service", Description: "Docker", ActiveState: "active", SubState: "running", Enabled: "enabled"}}
+		snap.Services = []model.Service{{Name: "jellyfin.service", Description: "Jellyfin media server", ActiveState: "active", SubState: "running", Enabled: "enabled", Since: now - 6*24*3600*1000}, {Name: "docker.service", Description: "Docker", ActiveState: "active", SubState: "running", Enabled: "enabled", Since: now - 41*24*3600*1000}}
 		snap.Containers = []model.Container{{ID: "c11a9d3e8f21", Name: "jellyfin", Image: "jellyfin/jellyfin:10.10.3", State: "running", Status: "Up 3 days", UptimeSec: 260000, CPUPercent: 12.4, MemBytes: 1_840 << 20, MemLimit: 8 << 30, Ports: []string{"0.0.0.0:8096->8096/tcp"}}}
 		snap.Images = []model.Image{
 			{ID: "9d3f21ac4b8e", RepoTag: "jellyfin/jellyfin:10.10.3", Size: 1_180 << 20, SharedSize: 620 << 20, Containers: 1, CreatedAt: now - 21*24*3600*1000},
@@ -211,7 +211,7 @@ func (d *demo) build() *model.Snapshot {
 		snap.SMART = []model.SMARTDevice{{Device: "/dev/nvme0n1", Model: "Samsung SSD 980 PRO 1TB", Type: "nvme", Health: "passed", TemperatureC: 39, WearPercent: 2, PowerOnHours: 8210}}
 		snap.Processes = []model.Process{{PID: 2210, Name: "opencode", User: "ops", Command: "opencode [1 arg redacted]", CPUPercent: 7.2, RSSBytes: 318 << 20, Threads: 11, StartedAt: now - 26*60*1000}, {PID: 941, Name: "dockerd", User: "root", Command: "dockerd", CPUPercent: 2.1, RSSBytes: 142 << 20, Threads: 38, StartedAt: now - 12*24*3600*1000}}
 		if trigged {
-			snap.Services = append(snap.Services, model.Service{Name: "restic-backup.service", Description: "Nightly restic backup", ActiveState: "failed", SubState: "failed", Enabled: "enabled", Restarts: 1})
+			snap.Services = append(snap.Services, model.Service{Name: "restic-backup.service", Description: "Nightly restic backup", ActiveState: "failed", SubState: "failed", Enabled: "enabled", Restarts: 1, Since: now - 60*1000})
 			snap.Ports = append(snap.Ports, model.Port{Proto: "tcp", Address: "0.0.0.0", Port: 8080, State: "LISTEN", PID: 1102, Process: "docker-proxy"})
 		}
 		// Plex discovery opens a few UDP ports every five seconds. The hub reports

@@ -32,7 +32,8 @@ export interface NodeHealth {
   load5?: number;
   load15?: number;
   uptime_sec: number;
-  agents: number;
+  /** core count, so a load average can be read against the machine */
+  cores: number;
   failed_units: number;
   containers: number;
   apps: number;
@@ -161,6 +162,11 @@ export interface PortInfo {
   pid: number;
   process: string;
   container?: string;
+}
+
+export interface FleetService extends Service {
+  node_id: string;
+  node_name: string;
 }
 
 export interface Service {

@@ -65,6 +65,13 @@ func listUnitsDbus() ([]model.Service, error) {
 			ActiveState: unit.ActiveState,
 			SubState:    unit.SubState,
 		}
+		// ActiveEnterTimestamp is microseconds since the epoch; 0 means the unit
+		// has never been active.
+		if prop, err := conn.GetUnitPropertyContext(ctx, unit.Name, "ActiveEnterTimestamp"); err == nil {
+			if us, ok := prop.Value.Value().(uint64); ok && us > 0 {
+				service.Since = int64(us / 1000)
+			}
+		}
 		if unit.ActiveState == "failed" || unit.SubState == "auto-restart" {
 			if prop, err := conn.GetUnitPropertyContext(ctx, unit.Name, "NRestarts"); err == nil {
 				if value, ok := prop.Value.Value().(uint32); ok {

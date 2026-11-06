@@ -1158,6 +1158,7 @@ func (h *Hub) routesHandler() http.Handler {
 
 	mux.Handle("GET /api/v1/fleet/summary", h.requireRead(http.HandlerFunc(h.handleFleetSummary)))
 	mux.Handle("GET /api/v1/nodes", h.requireRead(http.HandlerFunc(h.handleListNodes)))
+	mux.Handle("GET /api/v1/services", h.requireRead(http.HandlerFunc(h.handleFleetServices)))
 	mux.Handle("GET /api/v1/actions", h.requireRead(http.HandlerFunc(h.handleFleetActions)))
 	mux.Handle("POST /api/v1/nodes", h.requireAdmin(http.HandlerFunc(h.handleCreateNode)))
 	mux.Handle("GET /api/v1/nodes/{id}", h.requireRead(http.HandlerFunc(h.handleGetNode)))
@@ -1266,6 +1267,32 @@ func truncate(value string, max int) string {
 		return value
 	}
 	return value[:max]
+}
+
+// handleFleetServices lists systemd units from every node's latest snapshot.
+// The fleet view needs one list to sort and filter, not one request per node.
+func (h *Hub) handleFleetServices(w http.ResponseWriter, r *http.Request) {
+	nodes, err := h.store.ListNodeRecords(r.Context())
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, "store", err.Error())
+		return
+	}
+	type row struct {
+		NodeID   string `json:"node_id"`
+		NodeName string `json:"node_name"`
+		model.Service
+	}
+	out := make([]row, 0)
+	for _, node := range nodes {
+		snap, err := h.store.GetState(r.Context(), node.ID)
+		if err != nil || snap == nil {
+			continue
+		}
+		for _, unit := range snap.Services {
+			out = append(out, row{NodeID: node.ID, NodeName: node.Name, Service: unit})
+		}
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // handleFleetActions lists the actions advertised by every node.

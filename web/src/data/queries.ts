@@ -18,6 +18,7 @@ import type {
   Delivery,
   Event,
   FleetAction,
+  FleetService,
   FleetSummary,
   HubSettings,
   JoinCode,
@@ -42,6 +43,7 @@ const V1 = '/api/v1';
   series: (id: string, metric: string, range: string) => ['series', id, metric, range] as const,
   containerSeries: (id: string, range: string, ids: string) => ['container-series', id, range, ids] as const,
   actions: (id?: string) => ['actions', id ?? 'fleet'] as const,
+  services: ['fleet-services'] as const,
   runs: (id?: string) => ['runs', id ?? 'fleet'] as const,
   events: (filter?: EventFilter) => ['events', filter ?? {}] as const,
   event: (id: string) => ['event', id] as const,
@@ -299,6 +301,15 @@ export function useTestNode() {
         `${V1}/nodes/${encodeURIComponent(id)}/test`,
         { method: 'POST' },
       ),
+  });
+}
+
+// ---------- services ----------
+
+export function useFleetServices() {
+  return useQuery({
+    queryKey: keys.services,
+    queryFn: () => api<FleetService[]>(`${V1}/services`),
   });
 }
 

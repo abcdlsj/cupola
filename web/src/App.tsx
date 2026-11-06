@@ -6,6 +6,7 @@ import { NotFoundPage } from './components/NotFoundPage';
 import { CupolaMark } from './components/CupolaMark';
 import { useMe } from './data/queries';
 import { OverviewPage } from './features/overview/OverviewPage';
+import { FleetServicesPage } from './features/services/ServicesPage';
 import { NodesPage } from './features/nodes/NodesPage';
 import { NodeLayout } from './features/nodes/NodeLayout';
 import { NodeOverview } from './features/nodes/NodeOverview';
@@ -19,7 +20,6 @@ import {
   ProcessDetailPage,
   ProcessesPage,
   ServiceDetailPage,
-  ServicesPage,
 } from './features/nodes/NodeLists';
 import { AppsPage } from './features/apps/AppsPage';
 import { EventDetailPage, EventsPage } from './features/events/EventsPage';
@@ -77,6 +77,7 @@ export function App() {
             }
           >
             <Route index element={<OverviewPage />} />
+            <Route path="services" element={<FleetServicesPage />} />
             <Route path="nodes" element={<NodesPage />} />
             <Route path="nodes/:nodeId" element={<NodeLayout />}>
               <Route index element={<NodeOverview />} />
@@ -86,7 +87,7 @@ export function App() {
               <Route path="network" element={<NetworkPage />} />
               <Route path="processes" element={<ProcessesPage />} />
               <Route path="processes/:pid" element={<ProcessDetailPage />} />
-              <Route path="services" element={<ServicesPage />} />
+              <Route path="services" element={<FleetServicesPage />} />
               <Route path="services/:unit" element={<ServiceDetailPage />} />
               <Route path="containers" element={<ContainersPage />} />
               <Route path="containers/:containerId" element={<ContainerDetailPage />} />

@@ -8,8 +8,11 @@ export function Panel({
   className,
   flush = false,
   id,
+  level = 2,
 }: {
   title: string;
+  /** The page's first card names the screen; every other card is a section. */
+  level?: 1 | 2;
   /** One quiet line under the title: what the card shows, Beszel style. */
   desc?: ReactNode;
   meta?: ReactNode;
@@ -22,9 +25,15 @@ export function Panel({
     <section className={`panel ${className ?? ''}`} aria-labelledby={id ?? undefined}>
       <header className="panel-head">
         <div className="panel-heading">
-          <h2 className="panel-title" id={id}>
-            {title}
-          </h2>
+          {level === 1 ? (
+            <h1 className="panel-title" id={id}>
+              {title}
+            </h1>
+          ) : (
+            <h2 className="panel-title" id={id}>
+              {title}
+            </h2>
+          )}
           {desc ? <p className="panel-desc">{desc}</p> : null}
         </div>
         {meta ? <div className="panel-meta">{meta}</div> : null}

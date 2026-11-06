@@ -6,6 +6,7 @@ import {
   MagnifyingGlass,
   Moon,
   PlayCircle,
+  Rows,
   SlidersHorizontal,
   Sun,
 } from '@phosphor-icons/react';
@@ -17,33 +18,43 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { OfflineBanner } from './OfflineBanner';
 import { useAlerts, useFleet, useMe } from '../data/queries';
 import { useStream } from '../data/stream';
-import { clockSeconds } from '../lib/format';
 import { setThemePreference, useResolvedTheme } from '../lib/theme';
 
-const NAV = [
+/** Group 1 answers "how is the fleet", group 2 answers "what happened". */
+const FLEET_NAV = [
   { to: '/', label: 'Systems', icon: HardDrives, match: (path: string) => path === '/' || path.startsWith('/nodes') },
+  { to: '/services', label: 'Services', icon: Rows, match: (path: string) => path.startsWith('/services') },
+];
+
+const WORK_NAV = [
   { to: '/apps', label: 'Apps', icon: PlayCircle, match: (path: string) => path.startsWith('/apps') },
   { to: '/alerts', label: 'Alerts', icon: Bell, match: (path: string) => path.startsWith('/alerts') },
   { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-const BOTTOM = ['/', '/apps', '/alerts', '/events'];
-
-function IconButton({ label, onClick, to, active, children }: { label: string; onClick?: () => void; to?: string; active?: boolean; children: React.ReactNode }) {
-  const trigger = to ? (
-    <Link to={to} className="icon-btn" aria-label={label} aria-current={active ? 'page' : undefined}>
-      {children}
-    </Link>
-  ) : (
-    <button type="button" className="icon-btn" aria-label={label} onClick={onClick}>
-      {children}
-    </button>
-  );
+function RailItem({
+  to,
+  label,
+  icon: Icon,
+  active,
+  count,
+}: {
+  to: string;
+  label: string;
+  icon: typeof Bell;
+  active: boolean;
+  count?: number;
+}) {
   return (
-    <Tooltip.Root delayDuration={260}>
-      <Tooltip.Trigger asChild>{trigger}</Tooltip.Trigger>
+    <Tooltip.Root delayDuration={200}>
+      <Tooltip.Trigger asChild>
+        <Link to={to} className="rail-item" aria-label={label} aria-current={active ? 'page' : undefined}>
+          <Icon size={18} aria-hidden="true" weight="regular" />
+          {count ? <span className="rail-count">{count}</span> : null}
+        </Link>
+      </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="tooltip" side="bottom" sideOffset={8}>
+        <Tooltip.Content className="tooltip" side="right" sideOffset={10}>
           {label}
         </Tooltip.Content>
       </Tooltip.Portal>
@@ -51,72 +62,101 @@ function IconButton({ label, onClick, to, active, children }: { label: string; o
   );
 }
 
-/**
- * One header row: the mark, the five destinations as words, then search, the
- * freshness stamp, the theme switch and settings. The page's own card names
- * the object, so the header never repeats it.
- */
-function Header({ onSearch }: { onSearch: () => void }) {
-  const fleet = useFleet();
-  const firing = useAlerts('firing');
-  const location = useLocation();
-  const theme = useResolvedTheme();
-  const updated = fleet.data?.updated;
-  const firingCount = firing.data?.length ?? 0;
-
+function RailButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <header className="header">
-      <div className="header-inner">
-        <Link to="/" className="brand" aria-label="Cupola home">
-          <CupolaMark size={20} />
-          <span className="brand-word">cupola</span>
-        </Link>
-        <nav className="header-nav" aria-label="Primary">
-          {NAV.map((item) => (
-            <Link key={item.to} to={item.to} className="header-link" aria-current={item.match(location.pathname) ? 'page' : undefined}>
-              {item.label}
-              {item.to === '/alerts' && firingCount > 0 ? (
-                <span className="header-count" aria-label={`${firingCount} firing`}>
-                  {firingCount}
-                </span>
-              ) : null}
-            </Link>
-          ))}
-        </nav>
-        <div className="header-right">
-          <span className="freshness">{updated ? `Updated ${clockSeconds(updated)} UTC` : 'Waiting for data'}</span>
-          <button type="button" className="search-btn" onClick={onSearch} aria-label="Search systems and screens">
-            <MagnifyingGlass size={15} aria-hidden="true" />
-            <span className="search-label">Search</span>
-            <kbd className="kbd">⌘K</kbd>
-          </button>
-          <IconButton label={theme === 'dark' ? 'Light theme' : 'Dark theme'} onClick={() => setThemePreference(theme === 'dark' ? 'light' : 'dark')}>
-            {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
-          </IconButton>
-          <IconButton label="Settings" to="/settings/nodes" active={location.pathname.startsWith('/settings')}>
-            <SlidersHorizontal size={16} aria-hidden="true" />
-          </IconButton>
-        </div>
-      </div>
-    </header>
+    <Tooltip.Root delayDuration={200}>
+      <Tooltip.Trigger asChild>
+        <button type="button" className="rail-item" aria-label={label} onClick={onClick}>
+          {children}
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content className="tooltip" side="right" sideOffset={10}>
+          {label}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   );
 }
 
-function BottomBar() {
+/** The rail: two groups, then the utilities, then the account mark. */
+function Rail({ onSearch }: { onSearch: () => void }) {
+  const firing = useAlerts('firing');
   const location = useLocation();
+  const theme = useResolvedTheme();
+  const firingCount = firing.data?.length ?? 0;
+
+  const items = (list: typeof FLEET_NAV) =>
+    list.map((item) => (
+      <RailItem
+        key={item.to}
+        to={item.to}
+        label={item.label}
+        icon={item.icon}
+        active={item.match(location.pathname)}
+        count={item.to === '/alerts' ? firingCount : undefined}
+      />
+    ));
+
   return (
-    <nav className="bottom-bar" aria-label="Primary">
-      {NAV.filter((item) => BOTTOM.includes(item.to)).map((item) => {
-        const Icon = item.icon;
-        const active = item.match(location.pathname);
-        return (
-          <Link key={item.to} to={item.to} className="bottom-link" aria-current={active ? 'page' : undefined}>
-            <Icon size={20} aria-hidden="true" weight={active ? 'fill' : 'regular'} />
-            <span>{item.label}</span>
-          </Link>
-        );
-      })}
+    <nav className="rail" aria-label="Primary">
+      <Link to="/" className="rail-mark" aria-label="Cupola home">
+        <CupolaMark size={21} />
+      </Link>
+      <div className="rail-group">{items(FLEET_NAV)}</div>
+      <div className="rail-sep" />
+      <div className="rail-group">{items(WORK_NAV)}</div>
+      <div className="rail-bottom">
+        <RailButton label="Search ⌘K" onClick={onSearch}>
+          <MagnifyingGlass size={18} aria-hidden="true" />
+        </RailButton>
+        <RailButton
+          label={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+          onClick={() => setThemePreference(theme === 'dark' ? 'light' : 'dark')}
+        >
+          {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+        </RailButton>
+        <RailItem
+          to="/settings/nodes"
+          label="Settings"
+          icon={SlidersHorizontal}
+          active={location.pathname.startsWith('/settings')}
+        />
+      </div>
     </nav>
+  );
+}
+
+/** The phone keeps the mark and the utilities in a 48 px bar. */
+function MobileBar({ onSearch }: { onSearch: () => void }) {
+  const location = useLocation();
+  const theme = useResolvedTheme();
+  return (
+    <div className="mobilebar">
+      <Link to="/" className="rail-mark" aria-label="Cupola home">
+        <CupolaMark size={18} />
+        <span>cupola</span>
+      </Link>
+      <button type="button" className="rail-item" aria-label="Search" onClick={onSearch}>
+        <MagnifyingGlass size={18} aria-hidden="true" />
+      </button>
+      <button
+        type="button"
+        className="rail-item"
+        aria-label={theme === 'dark' ? 'Light theme' : 'Dark theme'}
+        onClick={() => setThemePreference(theme === 'dark' ? 'light' : 'dark')}
+      >
+        {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+      </button>
+      <Link
+        to="/settings/nodes"
+        className="rail-item"
+        aria-label="Settings"
+        aria-current={location.pathname.startsWith('/settings') ? 'page' : undefined}
+      >
+        <SlidersHorizontal size={18} aria-hidden="true" />
+      </Link>
+    </div>
   );
 }
 
@@ -147,16 +187,24 @@ export function AppShell() {
   return (
     <Tooltip.Provider delayDuration={260}>
       <div className="shell">
+        <Rail onSearch={() => setPaletteOpen(true)} />
         <div className="main" ref={mainRef}>
-          <Header onSearch={() => setPaletteOpen(true)} />
+          <MobileBar onSearch={() => setPaletteOpen(true)} />
           <main className="content">
             {fleet.data ? <OfflineBanner lastUpdated={fleet.data.updated} stale={Boolean(fleet.data.stale)} /> : null}
             <ErrorBoundary key={location.pathname}>
               <Outlet />
             </ErrorBoundary>
           </main>
+          <footer className="foot">
+            <span>Cupola</span>
+            <span className="foot-sep">·</span>
+            <span>raw 48 h, 1 m 30 d, 1 h 13 mo</span>
+            <Link to="/settings/about" className="foot-link">
+              about
+            </Link>
+          </footer>
         </div>
-        <BottomBar />
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       </div>
     </Tooltip.Provider>

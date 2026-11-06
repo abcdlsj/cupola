@@ -51,11 +51,11 @@ add_node atlas 9801 e2e-atlas-token prod
 add_node beelink 9802 e2e-beelink-token homelab
 add_node studio 9803 e2e-studio-token workstation
 
-# Wait until every node has a snapshot and the agent roster is populated, so the
-# suite never races the first poll.
+# Wait until every node has a snapshot and its units are in, so the suite never
+# races the first poll.
 for _ in $(seq 1 40); do
-  count=$(curl -fsS -b "$JAR" http://127.0.0.1:4180/api/v1/agents 2>/dev/null | grep -o '"id"' | wc -l | tr -d ' ' || true)
-  if [ "${count:-0}" -ge 7 ]; then break; fi
+  count=$(curl -fsS -b "$JAR" http://127.0.0.1:4180/api/v1/services 2>/dev/null | grep -o '"name"' | wc -l | tr -d ' ' || true)
+  if [ "${count:-0}" -ge 6 ]; then break; fi
   sleep 0.5
 done
 sleep 1

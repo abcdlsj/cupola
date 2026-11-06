@@ -13,7 +13,7 @@ export interface NodeFigures {
   tx: number | null;
   load: [number, number, number] | null;
   temp: number | null;
-  agents: number;
+  cores: number;
 }
 
 /**
@@ -24,7 +24,19 @@ export function nodeFigures(view: NodeView): NodeFigures {
   const health = view.health;
   const online = health.status === 'healthy' || health.status === 'degraded';
   if (!online) {
-    return { online: false, cpu: null, mem: null, disk: null, gpu: null, net: null, rx: null, tx: null, load: null, temp: null, agents: health.agents };
+    return {
+      online: false,
+      cpu: null,
+      mem: null,
+      disk: null,
+      gpu: null,
+      net: null,
+      rx: null,
+      tx: null,
+      load: null,
+      temp: null,
+      cores: health.cores || 1,
+    };
   }
   const rx = health.net_rx_bps ?? 0;
   const tx = health.net_tx_bps ?? 0;
@@ -39,7 +51,7 @@ export function nodeFigures(view: NodeView): NodeFigures {
     tx,
     load: [health.load1, health.load5 ?? health.load1, health.load15 ?? health.load1],
     temp: health.temp_max_c ?? null,
-    agents: health.agents,
+    cores: health.cores || 1,
   };
 }
 

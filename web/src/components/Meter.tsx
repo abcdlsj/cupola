@@ -1,7 +1,11 @@
 import { percent } from '../lib/format';
 
-/** Where a meter turns amber and red. Matches the default alert thresholds. */
-export const METER_WARN = 65;
+/**
+ * Where a meter turns amber and red. 65 % is a normal Linux memory or disk
+ * reading, so a healthy fleet stays in the accent hue and only a real breach
+ * takes a warning colour.
+ */
+export const METER_WARN = 75;
 export const METER_CRIT = 90;
 
 export type MeterLevel = 'ok' | 'warn' | 'crit';

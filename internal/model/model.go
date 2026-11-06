@@ -7,58 +7,58 @@ package model
 const Version = "1.0.0"
 
 type Snapshot struct {
-	Ts       int64             `json:"ts"`
-	Node     NodeInfo          `json:"node"`
-	CPU      CPUStats          `json:"cpu"`
-	Memory   MemoryStats       `json:"memory"`
-	Pressure PressureStats     `json:"pressure"`
-	Disks    []DiskStats       `json:"disks"`
-	Network  []NetStats        `json:"network"`
-	Processes []Process        `json:"processes"`
-	Ports    []Port            `json:"ports"`
-	Services []Service         `json:"services"`
-	Containers []Container     `json:"containers"`
-	Images     []Image         `json:"images"`
-	Sensors  []Sensor          `json:"sensors"`
-	GPUs     []GPU             `json:"gpus"`
-	SMART    []SMARTDevice     `json:"smart"`
-	Users    []User            `json:"users"`
-	Updates  *Updates          `json:"updates,omitempty"`
-	FD       FDStats           `json:"fd"`
-	Warnings []string          `json:"warnings,omitempty"`
+	Ts         int64         `json:"ts"`
+	Node       NodeInfo      `json:"node"`
+	CPU        CPUStats      `json:"cpu"`
+	Memory     MemoryStats   `json:"memory"`
+	Pressure   PressureStats `json:"pressure"`
+	Disks      []DiskStats   `json:"disks"`
+	Network    []NetStats    `json:"network"`
+	Processes  []Process     `json:"processes"`
+	Ports      []Port        `json:"ports"`
+	Services   []Service     `json:"services"`
+	Containers []Container   `json:"containers"`
+	Images     []Image       `json:"images"`
+	Sensors    []Sensor      `json:"sensors"`
+	GPUs       []GPU         `json:"gpus"`
+	SMART      []SMARTDevice `json:"smart"`
+	Users      []User        `json:"users"`
+	Updates    *Updates      `json:"updates,omitempty"`
+	FD         FDStats       `json:"fd"`
+	Warnings   []string      `json:"warnings,omitempty"`
 }
 
 type NodeInfo struct {
-	ID           string   `json:"id"`
-	Name         string   `json:"name"`
-	Hostname     string   `json:"hostname"`
-	OS           string   `json:"os"`
-	Platform     string   `json:"platform"`
-	PlatformVer  string   `json:"platform_version"`
-	Kernel       string   `json:"kernel"`
-	Arch         string   `json:"arch"`
-	Virtualization string `json:"virtualization"`
-	CPUModel     string   `json:"cpu_model"`
-	Cores        int      `json:"cores"`
-	BootTime     int64    `json:"boot_time"`
-	UptimeSec    int64    `json:"uptime_sec"`
-	AgentVersion string   `json:"agent_version"`
-	Labels       []string `json:"labels"`
+	ID             string   `json:"id"`
+	Name           string   `json:"name"`
+	Hostname       string   `json:"hostname"`
+	OS             string   `json:"os"`
+	Platform       string   `json:"platform"`
+	PlatformVer    string   `json:"platform_version"`
+	Kernel         string   `json:"kernel"`
+	Arch           string   `json:"arch"`
+	Virtualization string   `json:"virtualization"`
+	CPUModel       string   `json:"cpu_model"`
+	Cores          int      `json:"cores"`
+	BootTime       int64    `json:"boot_time"`
+	UptimeSec      int64    `json:"uptime_sec"`
+	AgentVersion   string   `json:"agent_version"`
+	Labels         []string `json:"labels"`
 }
 
 type CPUStats struct {
-	Percent  float64   `json:"percent"`
-	PerCore  []float64 `json:"per_core"`
-	User     float64   `json:"user"`
-	System   float64   `json:"system"`
-	Iowait   float64   `json:"iowait"`
-	Steal    float64   `json:"steal"`
-	IDC      float64   `json:"idle"`
-	MHz      float64   `json:"mhz"`
-	Load1    float64   `json:"load1"`
-	Load5    float64   `json:"load5"`
-	Load15   float64   `json:"load15"`
-	Procs    int       `json:"procs"`
+	Percent float64   `json:"percent"`
+	PerCore []float64 `json:"per_core"`
+	User    float64   `json:"user"`
+	System  float64   `json:"system"`
+	Iowait  float64   `json:"iowait"`
+	Steal   float64   `json:"steal"`
+	IDC     float64   `json:"idle"`
+	MHz     float64   `json:"mhz"`
+	Load1   float64   `json:"load1"`
+	Load5   float64   `json:"load5"`
+	Load15  float64   `json:"load15"`
+	Procs   int       `json:"procs"`
 }
 
 type MemoryStats struct {
@@ -84,22 +84,22 @@ type PressureStats struct {
 }
 
 type DiskStats struct {
-	Device    string  `json:"device"`
-	Mount     string  `json:"mount"`
-	FsType    string  `json:"fstype"`
-	Total     uint64  `json:"total"`
-	Used      uint64  `json:"used"`
-	Free      uint64  `json:"free"`
-	UsedPct   float64 `json:"used_pct"`
-	Inodes    uint64  `json:"inodes"`
-	InodesUsed uint64 `json:"inodes_used"`
-	InodePct  float64 `json:"inode_pct"`
-	ReadBps   float64 `json:"read_bps"`
-	WriteBps  float64 `json:"write_bps"`
-	ReadIOPS  float64 `json:"read_iops"`
-	WriteIOPS float64 `json:"write_iops"`
-	LatencyMs float64 `json:"latency_ms"`
-	ReadOnly  bool    `json:"read_only"`
+	Device     string  `json:"device"`
+	Mount      string  `json:"mount"`
+	FsType     string  `json:"fstype"`
+	Total      uint64  `json:"total"`
+	Used       uint64  `json:"used"`
+	Free       uint64  `json:"free"`
+	UsedPct    float64 `json:"used_pct"`
+	Inodes     uint64  `json:"inodes"`
+	InodesUsed uint64  `json:"inodes_used"`
+	InodePct   float64 `json:"inode_pct"`
+	ReadBps    float64 `json:"read_bps"`
+	WriteBps   float64 `json:"write_bps"`
+	ReadIOPS   float64 `json:"read_iops"`
+	WriteIOPS  float64 `json:"write_iops"`
+	LatencyMs  float64 `json:"latency_ms"`
+	ReadOnly   bool    `json:"read_only"`
 }
 
 type NetStats struct {
@@ -163,16 +163,16 @@ type Service struct {
 }
 
 type Container struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	Image      string  `json:"image"`
-	State      string  `json:"state"`
-	Status     string  `json:"status"`
-	UptimeSec  int64   `json:"uptime_sec"`
-	CPUPercent float64 `json:"cpu_percent"`
-	MemBytes   uint64  `json:"mem_bytes"`
-	MemLimit   uint64  `json:"mem_limit"`
-	Restarts   int     `json:"restarts"`
+	ID         string   `json:"id"`
+	Name       string   `json:"name"`
+	Image      string   `json:"image"`
+	State      string   `json:"state"`
+	Status     string   `json:"status"`
+	UptimeSec  int64    `json:"uptime_sec"`
+	CPUPercent float64  `json:"cpu_percent"`
+	MemBytes   uint64   `json:"mem_bytes"`
+	MemLimit   uint64   `json:"mem_limit"`
+	Restarts   int      `json:"restarts"`
 	Ports      []string `json:"ports"`
 }
 
@@ -201,9 +201,9 @@ type Sensor struct {
 }
 
 type GPUProcess struct {
-	PID        int32  `json:"pid"`
-	Name       string `json:"name"`
-	MemBytes   uint64 `json:"mem_bytes"`
+	PID      int32  `json:"pid"`
+	Name     string `json:"name"`
+	MemBytes uint64 `json:"mem_bytes"`
 }
 
 type GPU struct {
@@ -220,10 +220,10 @@ type GPU struct {
 }
 
 type SMARTDevice struct {
-	Device       string `json:"device"`
-	Model        string `json:"model"`
-	Type         string `json:"type"`
-	Health       string `json:"health"` // passed | failing | unknown
+	Device       string  `json:"device"`
+	Model        string  `json:"model"`
+	Type         string  `json:"type"`
+	Health       string  `json:"health"` // passed | failing | unknown
 	TemperatureC float64 `json:"temperature_c"`
 	WearPercent  float64 `json:"wear_percent"`
 	Reallocated  int64   `json:"reallocated"`
@@ -330,16 +330,19 @@ type ContainerHistory struct {
 }
 
 type NodeHealth struct {
-	Status       string   `json:"status"` // healthy | degraded | offline | unknown
-	DaysToFull   float64  `json:"days_to_full,omitempty"`
-	Attention    int      `json:"attention"`
-	RootDiskPct  float64  `json:"root_disk_pct"`
-	MemPct       float64  `json:"mem_pct"`
-	CPUPct       float64  `json:"cpu_pct"`
-	Load1        float64  `json:"load1"`
-	Load5        float64  `json:"load5"`
-	Load15       float64  `json:"load15"`
-	UptimeSec    int64    `json:"uptime_sec"`
+	Status      string  `json:"status"` // healthy | degraded | offline | unknown
+	DaysToFull  float64 `json:"days_to_full,omitempty"`
+	Attention   int     `json:"attention"`
+	RootDiskPct float64 `json:"root_disk_pct"`
+	MemPct      float64 `json:"mem_pct"`
+	CPUPct      float64 `json:"cpu_pct"`
+	Load1       float64 `json:"load1"`
+	Load5       float64 `json:"load5"`
+	Load15      float64 `json:"load15"`
+	UptimeSec   int64   `json:"uptime_sec"`
+	// Cores lets a list turn a load average into the fraction of the machine it
+	// uses without fetching every node's snapshot.
+	Cores         int     `json:"cores"`
 	FailedUnits   int     `json:"failed_units"`
 	Containers    int     `json:"containers"`
 	Apps          int     `json:"apps"`
@@ -378,31 +381,31 @@ type NodeRecord struct {
 }
 
 type AlertRule struct {
-	ID          string  `json:"id"`
-	Name        string  `json:"name"`
-	Type        string  `json:"type"` // metric | event
-	Metric      string  `json:"metric,omitempty"`
-	Comparator  string  `json:"comparator,omitempty"` // gt | lt
-	Threshold   float64 `json:"threshold,omitempty"`
-	DurationSec int     `json:"duration_sec,omitempty"`
-	Severity    string  `json:"severity"`
-	NodeID      string  `json:"node_id,omitempty"`
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	Type        string   `json:"type"` // metric | event
+	Metric      string   `json:"metric,omitempty"`
+	Comparator  string   `json:"comparator,omitempty"` // gt | lt
+	Threshold   float64  `json:"threshold,omitempty"`
+	DurationSec int      `json:"duration_sec,omitempty"`
+	Severity    string   `json:"severity"`
+	NodeID      string   `json:"node_id,omitempty"`
 	Kinds       []string `json:"kinds,omitempty"`
-	ChannelID   string  `json:"channel_id,omitempty"`
-	Enabled     bool    `json:"enabled"`
-	CooldownSec int     `json:"cooldown_sec"`
-	CreatedAt   int64   `json:"created_at"`
+	ChannelID   string   `json:"channel_id,omitempty"`
+	Enabled     bool     `json:"enabled"`
+	CooldownSec int      `json:"cooldown_sec"`
+	CreatedAt   int64    `json:"created_at"`
 }
 
 type Alert struct {
-	ID        int64  `json:"id"`
-	RuleID    string `json:"rule_id"`
-	RuleName  string `json:"rule_name,omitempty"`
-	NodeID    string `json:"node_id"`
-	Ts        int64  `json:"ts"`
-	State     string `json:"state"` // firing | resolved
-	Value     float64 `json:"value"`
-	Message   string `json:"message"`
+	ID       int64   `json:"id"`
+	RuleID   string  `json:"rule_id"`
+	RuleName string  `json:"rule_name,omitempty"`
+	NodeID   string  `json:"node_id"`
+	Ts       int64   `json:"ts"`
+	State    string  `json:"state"` // firing | resolved
+	Value    float64 `json:"value"`
+	Message  string  `json:"message"`
 }
 
 type Channel struct {

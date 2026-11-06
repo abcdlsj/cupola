@@ -16,6 +16,7 @@ interface Item {
 
 const SCREENS: Item[] = [
   { id: 'screen-systems', label: 'Systems', group: 'Go to', to: '/' },
+  { id: 'screen-services', label: 'Services', group: 'Go to', to: '/services' },
   { id: 'screen-apps', label: 'Apps', group: 'Go to', to: '/apps' },
   { id: 'screen-events', label: 'Events', group: 'Go to', to: '/events' },
   { id: 'screen-alerts', label: 'Alerts', group: 'Go to', to: '/alerts' },

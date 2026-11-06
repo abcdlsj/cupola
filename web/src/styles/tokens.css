@@ -48,10 +48,11 @@
 }
 
 :root {
-  --radius-card: 12px;
-  --radius-control: 8px;
+  --radius-card: 6px;
+  --radius-control: 999px;
+  --radius-chip: 4px;
   --radius-pill: 999px;
-  --row-height: 52px;
+  --row-height: 42px;
   --gap: 16px;
   --pad: 32px;
   --control-height: 34px;
@@ -63,46 +64,48 @@
   --app-height: 100dvh;
   --app-safe-bottom: env(safe-area-inset-bottom, 0px);
 
-  --fs-title: 22px;
-  --fs-section: 15px;
-  --fs-kpi: 22px;
+  --fs-title: 28px;
+  --fs-section: 22px;
+  --fs-kpi: 20px;
   --fs-body: 14px;
-  --fs-small: 12px;
+  --fs-small: 13px;
+  --fs-meta: 12px;
 
   --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
   color-scheme: dark;
-  --ground: #0b0c0e;
-  --surface: #111316;
-  --raised: #181b1f;
-  --border: #22252a;
-  --rule: #1b1e22;
-  --control: #33373d;
-  --text: #f3f4f5;
-  --muted: #9a9ea6;
+  --ground: #171719;
+  --surface: #131217;
+  --raised: #211f23;
+  --border: #222224;
+  --rule: #1b1a1f;
+  --control: #3a3a3e;
+  --text: #ffffff;
+  --muted: #8a8c92;
+  --faint: #74767c;
   --accent: #4a8ad6;
-  --positive: #3fb27f;
-  --negative: #ef5f77;
-  --warning: #e0a53c;
+  --positive: #44a282;
+  --negative: #e5566f;
+  --warning: #d9a441;
   --chart-1: #f2f2f3;
-  --chart-2: #ef5f77;
+  --chart-2: #e5566f;
   --chart-3: #4a8ad6;
   --series-1: #5b9ed6;
   --series-2: #4fae94;
   --series-3: #d9a441;
   --series-4: #e5566f;
-  --pill-positive-bg: #132219;
+  --pill-positive-bg: #1b2828;
   --pill-positive-ink: #5fc39c;
-  --pill-negative-bg: #2a161c;
-  --pill-negative-ink: #f07a8e;
-  --pill-warning-bg: #272012;
-  --pill-warning-ink: #e0a53c;
-  --pill-neutral-bg: #1d2024;
-  --pill-neutral-ink: #c9ccd1;
+  --pill-negative-bg: #2c1a20;
+  --pill-negative-ink: #e5566f;
+  --pill-warning-bg: #2a2416;
+  --pill-warning-ink: #d9a441;
+  --pill-neutral-bg: #211f23;
+  --pill-neutral-ink: #bdbdc0;
   --wash: rgba(255, 255, 255, 0.035);
-  --track: #1f2226;
-  --grid: #1d2024;
+  --track: #222224;
+  --grid: #1b1a1f;
   --scrim: rgba(0, 0, 0, 0.62);
   --shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
 }
@@ -118,6 +121,7 @@
     --control: #cdd1d6;
     --text: #131416;
     --muted: #5b5f66;
+    --faint: #6b6b6b;
     --accent: #1b6c80;
     --positive: #1b7a4d;
     --negative: #c4242a;
@@ -155,6 +159,7 @@
   --control: #cdd1d6;
   --text: #131416;
   --muted: #5b5f66;
+  --faint: #6b6b6b;
   --accent: #1b6c80;
   --positive: #1b7a4d;
   --negative: #c4242a;
