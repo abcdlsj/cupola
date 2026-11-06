@@ -38,35 +38,54 @@ rail, fleet profile) is kept in `docs/design/direction.json` for history.
 
 ## Shell
 
-- **Header (all widths):** 56 px, sticky, on the ground with a 1 px rule. The
-  Cupola mark and word, then the five destinations as words (Systems,
-  Services, Apps, Alerts with a firing count, Events), the selected one
-  underlined by a 1 px accent line. On the right: the freshness stamp, search (⌘K), the theme
-  switch and settings, all 34 px bordered controls.
+- **Rail (all widths ≥ 900 px):** 56 px on the left, on the ground with a 1 px
+  rule on its right edge. The Cupola mark on top, then the labels are icons
+  only: **Systems** and **Services** (the fleet), a hairline, then **Apps**,
+  **Alerts** and **Events** (the work). The selected item is the accent
+  colour with a 2 px accent bar on its left edge. Alerts carries a filled
+  count when something fires. Pinned to the bottom: search (⌘K), the theme
+  switch and settings. Every icon has a tooltip with its name.
 - **Content:** max width 1440, 32 px side padding (24 on tablets, 16 on
-  phones), 16 px gap between cards.
-- **Phone (≤ 640 px):** the header keeps the mark and the three icon buttons
-  (40 px); the destinations move to a bottom bar of four (Systems, Services,
-  Apps, Alerts) above the home indicator.
+  phones), 16 px gap between cards. The footer (`Cupola · raw 48 h, 1 m 30 d,
+  1 h 13 mo`, with the about link) never floats: it sits under the last card,
+  or at the bottom of the viewport when the page is shorter than the screen.
+- **Phone (≤ 899 px):** a 48 px top strip carries the mark and the word
+  `cupola`, plus search, theme and settings. The rail becomes a bottom bar of
+  five icons on the ground above the home indicator, inside the safe area.
+  The shell is sized from `visualViewport.height` (written to `--app-height`
+  by `public/theme-init.js`), so an installed PWA has no gap at the bottom and
+  no overhang after a bounce.
 
 ## Cards
 
-- 12 px radius, 1 px border, one lightness step off the ground. No shadow;
-  the one shadow is for menus, tooltips and dialogs.
-- Head: title (15 px, 600) and one muted description line under it, the
-  card's link or count on the right. A table or list inside runs to the
-  card's edges under a 1 px rule.
-- Controls: 34 px high, 8 px radius, 1 px border; a filter or select inside a
-  card sits on the ground tone as a well. Segmented toggles (table/grid) use a
-  raised pressed segment, not colour.
+- 6 px radius, 1 px border, one tone **darker** than the ground. No shadow;
+  the one shadow is for menus, tooltips and dialogs. Depth comes from the tone
+  step and the border, never from a blur.
+- Head: the screen's title at 28 px (600) with one muted description line
+  under it; a second-level card titles at 22 px in the muted colour. The
+  card's controls sit on the right of the head, vertically centred with the
+  title. A table or list inside runs to the card's edges under a 1 px rule.
+- Controls: 34 px high, `--radius-control` (a pill for inputs, 4 px for
+  chips); a filter or select inside a card sits on the ground tone as a well.
+  Segmented toggles use a 1 px accent underline under the active word, not a
+  filled block.
+- **Tables have no chrome:** no wrapper border, no header band, no zebra. A
+  1 px rule between rows, 42 px rows, the head sticky and 13 px in `--muted`.
+  Names read in mono, figures right-aligned and tabular. Under 1024 px a table
+  becomes rows of two lines: the identity on the first, its fields in an
+  aligned grid under it, each with a small label.
+- Nothing is truncated without a tooltip: any string that overflows shows its
+  full value on hover (and on focus).
 
 ## Meters
 
-Every percentage in a table or list is a figure plus a 6 px rounded bar
-(`<Meter>`): green below 65 %, amber from 65 %, red from 90 % (the figure turns
-red too). A missing reading prints a dash over an empty track; zero prints
-0 %. Data that is not health (a process's share of the CPU, memory per
-process) uses a neutral meter in the first series hue.
+Every percentage in a table or list is a figure plus a 5 px bar (`<Meter>`).
+A healthy meter is the **accent**, not green: fifteen green bars make a colour
+field that hides the three real problems. The bar turns amber from 75 % and
+red from 90 %, and the figure takes the same colour. A missing reading prints
+a dash over an empty track; zero prints 0 %. Data that is not health (a
+process's share of the CPU, memory per process) uses the same neutral accent
+bar.
 
 ## Status
 
@@ -77,16 +96,21 @@ Never run, severity).
 
 ## Screens
 
-- **Systems (`/`)** — *is anything wrong, and where?* Up to four "Needs
-  attention" cards (down systems first, then one finding per system and kind
-  from the last 24 h; two on phones). Then the **All systems** card: count line,
-  filter, table/grid toggle, and a sortable table — system (dot, name, OS),
-  CPU, memory, disk, GPU (only when a system has one) as meters; net, load
-  1/5/15, hottest temperature, agent sessions, agent version and transport.
-  The row opens the system. Under 900 px the table becomes cards with three
-  meters. Filter, sort and layout live in the URL (`?q=`, `?sort=&dir=`,
-  `?view=grid`). Below: Apps (run buttons) and Agent sessions. `/nodes`
-  redirects here with its query.
+- **Systems (`/`)** — *is anything wrong, and where?* One card of system
+  cards, three across (two at ≤ 1180 px, one at ≤ 760 px): dot and name,
+  the role label, then CPU, memory, disk and load as meters, then one meta
+  line (OS, cores, uptime, temperature). The card opens the system. The card
+  view is not sorted: it reads most-strained first, which is the only order
+  that answers the question. Below it the **Services** card: the state chips
+  with honest counts, the first page of the cross-node unit list and a pager.
+  `/nodes` redirects here with its query.
+- **Services (`/services`)** — *what is broken on which machine?* Every unit
+  on every node in one table, failed first, then by system and name. State
+  chips, a filter, the node column and the sub-state column; a row opens that
+  node's services tab. The URL holds `?q=` and `?state=`.
+- **Events fold repeats** and group by kind: one collapsed group per kind,
+  worst severity first, the count on the header row, the rows one click away.
+  A collapse state that the reader set is kept for the visit.
 - **System (`/nodes/:id`)** — header card (back, name, status, labels, host,
   uptime, OS, kernel, CPU, memory, agent) with the chart window on the right
   (1 hour, 24 hours, 7 days, 30 days; `?range=`, carried across tabs). Tabs
@@ -106,6 +130,10 @@ Never run, severity).
   the row and the rest one click away. The first screen shows the shapes, not
   every port. Raw events stay in the database and in each occurrence's own
   route; only the list folds.
+- **Pagers** print the range (`1–12 of 18`) in mono on the left and page
+  numbers with gaps (`1 … 4 5 6 … 12`) on the right; the current page is a
+  raised square, the arrows are 26 px. The page size follows the breakpoint
+  (12 / 10 / 8 / 6) and the page lives in the URL.
 
 ## Charts
 
