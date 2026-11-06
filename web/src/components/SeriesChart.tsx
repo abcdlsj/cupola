@@ -181,7 +181,9 @@ export function SeriesChart({
             ctx.font = AXIS_FONT; // CSS pixels: the width below is in CSS pixels too
             const widest = Math.max(...values.map((value) => ctx.measureText(String(value)).width));
             ctx.font = previous;
-            return Math.ceil(widest) + 14;
+            // A phone gives the plot about 260 px; a 90 px axis would eat a
+            // third of it, so the gutter is capped and uPlot trims the label.
+            return Math.min(Math.ceil(widest) + 14, u.width < 420 ? 54 : 90);
           },
           grid: { stroke: ink.grid, width: 1 },
           ticks: { show: false },

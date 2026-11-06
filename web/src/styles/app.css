@@ -1442,32 +1442,6 @@ h1.panel-title {
 
 /* ---------- apps ---------- */
 
-.app-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--gap);
-}
-
-.app-grid[data-columns="2"] {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.app-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-height: 118px;
-  padding: 16px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  text-align: left;
-  transition: border-color 140ms ease-out, background-color 140ms ease-out;
-}
-
-.app-tile:hover {
-  border-color: var(--control);
-}
 
 .app-tile-top {
   display: flex;
@@ -2046,6 +2020,15 @@ h1.panel-title {
 }
 
 @media (max-width: 900px) {
+  /* the tab strip scrolls here; the fade says so without a scrollbar */
+  .tabs {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .panel .tabs {
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
   .shell {
     display: flex;
     flex-direction: column;
