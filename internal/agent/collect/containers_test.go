@@ -59,6 +59,18 @@ func TestImagesFromKeepsSizesAndDropsTheDigestPrefix(t *testing.T) {
 	}
 }
 
+func TestImagesFromClampsUnknownSharedSize(t *testing.T) {
+	got := imagesFrom([]image.Summary{{
+		ID:         "sha256:aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+		RepoTags:   []string{"ghcr.io/abcdlsj/nexo:latest"},
+		Size:       27 << 20,
+		SharedSize: -1,
+	}})
+	if got[0].SharedSize != 0 {
+		t.Fatalf("SharedSize = %d, want 0: a negative shared size makes size-shared exceed the image", got[0].SharedSize)
+	}
+}
+
 func TestImagesFromKeepsAnEmptyTagAsDangling(t *testing.T) {
 	got := imagesFrom([]image.Summary{{ID: "sha256:abc", RepoTags: []string{""}, Size: 1}})
 	if len(got) != 1 || !got[0].Dangling || got[0].RepoTag != "<none>" {

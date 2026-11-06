@@ -212,21 +212,22 @@ func TestSweepOfflineIgnoresAShortStall(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 20 s of silence: three polls missed, the old threshold, not an outage.
-	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-20_000); err != nil {
+	// 60 s of silence is the poller's own retry ceiling: the hub may be the one
+	// staying away, so it is not an outage.
+	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-int64(retryCeiling/time.Millisecond)); err != nil {
 		t.Fatal(err)
 	}
 	hub.poller.sweepOffline(ctx)
 	if record, err := hub.store.GetNode(ctx, "test"); err != nil || record.Status == "offline" {
-		t.Fatalf("20 s of silence marked the node offline: %+v", record)
+		t.Fatalf("one retry ceiling of silence marked the node offline: %+v", record)
 	}
 
-	// 50 s of silence is nine missed polls: that is an outage.
-	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-50_000); err != nil {
+	// Two retry ceilings, no answer: that is an outage.
+	if err := hub.store.SetNodeStatus(ctx, "test", "online", time.Now().UnixMilli()-int64(2*retryCeiling/time.Millisecond)-2_000); err != nil {
 		t.Fatal(err)
 	}
 	hub.poller.sweepOffline(ctx)
 	if record, err := hub.store.GetNode(ctx, "test"); err != nil || record.Status != "offline" {
-		t.Fatalf("50 s of silence did not mark the node offline: %+v", record)
+		t.Fatalf("two retry ceilings of silence did not mark the node offline: %+v", record)
 	}
 }

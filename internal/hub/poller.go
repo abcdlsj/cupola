@@ -115,11 +115,11 @@ func (p *poller) noteFailure(id string) {
 	failures := p.failures[id]
 	p.mu.Unlock()
 	delay := p.interval
-	for i := 1; i < failures && delay < time.Minute; i++ {
+	for i := 1; i < failures && delay < retryCeiling; i++ {
 		delay *= 2
 	}
-	if delay > time.Minute {
-		delay = time.Minute
+	if delay > retryCeiling {
+		delay = retryCeiling
 	}
 	p.mu.Lock()
 	p.nextTry[id] = time.Now().Add(delay)
@@ -164,11 +164,16 @@ func (p *poller) pollNode(ctx context.Context, node model.NodeRecord) {
 	p.processSnapshot(ctx, node, snap, actions)
 }
 
-// minOfflineSilence is the shortest silence that counts as an outage. Three poll
-// intervals is 15 s at the default cadence, and a hub that stalls on a disk write
-// or a slow poll for 20 s is not an outage: that produced a stop/reporting pair
-// every five minutes on a busy host. 45 s is nine missed polls at 5 s.
-const minOfflineSilence = 45 * time.Second
+// retryCeiling is the longest the poller waits before it tries a failing node
+// again; see noteFailure.
+const retryCeiling = time.Minute
+
+// minOfflineSilence is the shortest silence that counts as an outage. It has to
+// stay well above retryCeiling: a node the hub is only retrying once a minute is
+// silent by the hub's own design, and calling that an outage produced a
+// stop/reporting pair every few minutes on a flaky link (beelink: 205 pairs).
+// Two failed retries in a row, 120 s, is the first silence that is evidence.
+const minOfflineSilence = 2 * retryCeiling
 
 // offlineSilence is how long a node may be silent before it is offline.
 func offlineSilence(interval time.Duration) int64 {
@@ -320,6 +325,11 @@ func diffEvents(previous, current *model.Snapshot, nodeID string, now int64) []m
 		previousPorts[fmt.Sprintf("%s/%d", port.Proto, port.Port)] = port
 	}
 	for _, port := range current.Ports {
+		// A listener on a kernel-chosen port is a rotating socket, not a service
+		// starting: announcing it once per restart is pure churn.
+		if port.Port >= model.EphemeralMin {
+			continue
+		}
 		key := fmt.Sprintf("%s/%d", port.Proto, port.Port)
 		if _, ok := previousPorts[key]; ok {
 			continue

@@ -169,6 +169,20 @@ host, override with `force`), 409 `disabled` or 503 when no release resolves.
 The privileged side is the `cupola upgrade` command, run by the
 `cupola-upgrade.path`/`.service` pair; see `docs/DEPLOY.md`.
 
+### What earns an event
+
+Events are for things a person would act on, so two noisy classes are filtered
+at the source:
+
+- `network` “New listening port” is skipped for ports in the ephemeral range
+  (≥ 32768). A socket the kernel picks is not a service starting: tailscaled and
+  cloudflared rotate several of them an hour, which used to be 4500 of 5600
+  event rows.
+- `node` offline/reporting again is emitted only after two retry ceilings of
+  silence (120 s). The poller backs off to a minute per node, so a shorter
+  silence is the hub's own doing, not an outage; at 45 s a flaky link produced a
+  stop/reporting pair every few minutes (1096 rows).
+
 ### Why the hub polls a slim snapshot
 
 Services and ports are about 90 % of a snapshot (463 units is 96 kB of 115 kB),

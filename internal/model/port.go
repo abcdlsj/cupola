@@ -10,11 +10,11 @@ import (
 // somebody dials, but they show up as bound UDP sockets on every host.
 var clientPorts = map[uint32]bool{68: true, 323: true, 546: true}
 
-// ephemeralMin is the first port the kernel hands out when a program does not
+// EphemeralMin is the first port the kernel hands out when a program does not
 // ask for a specific one on Linux (net.ipv4.ip_local_port_range). A listener
 // bound to one interface address on such a port was chosen by the kernel, not
 // configured: it cannot be reached as a service, and it changes on restart.
-const ephemeralMin = 32768
+const EphemeralMin = 32768
 
 // PrunePorts drops sockets that are not services, and collapses the IPv6 twin
 // of a dual-stack listener. It is structural, with no list of process names:
@@ -54,7 +54,7 @@ func KeepPort(port Port) bool {
 	if port.Proto == "udp" && clientPorts[port.Port] {
 		return false
 	}
-	if port.Port >= ephemeralMin && !sharedAddress(port.Address) {
+	if port.Port >= EphemeralMin && !sharedAddress(port.Address) {
 		return false
 	}
 	return true

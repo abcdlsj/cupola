@@ -113,11 +113,17 @@ func imagesFrom(list []image.Summary) []model.Image {
 		if containers < 0 {
 			containers = 0
 		}
+		// Docker reports -1 for "shared size unknown", which would make the
+		// per-image disk cost (size - shared) larger than the image itself.
+		shared := item.SharedSize
+		if shared < 0 {
+			shared = 0
+		}
 		out = append(out, model.Image{
 			ID:         shortID(strings.TrimPrefix(item.ID, "sha256:")),
 			RepoTag:    repoTag,
 			Size:       item.Size,
-			SharedSize: item.SharedSize,
+			SharedSize: shared,
 			Containers: containers,
 			Dangling:   repoTag == "<none>",
 			CreatedAt:  item.Created * 1000,
