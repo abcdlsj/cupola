@@ -81,8 +81,11 @@ export function NodeLayout() {
   const info = snap?.node;
   const now = Date.now();
   const os = [info?.platform || node.os, info?.platform_version].filter(Boolean).join(' ') || node.os;
+  const host = info?.hostname || node.id;
   const facts: Array<{ label: string; value: string }> = [
-    { label: 'Host', value: info?.hostname || node.id },
+    // the title already is the node name; the host line only earns its row
+    // when the machine calls itself something else
+    ...(host === node.name ? [] : [{ label: 'Host', value: host }]),
     snap ? { label: 'Uptime', value: uptime(snap.node.uptime_sec) } : { label: 'Last seen', value: node.last_seen ? relative(node.last_seen, now) : 'never' },
     { label: 'OS', value: os || '—' },
     { label: 'Kernel', value: node.kernel || info?.kernel || '—' },
@@ -119,7 +122,18 @@ export function NodeLayout() {
             {facts.map((fact) => (
               <div className="node-fact" key={fact.label}>
                 <dt>{fact.label}</dt>
-                <dd className={fact.label === 'Host' || fact.label === 'Kernel' || fact.label === 'Agent' || fact.label === 'Uptime' || fact.label === 'Memory' ? 'fig' : undefined}>
+                <dd
+                  className={
+                    fact.label === 'Host' ||
+                    fact.label === 'Kernel' ||
+                    fact.label === 'Agent' ||
+                    fact.label === 'Uptime' ||
+                    fact.label === 'Memory'
+                      ? 'fig'
+                      : undefined
+                  }
+                  title={fact.value}
+                >
                   {fact.value}
                 </dd>
               </div>

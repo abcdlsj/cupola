@@ -175,8 +175,8 @@
 }
 
 .unit-dot {
-  width: 28px;
-  padding-left: 4px !important;
+  width: 18px;
+  padding-left: 2px !important;
   padding-right: 0 !important;
 }
 
@@ -197,6 +197,7 @@
 }
 
 .unit-name {
+  padding-left: 4px !important;
   padding-right: 20px !important;
 }
 
@@ -3856,8 +3857,31 @@ h1.panel-title {
     margin-left: 0;
     width: 100%;
   }
+  /* seven facts stacked in one line each is four rows of the phone's first
+     screen; two columns with the label above its value halves that */
   .node-facts {
-    gap: 4px 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+  .node-fact {
+    display: block;
+    min-width: 0;
+  }
+  .node-fact dt {
+    font-size: var(--fs-meta);
+    line-height: 1.3;
+  }
+  /* a long CPU model wraps to a second line instead of being cut: there is no
+     hover on a phone, so a tip could never reveal the rest */
+  .node-fact dd {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: var(--fs-small);
+    line-height: 1.35;
+    overflow-wrap: anywhere;
   }
   .chart-card {
     padding: 14px 12px 12px 14px;

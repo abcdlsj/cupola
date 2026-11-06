@@ -143,7 +143,7 @@ export function SeriesChart({
       width,
       height: element.clientHeight || height,
       // room on the right for the last time label, which is centred on the edge
-      padding: [12, 22, 0, 4],
+      padding: [12, 34, 0, 4],
       legend: { show: false },
       cursor: {
         show: true,
@@ -194,13 +194,14 @@ export function SeriesChart({
       ],
       series: [
         {},
-        ...series.map((entry) => ({
+        ...series.map((entry, index) => ({
           stroke: cssColor(entry.color),
-          width: 1.5,
+          width: index === 0 ? 1.5 : 1.25,
           paths: spline,
-          // A flat translucent area, the way Beszel draws its metrics: the
-          // shape of the load reads at a glance, the line keeps the edge.
-          fill: withAlpha(cssColor(entry.color), FILL_ALPHA),
+          // Only the first series fills. Two translucent areas stack into a
+          // third colour nobody chose, so a comparison chart reads as one
+          // shape with a second line over it.
+          fill: index === 0 ? withAlpha(cssColor(entry.color), FILL_ALPHA) : undefined,
           points: { show: false },
         })),
       ],
