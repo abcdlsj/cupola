@@ -1863,6 +1863,19 @@ h1.panel-title {
   background: var(--negative);
 }
 
+.palette-mem {
+  white-space: pre;
+}
+
+@media (max-width: 640px) {
+  .palette-item {
+    height: 46px;
+  }
+  .palette-mem {
+    display: none;
+  }
+}
+
 .palette-empty {
   padding: 18px 14px 20px;
   font-size: var(--fs-small);

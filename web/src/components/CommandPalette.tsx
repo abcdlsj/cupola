@@ -20,7 +20,10 @@ interface Item {
   group: 'Screens' | 'Systems';
   to: string;
   icon: Icon;
+  /** the CPU figure, always shown */
   hint?: string;
+  /** the memory figure, dropped on a phone where the row is narrow */
+  mem?: string;
   status?: NodeStatus;
 }
 
@@ -61,13 +64,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       hint:
         view.health.status === 'offline'
           ? 'offline'
-          : `${Math.round(view.health.cpu_pct)}% CPU · ${Math.round(view.health.mem_pct)}% memory`,
+          : `${Math.round(view.health.cpu_pct)}% CPU`,
+      mem: view.health.status === 'offline' ? undefined : `· ${Math.round(view.health.mem_pct)}% memory`,
       status: view.health.status,
     }));
     const all = [...SCREENS, ...nodes];
     const needle = query.trim().toLowerCase();
     if (!needle) return all;
-    return all.filter((item) => `${item.label} ${item.hint ?? ''}`.toLowerCase().includes(needle));
+    return all.filter((item) => `${item.label} ${item.hint ?? ''} ${item.mem ?? ''}`.toLowerCase().includes(needle));
   }, [fleet.data, query]);
 
   useEffect(() => {
@@ -152,6 +156,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                     {item.hint ? (
                       <span className="palette-hint">
                         {item.hint}
+                        {item.mem ? <span className="palette-mem">{item.mem}</span> : null}
                         {item.status ? <span className="palette-dot" data-tone={item.status} /> : null}
                       </span>
                     ) : null}
