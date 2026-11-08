@@ -68,7 +68,7 @@ test.describe('nodes', () => {
 test.describe('apps', () => {
   test('a failed action reports its exit code', async ({ page }) => {
     await page.goto('/apps');
-    await page.locator('.app-tile', { hasText: 'Restart Jellyfin' }).click();
+    await page.locator('.app-row', { hasText: 'Restart Jellyfin' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByText('Run Restart Jellyfin?')).toBeVisible();
     await dialog.getByRole('button', { name: 'Run Restart Jellyfin' }).click();
@@ -81,7 +81,7 @@ test.describe('apps', () => {
 
   test('a dangerous action needs its name typed', async ({ page }) => {
     await page.goto('/nodes/atlas/apps');
-    await page.locator('.app-tile', { hasText: 'Update packages' }).click();
+    await page.locator('.app-row', { hasText: 'Update packages' }).click();
     const dialog = page.getByRole('dialog');
     const run = dialog.getByRole('button', { name: 'Run Update packages' });
     await expect(run).toBeDisabled();
@@ -95,8 +95,20 @@ test.describe('apps', () => {
 test.describe('events and alerts', () => {
   test('events derived from the snapshots have a detail route', async ({ page }) => {
     await page.goto('/events');
-    await expect(page.locator('.event-row').first()).toBeVisible({ timeout: 15_000 });
-    await page.locator('.event-message a').first().click();
+    await expect(page.locator('.event-kind-head').first()).toBeVisible({ timeout: 15_000 });
+    // kinds that are not critical start folded; open them, then the first
+    // inner fold, so at least one row carries a link to its own route
+    // re-query between clicks: opening one head changes the set
+    for (let i = 0; i < 12; i += 1) {
+      const next = page.locator('.event-kind-head[aria-expanded="false"]').first();
+      if ((await next.count()) === 0) break;
+      await next.click();
+    }
+    const innerFold = page.locator('.event-fold[aria-expanded="false"]').first();
+    if ((await innerFold.count()) > 0) await innerFold.click();
+    const link = page.locator('.event-message a').first();
+    await expect(link).toBeVisible({ timeout: 10_000 });
+    await link.click();
     await expect(page).toHaveURL(/\/events\/\d+$/);
     await expect(page.getByRole('button', { name: 'Alert me about this' })).toBeVisible();
   });
@@ -349,6 +361,8 @@ test.describe('keyboard and shell', () => {
 
   test('repeated events fold into one row that opens in place', async ({ page }) => {
     await page.goto('/events');
+    // Only the worst kind opens on its own, so open the network group first.
+    await page.getByRole('button', { name: /^Network/ }).click();
     const fold = page.getByRole('button', { name: /Show \d+ occurrences of New listening port/ }).first();
     await expect(fold).toBeVisible();
     await expect(page.getByText(/events · \d+ rows/)).toBeVisible();

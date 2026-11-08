@@ -178,15 +178,20 @@ export function AppsSkeleton() {
   return (
     <section className="panel" aria-hidden="true">
       <CardHeadSkeleton desc={380} />
-      <div className="app-grid">
-        {Array.from({ length: 6 }, (_, index) => (
-          <div className="app-tile" key={index}>
-            <span className="app-cell-top">
-              <Bar w={104} h={12} />
+      <div className="app-list">
+        {Array.from({ length: 5 }, (_, index) => (
+          <div className="app-row" key={index}>
+            <span className="skeleton" style={{ width: 34, height: 34, borderRadius: 8 }} />
+            <span className="app-main">
+              <Bar w={index % 2 === 0 ? 104 : 132} h={12} />
+              <Bar w={index % 2 === 0 ? 190 : 150} h={9} />
+            </span>
+            <span className="app-state">
               <Bar w={62} h={18} r={999} />
             </span>
-            <Bar w="92%" h={10} />
-            <Bar w="54%" h={9} />
+            <span className="app-meta">
+              <Bar w={148} h={9} />
+            </span>
           </div>
         ))}
       </div>

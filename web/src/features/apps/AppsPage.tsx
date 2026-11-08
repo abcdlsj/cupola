@@ -7,6 +7,7 @@ import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
 import type { ActionRun, FleetAction } from '../../data/types';
 import { clock, relative } from '../../lib/format';
+import { actionMark } from '../../lib/actionIcon';
 
 export function AppsPage() {
   const actions = useFleetActions();
@@ -30,43 +31,60 @@ export function AppsPage() {
             ? `${failed.length} of ${all.length} actions failed recently: ${failed
                 .map((action) => `${action.name} (${action.node_name})`)
                 .join('; ')}.`
-            : `${all.length} actions on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${runs.data?.length ?? 0} runs recorded.`
+            : `${all.length} ${all.length === 1 ? 'action' : 'actions'} on ${nodeCount} ${nodeCount === 1 ? 'box' : 'boxes'}; ${runs.data?.length ?? 0} runs recorded.`
         }
         flush
       >
-      <div className="app-grid" data-columns={all.length % 3 === 0 ? '3' : '2'}>
-        {all.map((action) => (
-          <button
-            type="button"
-            className="app-tile"
-            key={`${action.node_id}-${action.id}`}
-            onClick={() => {
-              setSelected(action);
-              setOpen(true);
-            }}
-          >
-            <span className="app-cell-top">
-              <span className="app-cell-name" title={action.name}>{action.name}</span>
-              <span className="app-tile-pill">
+      <div className="app-list">
+        {all.map((action) => {
+          const mark = actionMark(action);
+          const kind = action.type === 'wol' ? 'Wake-on-LAN' : 'Script';
+          const last = action.last_run_at ? relative(action.last_run_at, now) : 'never run';
+          return (
+            <button
+              type="button"
+              className="app-row"
+              key={`${action.node_id}-${action.id}`}
+              onClick={() => {
+                setSelected(action);
+                setOpen(true);
+              }}
+            >
+              <span className="app-mark" aria-hidden="true" data-danger={action.danger ? 'true' : undefined}>
+                {mark.kind === 'image' ? <img src={mark.src} alt="" /> : <mark.Icon size={17} />}
+              </span>
+              <span className="app-main">
+                <span className="app-name-line">
+                  <span className="app-name" title={action.name}>
+                    {action.name}
+                  </span>
+                  {action.danger ? (
+                    <span className="pill" data-tone="negative">
+                      Dangerous
+                    </span>
+                  ) : null}
+                </span>
+                <span className="app-desc" title={action.description}>
+                  {action.description}
+                </span>
+              </span>
+              <span className="app-state">
                 {action.last_ok == null ? (
-                  <span className="pill" data-tone="neutral">Never run</span>
+                  <span className="pill" data-tone="neutral">
+                    Never run
+                  </span>
                 ) : (
-                  <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>{action.last_ok ? 'OK' : 'Failed'}</span>
+                  <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>
+                    {action.last_ok ? 'OK' : 'Failed'}
+                  </span>
                 )}
               </span>
-            </span>
-            <span className="app-cell-desc" title={action.description}>{action.description}</span>
-            <span
-              className="app-cell-meta"
-              title={`${action.node_name} · ${action.last_run_at ? relative(action.last_run_at, now) : 'never run'} · ${
-                action.type === 'wol' ? 'Wake-on-LAN' : 'Script'
-              }`}
-            >
-              {action.node_name} · {action.last_run_at ? relative(action.last_run_at, now) : 'never run'} ·{' '}
-              {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
-            </span>
-          </button>
-        ))}
+              <span className="app-meta" title={`${action.node_name} · ${last} · ${kind}`}>
+                {action.node_name} · {last} · {kind}
+              </span>
+            </button>
+          );
+        })}
       </div>
       {all.length === 0 ? (
         <Empty>

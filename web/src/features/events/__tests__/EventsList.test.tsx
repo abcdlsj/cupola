@@ -24,6 +24,9 @@ describe('EventsList', () => {
       </MemoryRouter>,
     );
 
+    // Only the worst kind opens on its own; the network group starts folded.
+    fireEvent.click(screen.getByRole('button', { name: /^Network/ }));
+
     // One head row for the three Plex ports, one plain row for the failed unit.
     const heads = screen.getAllByRole('listitem').filter((item) => item.className === 'event-group');
     expect(heads).toHaveLength(1);

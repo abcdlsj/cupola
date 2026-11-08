@@ -1,15 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
 import {
-  ArrowsClockwise,
-  Database,
   FunnelSimple,
-  DownloadSimple,
-  HardDrive,
-  Power,
-  ShieldCheck,
   Terminal,
-  WifiHigh,
 } from '@phosphor-icons/react';
 import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
@@ -17,6 +10,7 @@ import { Empty } from '../../components/States';
 import { Kv } from '../../components/Kv';
 import { RunActionDialog } from '../apps/RunActionDialog';
 import { useActions, useContainerHistory, useNode, useRuns } from '../../data/queries';
+import { actionMark } from '../../lib/actionIcon';
 import type { Action, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { seriesColor } from '../../lib/chart';
@@ -26,16 +20,6 @@ import { Meter } from '../../components/Meter';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 
-const ACTION_ICONS: Record<string, typeof Power> = {
-  wake: Power,
-  backup: Database,
-  restart: ArrowsClockwise,
-  update: DownloadSimple,
-  terminal: Terminal,
-  shield: ShieldCheck,
-  disk: HardDrive,
-  network: WifiHigh,
-};
 
 function useSnap() {
   return useOutletContext<NodeView>();
@@ -500,33 +484,51 @@ export function AppsTab() {
   const actions = query.data?.actions ?? [];
   return (
     <>
-      <div className="app-grid" data-columns={actions.length % 3 === 0 ? '3' : '2'}>
+      <div className="app-list">
         {actions.map((action) => {
-          const Icon = ACTION_ICONS[action.icon] ?? Terminal;
+          const mark = actionMark(action);
+          const last = action.last_run_at ? relative(action.last_run_at, Date.now()) : 'never run';
           return (
             <button
               type="button"
-              className="app-tile"
+              className="app-row"
               key={action.id}
               onClick={() => {
                 setSelected(action);
                 setOpen(true);
               }}
             >
-              <span className="app-cell-top">
-                <Icon size={18} className="app-tile-icon" aria-hidden="true" />
-                <span className="app-cell-name">{action.name}</span>
-                <span className="app-tile-pill">
-                  {action.last_ok == null ? (
-                    <span className="pill" data-tone="neutral">Never run</span>
-                  ) : (
-                    <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>{action.last_ok ? 'OK' : 'Failed'}</span>
-                  )}
+              <span className="app-mark" aria-hidden="true" data-danger={action.danger ? 'true' : undefined}>
+                {mark.kind === 'image' ? <img src={mark.src} alt="" /> : <mark.Icon size={17} />}
+              </span>
+              <span className="app-main">
+                <span className="app-name-line">
+                  <span className="app-name" title={action.name}>
+                    {action.name}
+                  </span>
+                  {action.danger ? (
+                    <span className="pill" data-tone="negative">
+                      Dangerous
+                    </span>
+                  ) : null}
+                </span>
+                <span className="app-desc" title={action.description}>
+                  {action.description}
                 </span>
               </span>
-              <span className="app-cell-desc">{action.description}</span>
-              <span className="app-cell-meta">
-                {action.last_run_at ? relative(action.last_run_at, Date.now()) : 'never run'} · {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
+              <span className="app-state">
+                {action.last_ok == null ? (
+                  <span className="pill" data-tone="neutral">
+                    Never run
+                  </span>
+                ) : (
+                  <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>
+                    {action.last_ok ? 'OK' : 'Failed'}
+                  </span>
+                )}
+              </span>
+              <span className="app-meta" title={`${last} · ${action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}`}>
+                {last} · {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
               </span>
             </button>
           );
@@ -600,7 +602,8 @@ export function AppDetailPage() {
   const action = actions.data?.actions.find((entry) => entry.id === actionId);
   if (!query.data) return <Empty>Loading…</Empty>;
   if (!action) return <NotFound what={`Action ${actionId}`} to={`/nodes/${nodeId}/apps`} />;
-  const Icon = ACTION_ICONS[action.icon] ?? Terminal;
+  const mark = actionMark(action);
+  const Icon = mark.kind === 'symbol' ? mark.Icon : Terminal;
   return (
     <>
       <Panel title={action.name} flush>

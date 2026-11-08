@@ -89,7 +89,9 @@ export function EventsList({
   const [severity, setSeverity] = useState(params.get('severity') ?? '');
   const [kind, setKind] = useState(params.get('kind') ?? '');
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // null means "nothing has been toggled": only a critical group opens on its
+  // own, everything else starts folded so the list is a summary, not a scroll.
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string> | null>(null);
   const query = useEvents({
     node: nodeId,
     severity: severity || undefined,
@@ -113,11 +115,24 @@ export function EventsList({
   const kinds = groupByKind(groups);
   const folded = events.length - groups.length;
 
-  const toggleKind = (kind: string) => {
+  // Critical opens by itself; with nothing critical the worst kind opens, so a
+  // quiet fleet is one readable group rather than a stack of closed lids.
+  const defaultFolded = (): ReadonlySet<string> => {
+    const critical = kinds.filter((entry) => entry.worst === 'critical');
+    const open = critical.length > 0 ? critical : kinds.slice(0, 1);
+    return new Set(kinds.filter((entry) => !open.includes(entry)).map((entry) => entry.kind));
+  };
+
+  const isFolded = (entry: KindGroup) =>
+    collapsed === null ? defaultFolded().has(entry.kind) : collapsed.has(entry.kind);
+
+  const toggleKind = (entry: KindGroup) => {
     setCollapsed((current) => {
-      const next = new Set(current);
-      if (next.has(kind)) next.delete(kind);
-      else next.add(kind);
+      // the first toggle materialises the default, so one click opens exactly
+      // the group that was clicked
+      const next = new Set(current ?? defaultFolded());
+      if (next.has(entry.kind)) next.delete(entry.kind);
+      else next.add(entry.kind);
       return next;
     });
   };
@@ -250,14 +265,14 @@ export function EventsList({
       ) : (
         <ul className="event-list">
           {kinds.map((entry) => {
-            const hidden = collapsed.has(entry.kind);
+            const hidden = isFolded(entry);
             return (
               <li className="event-kind" key={entry.kind}>
                 <button
                   type="button"
                   className="event-kind-head"
                   aria-expanded={!hidden}
-                  onClick={() => toggleKind(entry.kind)}
+                  onClick={() => toggleKind(entry)}
                 >
                   <CaretRight size={12} aria-hidden="true" data-open={hidden ? undefined : 'true'} />
                   <span className="event-kind-name">{KIND_LABEL[entry.kind] ?? entry.kind}</span>
