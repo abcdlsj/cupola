@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { FunnelSimple } from '@phosphor-icons/react';
 import { Panel } from '../../components/Panel';
 import { Pager } from '../../components/Pager';
-import { ErrorPanel, PageSkeleton } from '../../components/States';
+import { ErrorPanel } from '../../components/States';
+import { ServicesSkeleton } from '../../components/Skeletons';
 import { UnitState, UnitTable } from '../../components/UnitTable';
 import { useFleetServices } from '../../data/queries';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
@@ -30,7 +31,7 @@ export function FleetServicesPage() {
     );
   }, [services.data]);
 
-  if (services.isPending) return <PageSkeleton title="Services" />;
+  if (services.isPending) return <ServicesSkeleton />;
   if (services.isError) {
     return <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />;
   }

@@ -1933,9 +1933,69 @@ h1.panel-title {
 }
 
 .skeleton {
+  display: inline-block;
   height: 12px;
   border-radius: 3px;
-  background: var(--raised);
+  /* `--control` is the one tone that reads against both the card and the
+     ground; `--raised` is a card-family colour and disappears on a card. */
+  background: var(--control);
+  opacity: 0.55;
+  animation: skeleton-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.28;
+  }
+}
+
+/* A meter's empty track under a value bar: the same 5 px rule the real meter
+   fills, so the row does not change height when the figure lands. */
+.skeleton-track {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 2px;
+  background: var(--track);
+  overflow: hidden;
+}
+
+.skeleton-fill {
+  display: block;
+  width: 42%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--control);
+  opacity: 0.7;
+}
+
+.syscard-skeleton-value {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.skeleton-cell-lead {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+/* The plot area of a chart card: axes inside a quiet frame, not a solid block. */
+.skeleton-plot {
+  display: block;
+  height: 152px;
+  border-radius: 2px;
+  background:
+    linear-gradient(to top, color-mix(in oklab, var(--control) 45%, transparent) 1px, transparent 1px)
+      0 100% / 100% 25% repeat-y,
+    color-mix(in oklab, var(--control) 10%, transparent);
 }
 
 .skeleton-block {

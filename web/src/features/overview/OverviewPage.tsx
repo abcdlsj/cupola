@@ -3,8 +3,9 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FunnelSimple } from '@phosphor-icons/react';
 import { Panel } from '../../components/Panel';
 import { Pager } from '../../components/Pager';
+import { SystemsSkeleton } from '../../components/Skeletons';
 import { SystemCard } from '../../components/SystemCard';
-import { Empty, ErrorPanel, PageSkeleton } from '../../components/States';
+import { Empty, ErrorPanel } from '../../components/States';
 import { UnitState, UnitTable } from '../../components/UnitTable';
 import { useFleet, useFleetServices } from '../../data/queries';
 import { nodeFigures } from '../../lib/fleet';
@@ -29,7 +30,7 @@ export function OverviewPage() {
     );
   }, [services.data]);
 
-  if (fleet.isPending) return <PageSkeleton title="Systems" />;
+  if (fleet.isPending) return <SystemsSkeleton />;
   if (fleet.isError) {
     return <ErrorPanel what="Could not load the fleet." onRetry={() => fleet.refetch()} />;
   }

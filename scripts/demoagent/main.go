@@ -214,13 +214,14 @@ func (d *demo) build() *model.Snapshot {
 			snap.Services = append(snap.Services, model.Service{Name: "restic-backup.service", Description: "Nightly restic backup", ActiveState: "failed", SubState: "failed", Enabled: "enabled", Restarts: 1, Since: now - 60*1000})
 			snap.Ports = append(snap.Ports, model.Port{Proto: "tcp", Address: "0.0.0.0", Port: 8080, State: "LISTEN", PID: 1102, Process: "docker-proxy"})
 		}
-		// Plex discovery opens a few UDP ports every five seconds. The hub reports
-		// each one as a new listening port, which is what the events list folds
+		// Plex discovery opens a few UDP ports every five seconds, below the
+		// ephemeral range so the hub treats them as services and reports each
+		// one as a new listening port: that is the repeat the events list folds
 		// into a single row with a count.
 		for i := 0; i < 3; i++ {
 			snap.Ports = append(snap.Ports, model.Port{
 				Proto: "udp", Address: "0.0.0.0",
-				Port:  uint32(int((now/5000)%1000)*3 + 34000 + i),
+				Port:  uint32(int((now/5000)%1000)*3 + 24000 + i),
 				State: "UNCONN", PID: 2210, Process: "Plex Media Ser",
 			})
 		}

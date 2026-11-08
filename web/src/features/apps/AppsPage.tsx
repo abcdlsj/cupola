@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
-import { Empty, PageSkeleton } from '../../components/States';
+import { Empty } from '../../components/States';
+import { AppsSkeleton } from '../../components/Skeletons';
 import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
 import type { ActionRun, FleetAction } from '../../data/types';
@@ -17,7 +18,7 @@ export function AppsPage() {
   const failed = all.filter((action) => action.last_ok === false);
   const nodeCount = new Set(all.map((action) => action.node_id)).size;
 
-  if (actions.isPending) return <PageSkeleton title="Apps" />;
+  if (actions.isPending) return <AppsSkeleton />;
 
   return (
     <>

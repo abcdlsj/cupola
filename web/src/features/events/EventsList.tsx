@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { SeverityPill } from '../../components/StatusPill';
 import { Empty, ErrorPanel } from '../../components/States';
+import { EventsSkeleton } from '../../components/Skeletons';
 import { useEvents } from '../../data/queries';
 import type { Event, Severity } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
@@ -243,7 +244,7 @@ export function EventsList({
       {query.isError ? (
         <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
       ) : query.isPending ? (
-        <Empty>Loading events…</Empty>
+        <EventsSkeleton />
       ) : groups.length === 0 ? (
         <Empty>No events match this filter. Events appear when a unit fails, a container restarts, a port opens or a threshold fires.</Empty>
       ) : (

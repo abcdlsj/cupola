@@ -5,6 +5,7 @@ import { CaretLeft } from '@phosphor-icons/react';
 import { PageHeader } from '../../components/Panel';
 import { StatusPill } from '../../components/StatusPill';
 import { ErrorPanel } from '../../components/States';
+import { ChartGridSkeleton, NodeSkeleton } from '../../components/Skeletons';
 import { prefetchSeries, TAB_SERIES, useNode } from '../../data/queries';
 import type { NodeView } from '../../data/types';
 import { relative, size, uptime } from '../../lib/format';
@@ -34,17 +35,6 @@ function tabs(view: NodeView): Array<{ to: string; label: string; count?: ReactN
   ];
 }
 
-function NodeSkeleton() {
-  return (
-    <section className="panel node-head" aria-hidden="true">
-      <div className="node-head-main">
-        <span className="skeleton" style={{ width: 160, height: 20 }} />
-        <span className="skeleton" style={{ width: 420, marginTop: 12 }} />
-      </div>
-    </section>
-  );
-}
-
 export function NodeLayout() {
   const { nodeId = '' } = useParams();
   const location = useLocation();
@@ -60,7 +50,23 @@ export function NodeLayout() {
     prefetchSeries(client, nodeId, (TAB_SERIES[''] ?? []).map(([metric]) => [metric, range] as const));
   }, [client, nodeId, range]);
 
-  if (query.isPending) return <NodeSkeleton />;
+  if (query.isPending) {
+    return (
+      <>
+        <NodeSkeleton />
+        <nav className="tabs" aria-hidden="true">
+          {['Overview', 'CPU', 'Memory', 'Storage', 'Network', 'Processes', 'Services', 'Containers'].map(
+            (label) => (
+              <span className="tab" key={label}>
+                {label}
+              </span>
+            ),
+          )}
+        </nav>
+        <ChartGridSkeleton cards={4} />
+      </>
+    );
+  }
   if (query.isError || !query.data) {
     return (
       <>

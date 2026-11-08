@@ -2,7 +2,8 @@ import { Fig } from '../../components/Fig';
 import { Link } from 'react-router-dom';
 import { Panel } from '../../components/Panel';
 import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { Empty, PageSkeleton } from '../../components/States';
+import { Empty } from '../../components/States';
+import { AlertsSkeleton } from '../../components/Skeletons';
 import { useAlerts, useChannels, useDeliveries, useRules } from '../../data/queries';
 import { clock, relative } from '../../lib/format';
 
@@ -14,7 +15,7 @@ export function AlertsPage() {
   const deliveries = useDeliveries();
   const channelName = (id: string) => channels.data?.find((channel) => channel.id === id)?.name ?? (id ? id : 'in-app only');
 
-  if (rules.isPending || firing.isPending) return <PageSkeleton title="Alerts" />;
+  if (rules.isPending || firing.isPending) return <AlertsSkeleton />;
 
   return (
     <>
