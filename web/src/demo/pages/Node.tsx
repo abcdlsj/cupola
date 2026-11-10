@@ -20,7 +20,6 @@ import {
   filesystems,
   interfaces,
   node,
-  nodes,
   processes,
   type DemoNode,
   units,
@@ -82,7 +81,6 @@ function NodeHead({ entry, tab }: { entry: DemoNode; tab: string }) {
                 <SegmentedControlItem key={item} value={item} label={item} />
               ))}
             </SegmentedControl>
-            <Button label="Ping" variant="secondary" onClick={() => undefined} />
           </>
         }
       />
@@ -266,10 +264,7 @@ function ProcessesTab() {
               <Text type="supporting">Command line</Text>
               <Text type="code">{picked.cmd}</Text>
             </VStack>
-            <HStack gap={2}>
-              <Button label="Open processes view" variant="secondary" onClick={() => { location.hash = '#/nodes/atlas/processes'; }} />
-              <Text type="supporting">Signals are not available in v1.</Text>
-            </HStack>
+            <Text type="supporting">Signals are not available in v1.</Text>
           </VStack>
         </Card>
       ) : null}
@@ -325,7 +320,7 @@ function CpuTab({ entry }: { entry: DemoNode }) {
           yMax={60}
         />
       </Band>
-      <Band title="Per core" desc="8 cores · use the bar to find the hot one">
+      <Band title="Per core" desc="8 cores">
         <Grid columns={{ minWidth: 240, repeat: 'fit' }} gap={3}>
           {cores.map((core) => (
             <Card key={core.core} padding={3}>
@@ -375,7 +370,7 @@ function MemoryTab({ entry }: { entry: DemoNode }) {
                 Cache
               </Text>
               <Figure value="4.8" unit="GiB" size="heading" />
-              <Text type="supporting">reclaimable</Text>
+
             </VStack>
           </Card>
           <Card padding={4}>
@@ -384,7 +379,7 @@ function MemoryTab({ entry }: { entry: DemoNode }) {
                 Free
               </Text>
               <Figure value="2.1" unit="GiB" size="heading" />
-              <Text type="supporting">no pressure</Text>
+
             </VStack>
           </Card>
           <Card padding={4}>
@@ -586,7 +581,7 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
         return (
           <>
             <Kpis entry={entry} />
-            <Band title="Last hour" desc="the three readings that move first">
+            <Band title="Last hour" desc="CPU, memory and network">
               <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
                 <ChartCard
                   title="CPU"
@@ -657,15 +652,6 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
     <>
       <NodeHead entry={entry} tab={tab} />
       {body()}
-      <Band title="Other systems">
-        <HStack gap={3} wrap="wrap">
-          {nodes.map((other) => (
-            <a key={other.id} href={`#/nodes/${other.id}${tab === 'overview' ? '' : `/${tab}`}`}>
-              {other.name}
-            </a>
-          ))}
-        </HStack>
-      </Band>
     </>
   );
 }

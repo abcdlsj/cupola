@@ -107,11 +107,11 @@ export function Kpi({
   return (
     <Card padding={4}>
       <VStack gap={2}>
-        <HStack gap={2} vAlign="center">
-          {state ? <StatusDot variant={state} label={label} /> : null}
+        <HStack hAlign="between" vAlign="center" gap={2}>
           <Text type="label" color="secondary">
             {label}
           </Text>
+          {state ? <StatusDot variant={state} label={label} /> : null}
         </HStack>
         <Figure
           value={value}
@@ -223,12 +223,14 @@ export function ChartCard({
   lines,
   height = 180,
   yMax,
+  unit,
 }: {
   title: string;
   desc: string;
   lines: { label: string; seed: number; base: number; swing: number }[];
   height?: number;
   yMax?: number;
+  unit?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   return (
@@ -244,6 +246,7 @@ export function ChartCard({
             timestamps={timestamps}
             height={height}
             yMax={yMax}
+            unit={unit}
             series={lines.map((line) => ({
               label: line.label,
               data: series(line.seed, line.base, line.swing),

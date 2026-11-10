@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Grid } from '@astryxdesign/core/Grid';
 import { HStack } from '@astryxdesign/core/HStack';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Switch } from '@astryxdesign/core/Switch';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
@@ -180,41 +180,25 @@ function RetentionSection() {
       <HStack gap={3} vAlign="center" wrap="wrap">
         <Text type="supporting">Database file</Text>
         <Text type="code">184 MiB · WAL 12 MiB</Text>
-        <Button label="Vacuum" variant="secondary" onClick={() => undefined} />
       </HStack>
     </Band>
   );
 }
 
 function AppearanceSection() {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  const [compact, setCompact] = useState(true);
+  const [theme, setTheme] = useState('dark');
   return (
-    <Band title="Appearance" desc="The theme supplies every colour; nothing is hard-coded" first>
-      <VStack gap={4}>
-        <Switch
-          label="Compact tables"
-          description="Tighter rows on wide screens"
-          value={compact}
-          onChange={setCompact}
-        />
-        <Switch
-          label="Reduce motion"
-          description="Disables chart and meter animation"
-          value={reduceMotion}
-          onChange={setReduceMotion}
-        />
-        <Divider />
-        <VStack gap={2}>
-          <Text type="supporting">Colour comes from the theme, never a component</Text>
-          <HStack gap={2} wrap="wrap">
-            {['accent', 'border', 'text-secondary', 'data-categorical-blue', 'data-categorical-teal'].map(
-              (name) => (
-                <Badge key={name} label={name} variant="neutral" />
-              ),
-            )}
-          </HStack>
-        </VStack>
+    <Band title="Appearance" desc="System, light or dark" first>
+      <VStack gap={3}>
+        <SegmentedControl label="Theme" value={theme} onChange={setTheme}>
+          <SegmentedControlItem value="system" label="System" />
+          <SegmentedControlItem value="light" label="Light" />
+          <SegmentedControlItem value="dark" label="Dark" />
+        </SegmentedControl>
+        <Text type="supporting">
+          The choice is kept per browser. Every colour comes from the theme; no component holds a
+          literal.
+        </Text>
       </VStack>
     </Band>
   );
@@ -231,10 +215,6 @@ function AboutSection() {
         <VStack gap={1}>
           <Text type="supporting">Agent</Text>
           <Text type="code">v1.4.2</Text>
-        </VStack>
-        <VStack gap={1}>
-          <Text type="supporting">Design system</Text>
-          <Text type="code">Astryx 0.7.11</Text>
         </VStack>
         <VStack gap={1}>
           <Text type="supporting">Transport</Text>

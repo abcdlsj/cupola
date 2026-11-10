@@ -11,7 +11,7 @@ import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { actions, events, rules, units } from '../fixtures';
 import { useIsPhone } from '../Chrome';
-import { Band, FindingRow, Kpi, KpiGrid, PageHead } from '../ui';
+import { Band, FindingRow, PageHead } from '../ui';
 
 interface UnitRow extends Record<string, unknown> {
   node: string;
@@ -141,7 +141,7 @@ export function AppsPage() {
       <PageHead
         title="Apps"
         desc="Actions the agent advertises. The hub can only run these; it cannot define them."
-        actions={<Button label="Read the rules" variant="ghost" onClick={() => { location.hash = '#/settings/about'; }} />}
+
       />
       <Band title="Actions" desc={`${actions.length} available`} first>
         <VStack gap={0}>
@@ -164,15 +164,12 @@ export function AppsPage() {
                   {action.detail} · last run {action.lastRun}
                 </Text>
               </VStack>
-              <HStack gap={2}>
-                <Button label="History" variant="ghost" size="sm" onClick={() => undefined} />
-                <Button
-                  label={action.type === 'wol' ? 'Wake' : 'Run'}
-                  variant={action.type === 'wol' ? 'primary' : 'secondary'}
-                  size="sm"
-                  onClick={() => undefined}
-                />
-              </HStack>
+              <Button
+                label={action.type === 'wol' ? 'Wake' : 'Run'}
+                variant={action.type === 'wol' ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => undefined}
+              />
             </HStack>
           ))}
         </VStack>
@@ -183,8 +180,8 @@ export function AppsPage() {
             Run limits
           </Text>
           <Text type="supporting">
-            One run per action per node, 60 s timeout, 8 KiB of output kept, every run becomes an event.
-            Dangerous actions ask you to type the action name first.
+            One run per action per node · 60 s timeout · output truncated to 8 KiB · every result is an
+            event · dangerous actions require typing the action name.
           </Text>
         </VStack>
       </Card>
@@ -198,16 +195,9 @@ export function AlertsPage() {
     <>
       <PageHead
         title="Alerts"
-        desc="Two things are firing. Both notifications are working."
+        desc={`${firing.length} firing · ${rules.length} rules`}
         actions={<Button label="New rule" variant="primary" onClick={() => undefined} />}
       />
-
-      <KpiGrid>
-        <Kpi label="Firing" value={firing.length} state="error" note="both on beelink" />
-        <Kpi label="Rules" value={rules.length} note="2 muted · 1 healthy" />
-        <Kpi label="Delivered" value="18" unit="today" note="ntfy and webhook · signed" />
-        <Kpi label="Last delivery" value="38 m ago" note="webhook · 200 in 212 ms" />
-      </KpiGrid>
 
       <Band title="Firing" desc="What is wrong right now, newest first" first>
         <VStack gap={3}>
@@ -220,16 +210,13 @@ export function AlertsPage() {
                     <Text weight="semibold">{rule.what}</Text>
                     <Text type="supporting">{rule.scope}</Text>
                   </HStack>
-                  <Text type="supporting">since 38 m ago</Text>
+                  <Text type="supporting">{rule.state}</Text>
                 </HStack>
                 <Divider />
                 <HStack gap={4} vAlign="center" wrap="wrap">
                   <Text type="code">{rule.when}</Text>
                   <Text type="supporting">→ {rule.channel}</Text>
-                  <HStack gap={2}>
-                    <Button label="Silence 1 h" variant="ghost" size="sm" onClick={() => undefined} />
-                    <Button label="Open rule" variant="secondary" size="sm" onClick={() => undefined} />
-                  </HStack>
+                  <Button label="Open rule" variant="secondary" size="sm" onClick={() => undefined} />
                 </HStack>
               </VStack>
             </Card>

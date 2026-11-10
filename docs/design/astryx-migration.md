@@ -55,6 +55,26 @@ changes the page shapes with it:
 - **The agents tab is gone.** `058d014 feat!: drop AI agent sessions` removed the
   roster from the product; the demo had carried it over from the old nav.
 
+## Second round of review
+
+- **The home page lists nodes and nothing else.** Every per-node fact (strained
+  memory, tightest filesystem, recent events) lives behind the node's own page, so
+  the fleet view is one roster plus two fleet charts. The attention band and the
+  units band were removed.
+- **Charts have a hover readout.** uPlot's cursor hook drives a themed tooltip —
+  timestamp, then one line per series with a hue dot, the label and the value with
+  its unit — instead of a legend.
+- **The footer is a layout region.** AppShell now runs `height="fill"` and the page
+  composes `Layout` with a `LayoutFooter`, so the retention line sits on the
+  viewport edge instead of the end of the content.
+- **Stacked text shares an edge.** A KPI's status dot moved to the trailing edge of
+  its label row: previously it indented the label, so the label and the figure
+  below it started at different x positions.
+- **Nothing that v1 does not have.** Removed from the demo: Ping, Silence 1 h,
+  Delivered/Last delivery, action History, Vacuum, App's compact-table and
+  reduce-motion switches (not hub settings), the "Other systems" band, and every
+  explanatory line with no data behind it.
+
 ## Mapping
 
 | Cupola today | Astryx | Verdict |

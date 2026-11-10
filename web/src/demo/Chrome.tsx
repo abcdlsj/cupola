@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import * as Icon from '@phosphor-icons/react';
 import { AppShell } from '@astryxdesign/core/AppShell';
 import { IconButton } from '@astryxdesign/core/IconButton';
+import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout';
 import { useMediaQuery } from '@astryxdesign/core/hooks';
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav';
 import { Text } from '@astryxdesign/core/Text';
@@ -67,7 +68,7 @@ function Nav({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
           heading="cupola"
           logo={<CupolaMark size={20} />}
           headingHref="#/"
-          subheading="4 systems · 2 need attention"
+          subheading="4 systems · every 5 s"
           subheadingHref="#/"
         />
       }
@@ -112,19 +113,29 @@ export function Chrome({
     <Theme theme={cupolaTheme} mode={mode}>
       <AppShell
         topNav={<Nav mode={mode} onMode={onMode} />}
-        contentPadding={4}
-        height="auto"
+        contentPadding={0}
+        height="fill"
         variant="section"
       >
-        <VStack gap={6} paddingBlock={2}>
-          {children}
-          <VStack gap={1} paddingBlock={3}>
-            <Text type="supporting">
-              Cupola · Astryx demo · raw 48 h, 1 m 30 d, 1 h 13 mo ·{' '}
-              <a href="#/settings/about">about</a>
-            </Text>
-          </VStack>
-        </VStack>
+        {/* The footer is a layout region, not the last thing in the flow: it
+            stays on the viewport edge while the content column scrolls. */}
+        <Layout
+          height="fill"
+          content={
+            <LayoutContent padding={4}>
+              <VStack gap={6} paddingBlock={2}>
+                {children}
+              </VStack>
+            </LayoutContent>
+          }
+          footer={
+            <LayoutFooter hasDivider>
+              <Text type="supporting">
+                raw 48 h · 1 m 30 d · 1 h 13 mo · <a href="#/settings/about">about</a>
+              </Text>
+            </LayoutFooter>
+          }
+        />
       </AppShell>
     </Theme>
   );
