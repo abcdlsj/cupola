@@ -75,6 +75,52 @@ changes the page shapes with it:
   reduce-motion switches (not hub settings), the "Other systems" band, and every
   explanatory line with no data behind it.
 
+## Taste-skill gate (app-screen rules)
+
+Run on the production build (`vite build`, `vite preview`), brand palette and type
+kept, so no style was dealt and no direction was redrawn:
+
+```bash
+node <skill>/scripts/lint.mjs --app web/src/demo
+node <skill>/scripts/inspect.mjs --app http://localhost:4180/demo.html#/<route>
+```
+
+| Route | Result |
+| --- | --- |
+| `#/`, `#/nodes/beelink`, `#/nodes/loft`, `#/services`, `#/apps`, `#/alerts`, `#/events`, `#/nodes/atlas/processes` | 0 FAIL, 0 WARN |
+| `#/settings/appearance` | 0 FAIL, 1 WARN (`hero-void`, defended below) |
+
+What the gate changed:
+
+- **Density, three settings moved together.** Type scale down to a monitoring
+  set (14 body / 13 supporting / 12 meta / 11 axis), table rows to the medium
+  density, and the page rhythm to `gap={6}`. At 768 px 53 % of the text had been
+  under 13 px; it is now 0.
+- **KPIs are one divided strip, not a card each.** Five cells, hairlines between,
+  label above the value at 24 px, units as a small grey suffix, the status dot on
+  the label's trailing edge so the label and the figure share a left edge.
+- **Four fleet charts became four small multiples** (one series each, 200 px
+  tall) instead of two stretched two-series plots.
+- **Tables**: numbers right-aligned with `align: 'end'`; the identity column is
+  the widest; a command-line column fills what a five-column process table left
+  empty; the rules and events tables replaced their dead middle with real
+  columns.
+- **States**: missing values print a grey dash, an offline node's charts keep
+  their frame with one sentence, a filter with no match shows `EmptyState`, an
+  unknown node route is a not-found page, and every figure is tabular
+  (`web/src/demo/demo.css`).
+- **Events gained a "by kind" strip** (count per kind, newest age) so the feed
+  does not open on a mostly empty screen.
+
+Defended WARN: `settings/appearance` leaves the bottom 300 px of a 900 px screen
+empty. Four controls cannot fill it, and the layout's pinned footer closes the
+space; there is no honest block to add without inventing a setting.
+
+Lint WARNs kept on purpose: `mono` (Cupola's brand sets every figure in Plex
+Mono, which the app rules allow as a style's decided face), `em-dash` (the em
+dash is the missing-value mark the rules require), `numbering` (zero-padded
+clock minutes in the chart axis).
+
 ## Mapping
 
 | Cupola today | Astryx | Verdict |

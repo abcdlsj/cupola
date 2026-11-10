@@ -4,6 +4,8 @@ import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
 import { HStack } from '@astryxdesign/core/HStack';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { Grid } from '@astryxdesign/core/Grid';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
@@ -42,7 +44,7 @@ const unitColumns: TableColumn<UnitRow>[] = [
   {
     key: 'node',
     header: 'System',
-    width: pixel(140),
+    width: proportional(1, { minWidth: 140 }),
     renderCell: (row) => <a href={`#/nodes/${row.node}/services`}>{row.node}</a>,
   },
   {
@@ -120,6 +122,13 @@ export function ServicesPage() {
               />
             ))}
           </VStack>
+        ) : rest.length === 0 ? (
+          <EmptyState
+            title="No unit matches that filter"
+            description="Nothing on this fleet has that name. Clear the filter to see all units."
+            isCompact
+            headingLevel={3}
+          />
         ) : (
           <Table
             data={rest as unknown as UnitRow[]}
@@ -189,6 +198,63 @@ export function AppsPage() {
   );
 }
 
+interface RuleRow extends Record<string, unknown> {
+  id: string;
+  what: string;
+  scope: string;
+  when: string;
+  channel: string;
+  state: 'firing' | 'ok' | 'muted';
+}
+
+const ruleColumns: TableColumn<RuleRow>[] = [
+  {
+    key: 'what',
+    header: 'Rule',
+    width: proportional(1, { minWidth: 220 }),
+    renderCell: (row) => <Text>{row.what}</Text>,
+  },
+  {
+    key: 'scope',
+    header: 'Applies to',
+    width: pixel(160),
+    renderCell: (row) => <Text type="supporting">{row.scope}</Text>,
+  },
+  {
+    key: 'when',
+    header: 'Condition',
+    width: proportional(1, { minWidth: 260 }),
+    renderCell: (row) => <Text type="code">{row.when}</Text>,
+  },
+  {
+    key: 'channel',
+    header: 'Channel',
+    width: pixel(180),
+    renderCell: (row) => <Text type="supporting">{row.channel}</Text>,
+  },
+  {
+    key: 'state',
+    header: 'State',
+    width: pixel(120),
+    renderCell: (row) => (
+      <HStack gap={1.5} vAlign="center">
+        <StatusDot
+          variant={row.state === 'firing' ? 'error' : row.state === 'muted' ? 'neutral' : 'success'}
+          label={row.state}
+        />
+        <Text type="supporting">{row.state}</Text>
+      </HStack>
+    ),
+  },
+  {
+    key: 'edit',
+    header: '',
+    width: pixel(80),
+    align: 'end',
+    renderCell: () => <Button label="Edit" variant="ghost" size="sm" onClick={() => undefined} />,
+  },
+];
+
 export function AlertsPage() {
   const firing = rules.filter((rule) => rule.state === 'firing');
   return (
@@ -199,48 +265,63 @@ export function AlertsPage() {
         actions={<Button label="New rule" variant="primary" onClick={() => undefined} />}
       />
 
-      <Band title="Firing" desc="What is wrong right now, newest first" first>
-        <VStack gap={3}>
+      <Band
+        title="Firing"
+        desc="What is wrong right now, newest first"
+        actions={<Text type="supporting">{firing.length} of {rules.length} rules</Text>}
+        first
+      >
+        <Grid columns={{ minWidth: 380, repeat: 'fit' }} gap={3}>
           {firing.map((rule) => (
             <Card key={rule.id}>
               <VStack gap={3}>
-                <HStack gap={2} vAlign="center" hAlign="between" wrap="wrap">
-                  <HStack gap={2} vAlign="center">
-                    <StatusDot variant="error" label="firing" isPulsing />
-                    <Text weight="semibold">{rule.what}</Text>
-                    <Text type="supporting">{rule.scope}</Text>
-                  </HStack>
-                  <Text type="supporting">{rule.state}</Text>
+                <HStack gap={2} vAlign="center" wrap="wrap">
+                  <StatusDot variant="error" label="firing" isPulsing />
+                  <Text weight="semibold">{rule.what}</Text>
                 </HStack>
                 <Divider />
-                <HStack gap={4} vAlign="center" wrap="wrap">
+                <VStack gap={1}>
                   <Text type="code">{rule.when}</Text>
-                  <Text type="supporting">→ {rule.channel}</Text>
-                  <Button label="Open rule" variant="secondary" size="sm" onClick={() => undefined} />
-                </HStack>
+                  <Text type="supporting">
+                    {rule.scope} · {rule.channel}
+                  </Text>
+                </VStack>
+                <Button label="Open rule" variant="secondary" size="sm" onClick={() => undefined} />
               </VStack>
             </Card>
           ))}
-        </VStack>
+        </Grid>
       </Band>
 
-      <Band title="All rules" desc="Metric, event, prediction and SMART rules">
-        <VStack gap={0}>
-          {rules.map((rule) => (
-            <FindingRow
-              key={rule.id}
-              state={rule.state === 'firing' ? 'error' : rule.state === 'muted' ? 'neutral' : 'success'}
-              what={rule.what}
-              where={`${rule.scope} · ${rule.when} · ${rule.channel}`}
-              action={
-                <Button label="Edit" variant="ghost" size="sm" onClick={() => undefined} />
-              }
-            />
-          ))}
-        </VStack>
+      <Band
+        title="All rules"
+        desc="Metric, event, prediction and SMART rules"
+        actions={
+          <Text type="supporting">
+            {rules.filter((rule) => rule.state === 'muted').length} muted
+          </Text>
+        }
+      >
+        <Table
+          data={rules as unknown as RuleRow[]}
+          columns={ruleColumns}
+          idKey="id"
+          density="compact"
+          dividers="rows"
+          hasHover
+        />
       </Band>
     </>
   );
+}
+
+interface EventRow extends Record<string, unknown> {
+  id: number;
+  node: string;
+  kind: string;
+  severity: 'info' | 'warning' | 'critical';
+  message: string;
+  ago: string;
 }
 
 export function EventsPage() {
@@ -269,35 +350,114 @@ export function EventsPage() {
         }
       />
 
-      <Band title="Timeline" desc={`${shown.length} events · grouped by kind`} first>
-        <VStack gap={0}>
-          {shown.map((event, index) => (
-            <VStack key={event.id} gap={0}>
-              {index > 0 ? <Divider /> : null}
-              <HStack gap={3} vAlign="center" hAlign="between" padding={3} wrap="wrap">
-                <HStack gap={2} vAlign="center">
-                  <StatusDot
-                    variant={
-                      event.severity === 'critical' ? 'error' : event.severity === 'warning' ? 'warning' : 'neutral'
-                    }
-                    label={event.severity}
-                  />
-                  <VStack gap={0}>
-                    <Text>{event.message}</Text>
-                    <HStack gap={1}>
-                      <a href={`#/nodes/${event.node}/events`}>{event.node}</a>
-                      <Text type="supporting">· {event.kind}</Text>
-                    </HStack>
-                  </VStack>
-                </HStack>
-                <HStack gap={3} vAlign="center">
-                  <Text type="supporting">{event.ago}</Text>
-                  <Button label="Alert me about this" variant="ghost" size="sm" onClick={() => undefined} />
-                </HStack>
+      <Band
+        title="By kind"
+        desc="What the last hour looked like, before the timeline"
+        first
+      >
+        <Grid columns={{ minWidth: 150, repeat: 'fit' }} gap={3}>
+          {kinds.map((entry) => {
+            const rows = events.filter((event) => event.kind === entry);
+            const worst = rows.some((event) => event.severity === 'critical')
+              ? 'error'
+              : rows.some((event) => event.severity === 'warning')
+                ? 'warning'
+                : 'neutral';
+            return (
+              <HStack key={entry} gap={2} vAlign="center">
+                <StatusDot variant={worst} label={entry} />
+                <VStack gap={0}>
+                  <Text>{entry}</Text>
+                  <Text type="supporting">
+                    {rows.length} · newest {rows[0]?.ago ?? '—'}
+                  </Text>
+                </VStack>
               </HStack>
-            </VStack>
-          ))}
-        </VStack>
+            );
+          })}
+        </Grid>
+      </Band>
+
+      <Band
+        title="Timeline"
+        desc={`${shown.length} events · grouped by kind`}
+        actions={
+          <HStack gap={3} vAlign="center">
+            <Text type="supporting">
+              {shown.filter((event) => event.severity === 'critical').length} critical
+            </Text>
+            <Text type="supporting">
+              {shown.filter((event) => event.severity === 'warning').length} warning
+            </Text>
+          </HStack>
+        }
+      >
+        {shown.length === 0 ? (
+          <EmptyState
+            title="Nothing in this kind"
+            description="No event of that kind in the last hour."
+            isCompact
+            headingLevel={3}
+          />
+        ) : (
+          <Table
+            data={shown as unknown as EventRow[]}
+            columns={[
+              {
+                key: 'message',
+                header: 'Event',
+                width: proportional(1, { minWidth: 300 }),
+                renderCell: (row) => (
+                  <HStack gap={2} vAlign="center">
+                    <StatusDot
+                      variant={
+                        row.severity === 'critical'
+                          ? 'error'
+                          : row.severity === 'warning'
+                            ? 'warning'
+                            : 'neutral'
+                      }
+                      label={row.severity}
+                    />
+                    <Text>{row.message}</Text>
+                  </HStack>
+                ),
+              },
+              {
+                key: 'node',
+                header: 'System',
+                width: proportional(1, { minWidth: 120 }),
+                renderCell: (row) => <a href={`#/nodes/${row.node}/events`}>{row.node}</a>,
+              },
+              {
+                key: 'kind',
+                header: 'Kind',
+                width: pixel(110),
+                renderCell: (row) => <Text type="supporting">{row.kind}</Text>,
+              },
+              {
+                key: 'ago',
+                header: 'When',
+                width: pixel(90),
+                align: 'end',
+                renderCell: (row) => <Text type="supporting">{row.ago}</Text>,
+              },
+              {
+                key: 'watch',
+                header: '',
+                width: pixel(170),
+                align: 'end',
+                renderCell: () => (
+                  <Button label="Alert me about this" variant="ghost" size="sm" onClick={() => undefined} />
+                ),
+              },
+            ]}
+            idKey="id"
+            density="balanced"
+            dividers="rows"
+            hasHover
+          />
+        )}
       </Band>
     </>
   );

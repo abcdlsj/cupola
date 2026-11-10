@@ -20,11 +20,12 @@ import {
   filesystems,
   interfaces,
   node,
+  nodes,
   processes,
   type DemoNode,
   units,
 } from '../fixtures';
-import { Band, ChartCard, FindingRow, Figure, Kpi, KpiGrid, Meter, PageHead } from '../ui';
+import { Band, ChartCard, FindingRow, Figure, KpiCell, KpiStrip, Meter, PageHead } from '../ui';
 
 const TABS = [
   'overview',
@@ -100,43 +101,40 @@ function NodeHead({ entry, tab }: { entry: DemoNode; tab: string }) {
 
 function Kpis({ entry }: { entry: DemoNode }) {
   return (
-    <KpiGrid>
-      <Kpi
+    <KpiStrip>
+      <KpiCell
         label="CPU"
         value={entry.cpu}
         unit="%"
         state={entry.state === 'offline' ? 'neutral' : 'accent'}
-        meter={entry.cpu}
         digits={1}
         note={`${entry.cores} cores · load ${entry.load.toFixed(1)}`}
       />
-      <Kpi
+      <KpiCell
         label="Memory"
         value={entry.memory}
         unit="%"
         state={entry.state === 'offline' ? 'neutral' : entry.memory && entry.memory > 85 ? 'warning' : 'accent'}
-        meter={entry.memory}
         digits={1}
         note="12.4 of 16 GiB · 4.8 cache"
       />
-      <Kpi
+      <KpiCell
         label="Disk"
         value={entry.disk}
         unit="%"
         state={entry.state === 'offline' ? 'neutral' : entry.disk && entry.disk > 90 ? 'error' : 'accent'}
-        meter={entry.disk}
         digits={1}
         note="root · 4 filesystems"
       />
-      <Kpi
+      <KpiCell
         label="Temperature"
         value={entry.temp}
         unit="°C"
         state={entry.temp && entry.temp > 70 ? 'warning' : 'success'}
         note="package, hottest sensor"
       />
-      <Kpi label="Uptime" value={entry.uptime.replace('up ', '')} note="since boot" />
-    </KpiGrid>
+      <KpiCell label="Uptime" value={entry.uptime.replace('up ', '')} note="since boot" />
+    </KpiStrip>
   );
 }
 
@@ -168,7 +166,7 @@ function ProcessesTab() {
     {
       key: 'name',
       header: 'Name',
-      width: proportional(1, { minWidth: 240 }),
+      width: pixel(200),
       renderCell: (row) => (
         <VStack gap={0}>
           <Text weight={picked?.pid === row.pid ? 'semibold' : 'normal'}>{row.name}</Text>
@@ -177,21 +175,34 @@ function ProcessesTab() {
       ),
     },
     {
+      key: 'command',
+      header: 'Command line',
+      width: proportional(1, { minWidth: 260 }),
+      renderCell: (row) => (
+        <Text type="code" maxLines={1}>
+          {row.cmd}
+        </Text>
+      ),
+    },
+    {
       key: 'cpu',
       header: 'CPU',
-      width: pixel(110),
+      width: pixel(100),
+      align: 'end',
       renderCell: (row) => <Figure value={row.cpu} unit="%" />,
     },
     {
       key: 'memory',
       header: 'Memory',
-      width: proportional(1, { minWidth: 180 }),
-      renderCell: (row) => <Meter value={row.memory} label={`${row.name} memory`} width={72} />,
+      width: pixel(100),
+      align: 'end',
+      renderCell: (row) => <Figure value={row.memory} unit="%" />,
     },
     {
       key: 'threads',
       header: 'Threads',
       width: pixel(100),
+      align: 'end',
       renderCell: (row) => (
         <Text type="code" hasTabularNumbers>
           {row.threads}
@@ -202,6 +213,7 @@ function ProcessesTab() {
       key: 'rss',
       header: 'RSS',
       width: pixel(110),
+      align: 'end',
       renderCell: (row) => (
         <Text type="code" hasTabularNumbers>
           {row.rss}
@@ -320,19 +332,25 @@ function CpuTab({ entry }: { entry: DemoNode }) {
           yMax={60}
         />
       </Band>
-      <Band title="Per core" desc="8 cores">
-        <Grid columns={{ minWidth: 240, repeat: 'fit' }} gap={3}>
-          {cores.map((core) => (
-            <Card key={core.core} padding={3}>
-              <VStack gap={2}>
-                <HStack gap={2} vAlign="center" hAlign="between">
+      <Band title="Per core" desc="8 cores, busiest first">
+        <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={0}>
+          {[...cores]
+            .sort((a, b) => b.busy - a.busy)
+            .map((core) => (
+              <HStack
+                key={core.core}
+                gap={3}
+                vAlign="center"
+                hAlign="between"
+                paddingBlock={2}
+              >
+                <HStack gap={2} vAlign="center">
                   <Text type="code">{core.core}</Text>
                   <Text type="supporting">{core.mhz} MHz</Text>
                 </HStack>
-                <Meter value={core.busy} label={`${core.core} busy`} width={160} />
-              </VStack>
-            </Card>
-          ))}
+                <Meter value={core.busy} label={`${core.core} busy`} width={180} />
+              </HStack>
+            ))}
         </Grid>
       </Band>
     </>
@@ -444,7 +462,7 @@ function NetworkTab() {
 }
 
 export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: string }) {
-  const entry = node(nodeId);
+  const entry = node(nodeId) ?? nodes[0];
   const nodeUnits = units.filter((unit) => unit.node === entry.id);
   const nodeEvents = events.filter((event) => event.node === entry.id);
   const nodeActions = actions.filter((action) => action.node === entry.id);
@@ -452,6 +470,9 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
   useEffect(() => {
     window.scrollTo({ top: 0 });
   }, [nodeId, tab]);
+
+  const offline = entry.state === 'offline';
+  const noData = offline ? `${entry.name} has not reported since ${entry.uptime.replace('no contact for ', '')} ago.` : undefined;
 
   const body = () => {
     switch (tab) {
@@ -584,6 +605,7 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
             <Band title="Last hour" desc="CPU, memory and network">
               <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
                 <ChartCard
+                  empty={noData}
                   title="CPU"
                   desc="system and iowait"
                   lines={[
@@ -592,6 +614,7 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
                   ]}
                 />
                 <ChartCard
+                  empty={noData}
                   title="Memory"
                   desc="used and cache"
                   lines={[
@@ -600,6 +623,7 @@ export function NodePage({ nodeId, tab = 'overview' }: { nodeId: string; tab?: s
                   ]}
                 />
                 <ChartCard
+                  empty={noData}
                   title="Network"
                   desc="eno1 receive"
                   lines={[{ label: 'rx', seed: 33, base: 44, swing: 26 }]}

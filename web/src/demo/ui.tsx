@@ -1,4 +1,6 @@
-import { useRef, type ReactNode } from 'react';
+// taste-skill-ignore em-dash: the em dash here is the missing-value mark the app
+// rules ask for ("a missing value is a grey dash"), not prose punctuation.
+import { Children, useRef, type ReactNode } from 'react';
 import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -84,16 +86,15 @@ export function Meter({
 }
 
 /**
- * A headline number. The dot carries the state so the figure stays ink, and the
- * meter appears only when the number is a percentage worth reading as a bar.
+ * A headline number. One container split by hairlines, not one card per figure:
+ * the study's screens give a KPI no tile of its own.
  */
-export function Kpi({
+export function KpiCell({
   label,
   value,
   unit,
   state,
   note,
-  meter,
   digits = 0,
 }: {
   label: string;
@@ -101,29 +102,55 @@ export function Kpi({
   unit?: string;
   state?: 'success' | 'warning' | 'error' | 'neutral' | 'accent';
   note?: string;
-  meter?: number | null;
   digits?: number;
 }) {
+  const text = value == null ? '—' : typeof value === 'number' ? value.toFixed(digits) : value;
   return (
-    <Card padding={4}>
-      <VStack gap={2}>
-        <HStack hAlign="between" vAlign="center" gap={2}>
-          <Text type="label" color="secondary">
-            {label}
-          </Text>
-          {state ? <StatusDot variant={state} label={label} /> : null}
-        </HStack>
-        <Figure
-          value={value}
-          unit={unit}
-          digits={digits}
-          size={typeof value === 'string' && value.length > 6 ? 'code' : 'heading'}
-        />
-        {meter !== undefined ? (
-          <Meter value={meter} label={label} width={140} showValue={false} digits={digits} />
-        ) : null}
-        {note ? <Text type="supporting">{note}</Text> : null}
-      </VStack>
+    <VStack gap={1}>
+      <HStack hAlign="between" gap={2} vAlign="center">
+        <Text type="supporting">{label}</Text>
+        {state ? <StatusDot variant={state} label={label} /> : null}
+      </HStack>
+      <HStack gap={1} vAlign="end">
+        <Text type="inherit" size="2xl" hasTabularNumbers>
+          {text}
+        </Text>
+        {unit ? <Text type="supporting">{unit}</Text> : null}
+      </HStack>
+      {note ? <Text type="supporting">{note}</Text> : null}
+    </VStack>
+  );
+}
+
+/** The strip: equal cells, one hairline between each, two columns on a phone. */
+export function KpiStrip({ children }: { children: ReactNode }) {
+  const phone = useMediaQuery('(max-width: 699px)');
+  const cells = Children.toArray(children);
+  if (phone) {
+    return (
+      <Card padding={3}>
+        <Grid columns={2} gap={3}>
+          {cells.map((cell, index) => (
+            <VStack key={index} gap={0}>
+              {cell}
+            </VStack>
+          ))}
+        </Grid>
+      </Card>
+    );
+  }
+  return (
+    <Card padding={0}>
+      <HStack gap={0} vAlign="stretch">
+        {cells.map((cell, index) => (
+          <HStack key={index} gap={0} width={`${100 / cells.length}%`} vAlign="center">
+            {index > 0 ? <Divider orientation="vertical" /> : null}
+            <VStack gap={0} padding={4} width="100%">
+              {cell}
+            </VStack>
+          </HStack>
+        ))}
+      </HStack>
     </Card>
   );
 }
@@ -224,6 +251,7 @@ export function ChartCard({
   height = 180,
   yMax,
   unit,
+  empty,
 }: {
   title: string;
   desc: string;
@@ -231,6 +259,8 @@ export function ChartCard({
   height?: number;
   yMax?: number;
   unit?: string;
+  /** A frame with one sentence beats a flat line when nothing was reported. */
+  empty?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   return (
@@ -240,19 +270,25 @@ export function ChartCard({
           <Heading level={3}>{title}</Heading>
           <Text type="supporting">{desc}</Text>
         </VStack>
-        <div ref={host}>
-          <Chart
-            host={host}
-            timestamps={timestamps}
-            height={height}
-            yMax={yMax}
-            unit={unit}
-            series={lines.map((line) => ({
-              label: line.label,
-              data: series(line.seed, line.base, line.swing),
-            }))}
-          />
-        </div>
+        {empty ? (
+          <VStack gap={2} paddingBlock={height > 190 ? 6 : 4}>
+            <Text type="supporting">{empty}</Text>
+          </VStack>
+        ) : (
+          <div ref={host}>
+            <Chart
+              host={host}
+              timestamps={timestamps}
+              height={height}
+              yMax={yMax}
+              unit={unit}
+              series={lines.map((line) => ({
+                label: line.label,
+                data: series(line.seed, line.base, line.swing),
+              }))}
+            />
+          </div>
+        )}
       </VStack>
     </Card>
   );

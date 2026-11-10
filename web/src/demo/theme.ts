@@ -8,6 +8,8 @@ import { neutralTheme } from '@astryxdesign/theme-neutral/built';
  * Every value here has a counterpart in web/src/styles/tokens.css; nothing else
  * in the demo hard-codes a colour.
  */
+// taste-skill-ignore mono: Cupola's brand sets every figure, timestamp and ID in
+// IBM Plex Mono, which the app rules allow as a style's one decided face.
 export const cupolaTheme = defineTheme({
   name: 'cupola',
   extends: neutralTheme,
@@ -15,6 +17,12 @@ export const cupolaTheme = defineTheme({
     '--font-family-body': "'IBM Plex Sans', system-ui, sans-serif",
     '--font-family-heading': "'IBM Plex Sans', system-ui, sans-serif",
     '--font-family-code': "'IBM Plex Mono', ui-monospace, monospace",
+    // Dense monitoring: 14px body, 13px supporting, 12px meta, 11px axis ticks.
+    '--font-size-base': '14px',
+    '--font-size-lg': '16px',
+    '--font-size-sm': '13px',
+    '--font-size-xs': '12px',
+    '--font-size-2xs': '11px',
 
     '--color-accent': ['#1b6c80', '#4a8ad6'],
     '--color-text-accent': ['#155b6c', '#8fbcf0'],

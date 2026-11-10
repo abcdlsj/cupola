@@ -1,3 +1,5 @@
+// taste-skill-ignore em-dash: em dashes in this file are missing values ("ports: —",
+// "speed: —"), which the app rules print as a grey dash.
 /**
  * Fake fleet for the Astryx demo. Nothing here talks to a hub: it exists so the
  * pages can be clicked through without a backend.
@@ -99,8 +101,8 @@ export const nodes: DemoNode[] = [
   },
 ];
 
-export function node(id: string | undefined): DemoNode {
-  return nodes.find((entry) => entry.id === id) ?? nodes[0];
+export function node(id: string | undefined): DemoNode | undefined {
+  return nodes.find((entry) => entry.id === id);
 }
 
 export interface Unit {
@@ -139,6 +141,17 @@ export const processes: Process[] = [
   { pid: 2210, name: 'plex', user: 'plex', cpu: 6.7, memory: 4.4, threads: 96, rss: '712 MiB', cmd: 'Plex Media Server' },
   { pid: 311, name: 'dockerd', user: 'root', cpu: 2.3, memory: 1.9, threads: 38, rss: '304 MiB', cmd: 'dockerd -H unix:///run/docker.sock' },
   { pid: 77, name: 'kworker/2:1', user: 'root', cpu: 0.9, memory: 0.0, threads: 1, rss: '0 B', cmd: 'kworker/2:1-events' },
+  { pid: 1, name: 'systemd', user: 'root', cpu: 0.4, memory: 0.1, threads: 1, rss: '12 MiB', cmd: '/sbin/init' },
+  { pid: 688, name: 'containerd', user: 'root', cpu: 1.2, memory: 0.7, threads: 24, rss: '118 MiB', cmd: '/usr/bin/containerd' },
+  { pid: 1109, name: 'sshd', user: 'root', cpu: 0.1, memory: 0.0, threads: 1, rss: '8 MiB', cmd: 'sshd: /usr/sbin/sshd -D' },
+  { pid: 1420, name: 'nginx', user: 'www-data', cpu: 1.8, memory: 0.3, threads: 4, rss: '46 MiB', cmd: 'nginx: worker process' },
+  { pid: 1421, name: 'nginx', user: 'www-data', cpu: 1.6, memory: 0.3, threads: 4, rss: '44 MiB', cmd: 'nginx: worker process' },
+  { pid: 1502, name: 'chronyd', user: 'root', cpu: 0.0, memory: 0.0, threads: 2, rss: '4 MiB', cmd: '/usr/sbin/chronyd -F 2' },
+  { pid: 1601, name: 'node_exporter', user: 'prometheus', cpu: 0.7, memory: 0.2, threads: 7, rss: '22 MiB', cmd: '/usr/local/bin/node_exporter' },
+  { pid: 1744, name: 'cupola-agent', user: 'cupola', cpu: 0.3, memory: 0.1, threads: 11, rss: '18 MiB', cmd: '/usr/local/bin/cupola agent' },
+  { pid: 1880, name: 'postgres', user: 'postgres', cpu: 3.4, memory: 2.1, threads: 1, rss: '48 MiB', cmd: 'postgres: walwriter' },
+  { pid: 2311, name: 'restic', user: 'backup', cpu: 2.2, memory: 0.6, threads: 9, rss: '96 MiB', cmd: 'restic backup /srv/media' },
+  { pid: 2488, name: 'kswapd0', user: 'root', cpu: 0.2, memory: 0.0, threads: 1, rss: '0 B', cmd: '[kswapd0]' },
 ];
 
 export interface Container {

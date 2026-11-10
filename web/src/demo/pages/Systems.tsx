@@ -36,7 +36,7 @@ const columns: TableColumn<SystemRow>[] = [
   {
     key: 'name',
     header: 'System',
-    width: proportional(1, { minWidth: 220 }),
+    width: proportional(1, { minWidth: 260 }),
     renderCell: (row) => (
       <HStack gap={2} vAlign="center">
         <StatusDot variant={tone(row.state)} label={row.state} tooltip={`${row.name}: ${row.state}`} />
@@ -53,31 +53,33 @@ const columns: TableColumn<SystemRow>[] = [
   {
     key: 'cpu',
     header: 'CPU',
-    width: proportional(1, { minWidth: 190 }),
+    width: pixel(210),
     renderCell: (row) => <Meter value={row.cpu} label={`${row.name} CPU`} width={72} />,
   },
   {
     key: 'memory',
     header: 'Memory',
-    width: proportional(1, { minWidth: 190 }),
+    width: pixel(210),
     renderCell: (row) => <Meter value={row.memory} label={`${row.name} memory`} width={72} />,
   },
   {
     key: 'disk',
     header: 'Disk',
-    width: proportional(1, { minWidth: 190 }),
+    width: pixel(210),
     renderCell: (row) => <Meter value={row.disk} label={`${row.name} root filesystem`} width={72} />,
   },
   {
     key: 'load',
     header: 'Load',
-    width: pixel(110),
+    width: pixel(96),
+    align: 'end',
     renderCell: (row) => <Figure value={row.state === 'offline' ? null : row.load} unit={`/ ${row.cores}`} />,
   },
   {
     key: 'uptime',
     header: 'Up',
-    width: pixel(160),
+    width: pixel(150),
+    align: 'end',
     renderCell: (row) => <Text type="supporting">{row.uptime}</Text>,
   },
 ];
@@ -157,7 +159,7 @@ export function SystemsPage() {
 
       <Band
         title="Fleet"
-        desc={`beelink against atlas · ${range}`}
+        desc={`four systems, the two under load first · ${range}`}
         actions={
           <SegmentedControl label="Range" size="sm" value={range} onChange={setRange}>
             {RANGES.map((item) => (
@@ -166,23 +168,29 @@ export function SystemsPage() {
           </SegmentedControl>
         }
       >
-        <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+        <Grid columns={{ minWidth: 300, repeat: 'fit' }} gap={3}>
           <ChartCard
-            title="CPU"
+            title="beelink · CPU"
             desc="system time, one minute rollup"
-            lines={[
-              { label: 'beelink', seed: 7, base: 62, swing: 26 },
-              { label: 'atlas', seed: 11, base: 12, swing: 10 },
-            ]}
+            lines={[{ label: 'beelink', seed: 7, base: 62, swing: 26 }]}
             height={200}
           />
           <ChartCard
-            title="Memory"
+            title="beelink · memory"
             desc="used memory, one minute rollup"
-            lines={[
-              { label: 'beelink', seed: 23, base: 84, swing: 9 },
-              { label: 'atlas', seed: 29, base: 41, swing: 10 },
-            ]}
+            lines={[{ label: 'beelink', seed: 23, base: 84, swing: 9 }]}
+            height={200}
+          />
+          <ChartCard
+            title="atlas · CPU"
+            desc="system time, one minute rollup"
+            lines={[{ label: 'atlas', seed: 11, base: 12, swing: 10 }]}
+            height={200}
+          />
+          <ChartCard
+            title="atlas · memory"
+            desc="used memory, one minute rollup"
+            lines={[{ label: 'atlas', seed: 29, base: 41, swing: 10 }]}
             height={200}
           />
         </Grid>

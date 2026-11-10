@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { useMediaQuery } from '@astryxdesign/core/hooks';
 import { Button } from '@astryxdesign/core/Button';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Grid } from '@astryxdesign/core/Grid';
@@ -35,6 +36,36 @@ function SettingsTabs({ section }: { section: string }) {
         />
       ))}
     </TabList>
+  );
+}
+
+/** Two columns on a desktop, one on a phone. */
+function Two({ children }: { children: ReactNode }) {
+  const phone = useMediaQuery('(max-width: 899px)');
+  if (phone) return <VStack gap={5}>{children}</VStack>;
+  return (
+    <Grid columns={2} gap={6}>
+      {children}
+    </Grid>
+  );
+}
+
+/** Settings are read, not scrolled: the current values sit beside the controls. */
+function Aside({ title, rows }: { title: string; rows: [string, string][] }) {
+  return (
+    <VStack gap={2}>
+      <Text type="label" color="secondary">
+        {title}
+      </Text>
+      <VStack gap={2}>
+        {rows.map(([label, value]) => (
+          <HStack key={label} gap={3} vAlign="center" hAlign="between">
+            <Text type="supporting">{label}</Text>
+            <Text type="code">{value}</Text>
+          </HStack>
+        ))}
+      </VStack>
+    </VStack>
   );
 }
 
@@ -86,6 +117,7 @@ function AlertsSection() {
   const [webhook, setWebhook] = useState(true);
   return (
     <Band title="Alert delivery" desc="One webhook, five retries, signed when a secret is set" first>
+      <Two>
       <VStack gap={4}>
         <Switch
           label="Sign deliveries"
@@ -103,6 +135,17 @@ function AlertsSection() {
           ))}
         </VStack>
       </VStack>
+        <Aside
+          title="In use"
+          rows={[
+            ['Rules', `${rules.length}`],
+            ['Firing', `${rules.filter((rule) => rule.state === 'firing').length}`],
+            ['Channels', 'ntfy, webhook'],
+            ['Timeout', '5 s'],
+            ['Retries', '3'],
+          ]}
+        />
+      </Two>
     </Band>
   );
 }
@@ -159,6 +202,8 @@ function TokensSection() {
 function RetentionSection() {
   return (
     <Band title="Retention" desc="Raw readings are dropped, rollups are kept" first>
+      <Two>
+      <VStack gap={4}>
       <Grid columns={{ minWidth: 220, max: 3 }} gap={4}>
         <VStack gap={2}>
           <Text type="supporting">Raw</Text>
@@ -181,6 +226,17 @@ function RetentionSection() {
         <Text type="supporting">Database file</Text>
         <Text type="code">184 MiB · WAL 12 MiB</Text>
       </HStack>
+      </VStack>
+      <Aside
+        title="What that costs"
+        rows={[
+          ['5 s → 48 h', '34,560 points'],
+          ['1 m → 30 d', '43,200 points'],
+          ['1 h → 13 mo', '9,490 points'],
+          ['Per metric', '87,250 points'],
+        ]}
+      />
+      </Two>
     </Band>
   );
 }
@@ -189,6 +245,7 @@ function AppearanceSection() {
   const [theme, setTheme] = useState('dark');
   return (
     <Band title="Appearance" desc="System, light or dark" first>
+      <Two>
       <VStack gap={3}>
         <SegmentedControl label="Theme" value={theme} onChange={setTheme}>
           <SegmentedControlItem value="system" label="System" />
@@ -200,6 +257,17 @@ function AppearanceSection() {
           literal.
         </Text>
       </VStack>
+      <Aside
+        title="Current values"
+        rows={[
+          ['Ground', '#0b0c0e'],
+          ['Card', '#111316'],
+          ['Border', '#22252a'],
+          ['Accent', '#4a8ad6'],
+          ['Figures', 'IBM Plex Mono'],
+        ]}
+      />
+      </Two>
     </Band>
   );
 }

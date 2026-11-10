@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Chrome, useMode } from './Chrome';
 import { EventsPage, AlertsPage, AppsPage, NotFoundPage, ServicesPage } from './pages/Fleet';
+import { node } from './fixtures';
 import { NodePage } from './pages/Node';
 import { SettingsPage } from './pages/Settings';
 import { SystemsPage } from './pages/Systems';
@@ -14,7 +15,9 @@ function route(hash: string) {
   const parts = path.split('/').filter(Boolean);
 
   if (parts.length === 0) return <SystemsPage />;
-  if (parts[0] === 'nodes' && parts[1]) return <NodePage nodeId={parts[1]} tab={parts[2]} />;
+  if (parts[0] === 'nodes' && parts[1]) {
+    return node(parts[1]) ? <NodePage nodeId={parts[1]} tab={parts[2]} /> : <NotFoundPage />;
+  }
   if (parts[0] === 'services') return <ServicesPage />;
   if (parts[0] === 'apps') return <AppsPage />;
   if (parts[0] === 'alerts') return <AlertsPage />;

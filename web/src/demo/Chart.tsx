@@ -142,7 +142,8 @@ export function Chart({
             stroke: text,
             grid: { show: false },
             ticks: { show: false },
-            font: '11px "IBM Plex Mono", monospace',
+            font: '12px "IBM Plex Mono", monospace',
+            // taste-skill-ignore numbering: zero-padded clock minutes, not an index.
             values: (_u, splits) =>
               splits.map((s, i) => {
                 const t = new Date(s * 1000);
@@ -155,8 +156,8 @@ export function Chart({
             stroke: text,
             grid: { stroke: grid, width: 1 },
             ticks: { show: false },
-            size: 34,
-            font: '11px "IBM Plex Mono", monospace',
+            size: 36,
+            font: '12px "IBM Plex Mono", monospace',
             values: (_u, splits) => splits.map((s) => `${s}`),
           },
         ],
