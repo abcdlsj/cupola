@@ -31,7 +31,7 @@ expand or shrink scope; update the plan when a decision changes.
 - Go 1.25+; single binary; `net/http`; `slog`; `embed`.
 - Linux-first; macOS builds for development.
 - SQLite via `modernc.org/sqlite`; hand-written SQL; embedded migrations.
-- React 19 + TypeScript + Vite + Tailwind v4 + uPlot + Radix primitives +
+- React 19 + TypeScript + Vite + Astryx (`@astryxdesign/core`) + uPlot +
   Phosphor icons + TanStack Query + React Router + Zod; `vite-plugin-pwa`.
 - IBM Plex Sans (UI) + IBM Plex Mono (all figures/IDs), self-hosted.
 - Transport is per node: `pull` (hub dials the agent) or `push` (agent posts to
@@ -72,7 +72,8 @@ colour only on data, status and meters).
   rows, uppercase tracked headers, fake charts or lorem.
 - IBM Plex Sans for UI; IBM Plex Mono for every figure/timestamp/ID. Tabular.
 - Two themes, dark and light, sharing one layout; Settings → Appearance picks
-  system, light or dark. Every colour comes from `tokens.css`; no hex in
+  system, light or dark. Every colour comes from the Astryx theme
+  (`web/src/themes/cupola/`, built with `npm run theme`); no hex in
   components (canvas reads tokens through `cssColor`).
 - Cards are one lightness step off the ground with a 1 px border; no card
   shadows. The shadow is for floating menus/dialogs only.

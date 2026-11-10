@@ -34,11 +34,11 @@ const spline = uPlot.paths.spline?.();
 /** Chart chrome comes from the theme tokens; read once per chart build. */
 function inks() {
   return {
-    axis: cssColor('var(--muted)'),
-    grid: cssColor('var(--grid)'),
-    cursor: cssColor('var(--accent)'),
-    threshold: cssColor('var(--muted)'),
-    surface: cssColor('var(--surface)'),
+    axis: cssColor('var(--color-text-secondary)'),
+    grid: cssColor('var(--color-border)'),
+    cursor: cssColor('var(--color-accent)'),
+    threshold: cssColor('var(--color-text-secondary)'),
+    surface: cssColor('var(--color-background-card)'),
   };
 }
 
@@ -57,9 +57,11 @@ function formatValue(value: number, unit: ChartUnit): string {
   }
 }
 
-/** Appends alpha to a resolved hex colour; anything else is left alone. */
+/** Applies alpha to a resolved hex or rgb() colour; anything else is left alone. */
 function withAlpha(color: string, alpha: string): string {
-  return /^#[0-9a-fA-F]{6}$/.test(color) ? color + alpha : color;
+  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color + alpha;
+  const rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color);
+  return rgb ? `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${(parseInt(alpha, 16) / 255).toFixed(3)})` : color;
 }
 
 function scaleMax(series: ChartSeries[], unit: ChartUnit, maxValue?: number): number {
@@ -312,16 +314,35 @@ export function SeriesChart({
   }, [series, unit, maxValue]);
 
   return (
-    <div className="chart-stack">
-      <div className="chart" ref={host} style={{ height }} role="img" aria-label={label} data-testid="series-chart" />
+    <div style={{ position: 'relative' }}>
+      <div ref={host} style={{ height }} role="img" aria-label={label} data-testid="series-chart" />
       {tip ? (
-        <div className="cursor-readout" style={{ left: tip.left }}>
-          <span className="cursor-time">{clock(tip.at)}</span>
+        <div
+          style={{
+            position: 'absolute',
+            top: 4,
+            left: tip.left,
+            pointerEvents: 'none',
+            zIndex: 2,
+            display: 'grid',
+            gap: 2,
+            minWidth: 150,
+            padding: '6px 8px',
+            borderRadius: 'var(--radius-container, 6px)',
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-background-popover, var(--color-background-card))',
+            boxShadow: 'var(--shadow-med)',
+            font: '12px/1.5 var(--font-family-code)',
+            color: 'var(--color-text-primary)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ color: 'var(--color-text-secondary)' }}>{clock(tip.at)}</span>
           {tip.rows.map((row) => (
-            <span className="cursor-row" key={row.label}>
-              <span className="legend-swatch" style={{ background: row.color }} aria-hidden="true" />
-              <span className="cursor-label">{row.label}</span>
-              <span className="cursor-value">{row.value}</span>
+            <span key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: row.color, flex: 'none' }} />
+              <span style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-family-body)' }}>{row.label}</span>
+              <span style={{ marginLeft: 'auto' }}>{row.value}</span>
             </span>
           ))}
         </div>

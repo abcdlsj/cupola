@@ -1,84 +1,46 @@
+/* The ground before the theme mounts, so a light-theme viewer never sees a
+   dark flash. Same values as --color-background-body in the Cupola theme. */
 html {
-  background: var(--ground);
+  background: #0b0c0e;
+  color-scheme: dark;
   -webkit-text-size-adjust: 100%;
-  min-height: 100%;
+}
+@media (prefers-color-scheme: light) {
+  html:not([data-theme='dark']) {
+    background: #f6f7f9;
+    color-scheme: light;
+  }
+}
+html[data-theme='light'] {
+  background: #f6f7f9;
+  color-scheme: light;
 }
 
 body {
   margin: 0;
-  min-height: 100%;
-  background: var(--ground);
-  color: var(--text);
-  font-family: var(--font-ui);
-  font-size: var(--fs-body);
-  line-height: 1.45;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
 }
 
-h1,
-h2,
-h3,
-p,
-ul,
-ol {
-  margin: 0;
-  padding: 0;
+/* Every figure is tabular: the fleet is read by comparing numbers down a column. */
+[data-astryx-theme] {
+  font-variant-numeric: tabular-nums;
 }
 
-ul,
-ol {
-  list-style: none;
+/* The installed iOS app measures its visual viewport into --app-height
+   (public/theme-init.js); the shell uses it in place of 100dvh. */
+.astryx-app-shell {
+  height: var(--app-height, 100dvh);
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: 0;
-  padding: 0;
-  cursor: pointer;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--text);
-}
-
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-::-webkit-scrollbar-track {
-  background: var(--ground);
-}
-::-webkit-scrollbar-thumb {
-  background: var(--control);
-  border: 2px solid var(--ground);
-  border-radius: 999px;
-}
-
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-  border-width: 0;
+.boot {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  min-height: 100dvh;
+  font: 14px 'IBM Plex Sans', system-ui, sans-serif;
+  color: #9a9ea6;
 }
 
 @media (prefers-reduced-motion: reduce) {

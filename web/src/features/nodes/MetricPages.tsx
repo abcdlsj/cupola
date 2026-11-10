@@ -1,42 +1,93 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
+import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Grid } from '@astryxdesign/core/Grid';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import { ChartCard } from '../../components/ChartCard';
-import { Panel } from '../../components/Panel';
-import { Meter } from '../../components/Meter';
-import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
-import { Kv } from '../../components/Kv';
 import { useSeries } from '../../data/queries';
-import type { NodeView, SeriesPoint } from '../../data/types';
+import type { NodeView, ProcessInfo, SMARTDevice, SeriesPoint } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
-import { days, netRate, percent, rate, size } from '../../lib/format';
+import { days, duration, netRate, percent, rate, size } from '../../lib/format';
+import { Band, Facts, Meter, Section, useIsPhone } from '../../ui/kit';
 import { percentCeiling } from './NodeLists';
-import { useRange } from './RangeControl';
+import { rangeLabel, useRange } from './RangeControl';
 
-function useSnapshot() {
+export function useSnapshot() {
   return useOutletContext<NodeView>();
 }
 
-function useMetric(nodeId: string, metric: string, range: string) {
+/** One history series for this node and window. */
+export function useMetric(nodeId: string, metric: string, range: string) {
   const query = useSeries(nodeId, metric, range);
   const points = useMemo(() => query.data?.points ?? [], [query.data]);
   return { points, pending: query.isPending };
 }
 
-function peak(...lists: SeriesPoint[][]): number {
+export function peak(...lists: Array<SeriesPoint[] | undefined>): number {
   let max = 0;
-  for (const list of lists) for (const point of list) if (point.max > max) max = point.max;
+  for (const list of lists) for (const point of list ?? []) if (point.max > max) max = point.max;
   return max;
 }
 
-function WaitingForSnapshot() {
+/**
+ * What an empty chart frame says. An offline node keeps its frames and says
+ * how long it has been silent; a live one is waiting for its next sample.
+ */
+export function emptyNote(view: NodeView): string | undefined {
+  if (view.health.status !== 'offline') return undefined;
+  if (!view.node.last_seen) return `${view.node.name} has never reported.`;
+  return `${view.node.name} has not reported for ${duration((Date.now() - view.node.last_seen) / 1000)}.`;
+}
+
+export function WaitingForSnapshot({ view }: { view: NodeView }) {
   return (
-    <Panel title="Waiting for data">
-      <Empty>The hub has no snapshot for this system yet. The first poll runs within a few seconds.</Empty>
-    </Panel>
+    <Band title="Waiting for data" first>
+      <Empty>
+        {emptyNote(view) ?? 'The hub has no snapshot for this system yet. The first poll runs within a few seconds.'}
+      </Empty>
+    </Band>
   );
 }
+
+/** A small label and a mono figure on one line. */
+export function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <HStack gap={1.5} vAlign="center">
+      <Text type="supporting">{label}</Text>
+      {typeof children === 'string' || typeof children === 'number' ? (
+        <Text type="code" hasTabularNumbers textWrap="nowrap">
+          {children}
+        </Text>
+      ) : (
+        children
+      )}
+    </HStack>
+  );
+}
+
+/** Rows of a list, hairlines between. */
+export function Rows({ children }: { children: ReactNode[] }) {
+  return (
+    <VStack gap={0}>
+      {children.map((child, index) => (
+        <VStack key={index} gap={0}>
+          {index > 0 ? <Divider /> : null}
+          {child}
+        </VStack>
+      ))}
+    </VStack>
+  );
+}
+
+const CHART_GRID = { minWidth: 320, max: 3, repeat: 'fit' } as const;
 
 export function CpuPage() {
   const view = useSnapshot();
@@ -52,141 +103,216 @@ export function CpuPage() {
     ],
     [cpu.points, pressure.points],
   );
-  if (!snap) return <WaitingForSnapshot />;
+  if (!snap) return <WaitingForSnapshot view={view} />;
   const cores = snap.cpu.per_core;
   return (
     <>
-      <div className="chart-grid chart-grid-wide">
-        <ChartCard
-          title="CPU utilisation and pressure"
-          desc="Pressure is the share of time runnable tasks waited for a CPU; the dashed line is the 80 % alert."
-          now={percent(snap.cpu.percent, 1)}
-          series={chart}
-          unit="percent"
-          threshold={80}
-          legend={[percent(snap.cpu.percent, 1), percent(snap.pressure.cpu.some, 1)]}
-          pending={cpu.pending || pressure.pending}
-          height={220}
-        />
-        <Panel title="Breakdown" desc="Where the CPU time went in the last sample.">
-          <Kv
-            rows={[
-              { label: 'User', value: percent(snap.cpu.user, 1) },
-              { label: 'System', value: percent(snap.cpu.system, 1) },
-              { label: 'I/O wait', value: percent(snap.cpu.iowait, 1) },
-              { label: 'Steal', value: percent(snap.cpu.steal, 1) },
-              { label: 'Load 1 / 5 / 15', value: `${snap.cpu.load1.toFixed(2)} / ${snap.cpu.load5.toFixed(2)} / ${snap.cpu.load15.toFixed(2)}` },
-              { label: 'Processes', value: String(snap.cpu.procs) },
-              { label: 'Clock', value: snap.cpu.mhz ? `${(snap.cpu.mhz / 1000).toFixed(2)} GHz` : '—' },
-            ]}
+      <Band title="Utilisation" desc={`${rangeLabel(range)} · ${snap.node.cores} threads`} first>
+        <Grid columns={CHART_GRID} gap={3}>
+          <ChartCard
+            title="CPU utilisation and pressure"
+            desc="Pressure is the share of time runnable tasks waited for a CPU; the dashed line is the 80 % alert."
+            now={percent(snap.cpu.percent, 1)}
+            series={chart}
+            unit="percent"
+            threshold={80}
+            legend={[percent(snap.cpu.percent, 1), percent(snap.pressure.cpu.some, 1)]}
+            pending={cpu.pending || pressure.pending}
+            empty={emptyNote(view)}
+            height={220}
           />
-        </Panel>
-      </div>
-      <Panel title="Per core" desc={`${cores.length} threads · ${snap.node.cpu_model || 'unknown model'}`}>
+          <Section title="Breakdown" desc="Where the CPU time went in the last sample.">
+            <Facts
+              rows={[
+                { label: 'User', value: percent(snap.cpu.user, 1) },
+                { label: 'System', value: percent(snap.cpu.system, 1) },
+                { label: 'I/O wait', value: percent(snap.cpu.iowait, 1) },
+                { label: 'Steal', value: percent(snap.cpu.steal, 1) },
+                {
+                  label: 'Load 1 / 5 / 15',
+                  value: `${snap.cpu.load1.toFixed(2)} / ${snap.cpu.load5.toFixed(2)} / ${snap.cpu.load15.toFixed(2)}`,
+                },
+                { label: 'Processes', value: String(snap.cpu.procs) },
+                { label: 'Clock', value: snap.cpu.mhz ? `${(snap.cpu.mhz / 1000).toFixed(2)} GHz` : null },
+              ]}
+            />
+          </Section>
+        </Grid>
+      </Band>
+      <Band title="Per core" desc={`${cores.length} threads · ${snap.node.cpu_model || 'unknown model'}`}>
         {cores.length === 0 ? (
-          <p className="note">This agent did not report per-core usage.</p>
+          <Empty>This agent did not report per-core usage.</Empty>
         ) : (
-          <ul className="core-grid">
+          <Grid columns={{ minWidth: 240, repeat: 'fill' }} gap={0} columnGap={6}>
             {cores.map((value, index) => (
-              <li className="core-row" key={index}>
-                <span className="core-label fig">{index}</span>
-                <Meter value={value} label={`Thread ${index}`} tone="neutral" />
-              </li>
+              <HStack key={index} gap={3} vAlign="center" paddingBlock={1.5}>
+                <VStack width={28}>
+                  <Text type="code" color="secondary" hasTabularNumbers>
+                    {index}
+                  </Text>
+                </VStack>
+                <Meter value={value} label={`Thread ${index}`} tone="neutral" width={140} />
+              </HStack>
             ))}
-          </ul>
+          </Grid>
         )}
-      </Panel>
+      </Band>
     </>
   );
 }
+
+type ResidentRow = { pid: number; proc: ProcessInfo };
 
 export function MemoryPage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
   const [range] = useRange();
+  const phone = useIsPhone();
   const snap = view.snapshot;
   const mem = useMetric(nodeId, 'mem', range);
   const chart = useMemo<ChartSeries[]>(() => [{ label: 'Memory', points: mem.points, color: seriesColor(0) }], [mem.points]);
-  if (!snap) return <WaitingForSnapshot />;
-  const top = [...snap.processes].sort((a, b) => b.rss_bytes - a.rss_bytes).slice(0, 8);
+  if (!snap) return <WaitingForSnapshot view={view} />;
+  const total = snap.memory.total;
+  const top: ResidentRow[] = [...snap.processes]
+    .sort((a, b) => b.rss_bytes - a.rss_bytes)
+    .slice(0, 8)
+    .map((proc) => ({ pid: proc.pid, proc }));
   const swapPct = snap.memory.swap_total ? (snap.memory.swap_used / snap.memory.swap_total) * 100 : null;
+  const share = (proc: ProcessInfo) => (total ? (proc.rss_bytes / total) * 100 : null);
+  const procLink = (proc: ProcessInfo) => (
+    <Link href={`/nodes/${nodeId}/processes/${proc.pid}`}>{proc.name}</Link>
+  );
+  const columns: TableColumn<ResidentRow>[] = [
+    {
+      key: 'name',
+      header: 'Process',
+      width: proportional(1, { minWidth: 200 }),
+      renderCell: ({ proc }) => (
+        <VStack gap={0}>
+          <Text maxLines={1}>{procLink(proc)}</Text>
+          <Text type="supporting" maxLines={1}>
+            {proc.user}
+          </Text>
+        </VStack>
+      ),
+    },
+    {
+      key: 'pid',
+      header: 'PID',
+      width: pixel(96),
+      align: 'end',
+      renderCell: ({ proc }) => (
+        <Text type="code" hasTabularNumbers>
+          {proc.pid}
+        </Text>
+      ),
+    },
+    {
+      key: 'memory',
+      header: 'Memory',
+      width: pixel(220),
+      renderCell: ({ proc }) => (
+        <Meter
+          value={share(proc)}
+          text={size(proc.rss_bytes)}
+          tone="neutral"
+          label={`${proc.name} resident memory, bar is its share of ${size(total)}`}
+        />
+      ),
+    },
+    {
+      key: 'cpu',
+      header: 'CPU',
+      width: pixel(96),
+      align: 'end',
+      renderCell: ({ proc }) => (
+        <Text type="code" hasTabularNumbers>
+          {percent(proc.cpu_percent, 1)}
+        </Text>
+      ),
+    },
+  ];
   return (
     <>
-      <div className="chart-grid chart-grid-wide">
-        <ChartCard
-          title="Memory usage"
-          desc={`Used share of ${size(snap.memory.total)} over the window.`}
-          now={percent(snap.memory.used_percent, 1)}
-          series={chart}
-          unit="percent"
-          pending={mem.pending}
-          height={220}
-        />
-        <Panel title="Breakdown" desc="The last sample.">
-          <Kv
-            rows={[
-              { label: 'Total', value: size(snap.memory.total) },
-              { label: 'Used', value: size(snap.memory.used) },
-              { label: 'Available', value: size(snap.memory.available) },
-              { label: 'Cached', value: size(snap.memory.cached) },
-              { label: 'Buffers', value: size(snap.memory.buffers) },
-              { label: 'Swap', value: snap.memory.swap_total ? `${size(snap.memory.swap_used)} of ${size(snap.memory.swap_total)}` : 'none' },
-              { label: 'Pressure', value: percent(snap.pressure.mem.some, 1) },
-            ]}
+      <Band title="Usage" desc={`${rangeLabel(range)} · ${size(total)} installed`} first>
+        <Grid columns={CHART_GRID} gap={3}>
+          <ChartCard
+            title="Memory usage"
+            desc={`Used share of ${size(total)} over the window.`}
+            now={percent(snap.memory.used_percent, 1)}
+            series={chart}
+            unit="percent"
+            pending={mem.pending}
+            empty={emptyNote(view)}
+            height={220}
           />
-          {swapPct != null ? (
-            <div className="breakdown-meter">
-              <span className="quiet">Swap used</span>
-              <Meter value={swapPct} label="Swap used" />
-            </div>
-          ) : null}
-        </Panel>
-      </div>
-      <Panel title="Largest residents" desc={`${top.length} of ${snap.processes.length} sampled processes, by resident memory.`} flush>
-        <Table label="Largest resident processes">
-          <THead>
-            <Th>Process</Th>
-            <Th num>PID</Th>
-            <Th>User</Th>
-            <Th>Memory</Th>
-            <Th num>CPU</Th>
-          </THead>
-          <TBody>
-            {top.map((proc) => (
-              <tr key={proc.pid}>
-                <Td cell="primary">
-                  <span className="row-name">{proc.name}</span>
-                </Td>
-                <Td num cell="field" label="PID">
-                  {proc.pid}
-                </Td>
-                <Td cell="field" label="User">
-                  {proc.user}
-                </Td>
-                <Td cell="key" className="meter-cell">
-                  <Meter
-                    value={snap.memory.total ? (proc.rss_bytes / snap.memory.total) * 100 : null}
-                    text={size(proc.rss_bytes)}
-                    tone="neutral"
-                    label={`${proc.name} resident memory, bar is its share of ${size(snap.memory.total)}`}
-                  />
-                </Td>
-                <Td num cell="field" label="CPU">
-                  {percent(proc.cpu_percent, 1)}
-                </Td>
-              </tr>
+          <Section title="Breakdown" desc="The last sample.">
+            <VStack gap={3}>
+              <Facts
+                rows={[
+                  { label: 'Total', value: size(total) },
+                  { label: 'Used', value: size(snap.memory.used) },
+                  { label: 'Available', value: size(snap.memory.available) },
+                  { label: 'Cached', value: size(snap.memory.cached) },
+                  { label: 'Buffers', value: size(snap.memory.buffers) },
+                  {
+                    label: 'Swap',
+                    value: snap.memory.swap_total ? `${size(snap.memory.swap_used)} of ${size(snap.memory.swap_total)}` : 'none',
+                  },
+                  { label: 'Pressure', value: percent(snap.pressure.mem.some, 1) },
+                ]}
+              />
+              {swapPct != null ? (
+                <HStack gap={3} vAlign="center" hAlign="between">
+                  <Text type="supporting">Swap used</Text>
+                  <Meter value={swapPct} label="Swap used" width={140} />
+                </HStack>
+              ) : null}
+            </VStack>
+          </Section>
+        </Grid>
+      </Band>
+      <Band title="Largest residents" desc={`${top.length} of ${snap.processes.length} sampled processes, by resident memory`}>
+        {top.length === 0 ? (
+          <Empty>No process sample in the last snapshot.</Empty>
+        ) : phone ? (
+          <Rows>
+            {top.map(({ proc }) => (
+              <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
+                <HStack gap={2} vAlign="center" hAlign="between">
+                  <HStack gap={1.5} vAlign="center">
+                    {procLink(proc)}
+                    <Text type="supporting">{proc.user}</Text>
+                  </HStack>
+                  <Text type="code" color="secondary" hasTabularNumbers>
+                    {proc.pid}
+                  </Text>
+                </HStack>
+                <HStack gap={4} vAlign="center" wrap="wrap">
+                  <Meter value={share(proc)} text={size(proc.rss_bytes)} tone="neutral" label={`${proc.name} resident memory`} width={140} />
+                  <Stat label="CPU">{percent(proc.cpu_percent, 1)}</Stat>
+                </HStack>
+              </VStack>
             ))}
-          </TBody>
-        </Table>
-      </Panel>
+          </Rows>
+        ) : (
+          <Table data={top} columns={columns} idKey="pid" density="compact" dividers="rows" hasHover />
+        )}
+      </Band>
     </>
   );
+}
+
+function healthTone(drive: SMARTDevice) {
+  if (drive.error) return 'neutral' as const;
+  return /pass|ok/i.test(drive.health) ? ('success' as const) : ('error' as const);
 }
 
 export function StoragePage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
   const [range] = useRange();
+  const phone = useIsPhone();
   const snap = view.snapshot;
   const read = useMetric(nodeId, 'disk_r', range);
   const write = useMetric(nodeId, 'disk_w', range);
@@ -199,117 +325,100 @@ export function StoragePage() {
     [read.points, write.points],
   );
   const pressure = useMemo<ChartSeries[]>(() => [{ label: 'I/O pressure', points: io.points, color: seriesColor(0) }], [io.points]);
-  if (!snap) return <WaitingForSnapshot />;
+  if (!snap) return <WaitingForSnapshot view={view} />;
   const readNow = snap.disks.reduce((sum, disk) => sum + disk.read_bps, 0);
   const writeNow = snap.disks.reduce((sum, disk) => sum + disk.write_bps, 0);
+  const empty = emptyNote(view);
   return (
     <>
-      <div className="chart-grid">
-        <ChartCard
-          title="Disk I/O"
-          desc="Bytes per second across the sampled block devices."
-          now={rate(readNow + writeNow)}
-          series={chart}
-          unit="rate"
-          legend={[rate(readNow), rate(writeNow)]}
-          pending={read.pending || write.pending}
-        />
-        <ChartCard
-          title="I/O pressure"
-          desc="Share of time some task waited on storage."
-          now={percent(snap.pressure.io.some, 1)}
-          series={pressure}
-          unit="percent"
-          maxValue={percentCeiling(peak(io.points))}
-          pending={io.pending}
-        />
-      </div>
-      <Panel title="Filesystems" desc={`${snap.disks.length} mounted. Fill prediction covers the root filesystem.`} flush>
-        <Table label="Filesystems">
-          <THead>
-            <Th>Mount</Th>
-            <Th>Device</Th>
-            <Th>Used</Th>
-            <Th num>Size</Th>
-            <Th num>Inodes</Th>
-            <Th num>Read</Th>
-            <Th num>Write</Th>
-            <Th num>Full in</Th>
-          </THead>
-          <TBody>
+      <Band title="Throughput" desc={`${rangeLabel(range)} · all sampled block devices`} first>
+        <Grid columns={CHART_GRID} gap={3}>
+          <ChartCard
+            title="Disk I/O"
+            desc="Bytes per second across the sampled block devices."
+            now={rate(readNow + writeNow)}
+            series={chart}
+            unit="rate"
+            legend={[rate(readNow), rate(writeNow)]}
+            pending={read.pending || write.pending}
+            empty={empty}
+          />
+          <ChartCard
+            title="I/O pressure"
+            desc="Share of time some task waited on storage."
+            now={percent(snap.pressure.io.some, 1)}
+            series={pressure}
+            unit="percent"
+            maxValue={percentCeiling(peak(io.points))}
+            pending={io.pending}
+            empty={empty}
+          />
+        </Grid>
+      </Band>
+      <Band title="Filesystems" desc={`${snap.disks.length} mounted · fill prediction covers the root filesystem`}>
+        {snap.disks.length === 0 ? (
+          <Empty>No filesystem reported.</Empty>
+        ) : (
+          <Rows>
             {snap.disks.map((disk) => (
-              <tr key={disk.device + disk.mount}>
-                <Td cell="primary">
-                  <span className="row-name">{disk.mount}</span>
-                  <span className="cell-sub">{disk.fstype}{disk.read_only ? ' · read-only' : ''}</span>
-                </Td>
-                <Td cell="field" label="Device">
-                  <span className="fig">{disk.device}</span>
-                </Td>
-                <Td cell="key" className="meter-cell">
-                  <Meter value={disk.used_pct} label={`${disk.mount} used`} />
-                </Td>
-                <Td num cell="field" label="Size">
-                  {size(disk.used)} of {size(disk.total)}
-                </Td>
-                <Td num cell="field" label="Inodes">
-                  {percent(disk.inode_pct)}
-                </Td>
-                <Td num cell="field" label="Read">
-                  {rate(disk.read_bps)}
-                </Td>
-                <Td num cell="field" label="Write">
-                  {rate(disk.write_bps)}
-                </Td>
-                <Td num cell="field" label="Full in">
-                  {disk.mount === '/' && view.health.days_to_full ? days(view.health.days_to_full) : '—'}
-                </Td>
-              </tr>
+              <VStack key={disk.device + disk.mount} gap={2} paddingBlock={3}>
+                <HStack gap={3} vAlign="center" hAlign="between">
+                  <VStack gap={0.5}>
+                    <Text type="code">{disk.mount}</Text>
+                    <Text type="supporting">
+                      {disk.device} · {disk.fstype}
+                      {disk.read_only ? ' · read-only' : ''}
+                    </Text>
+                  </VStack>
+                  <Meter value={disk.used_pct} label={`${disk.mount} used`} width={phone ? 120 : 220} />
+                </HStack>
+                <HStack gap={5} vAlign="center" wrap="wrap">
+                  <Stat label="Used">{`${size(disk.used)} of ${size(disk.total)}`}</Stat>
+                  <Stat label="Inodes">
+                    <Meter value={disk.inode_pct} label={`${disk.mount} inodes used`} width={64} />
+                  </Stat>
+                  <Stat label="Read">{rate(disk.read_bps)}</Stat>
+                  <Stat label="Write">{rate(disk.write_bps)}</Stat>
+                  {disk.mount === '/' && view.health.days_to_full ? (
+                    <Stat label="Full in">{days(view.health.days_to_full)}</Stat>
+                  ) : null}
+                </HStack>
+              </VStack>
             ))}
-          </TBody>
-        </Table>
-      </Panel>
+          </Rows>
+        )}
+      </Band>
       {snap.smart.length > 0 ? (
-        <Panel title="Drive health" desc="SMART and NVMe self-reports." flush>
-          <Table label="Drive health">
-            <THead>
-              <Th>Device</Th>
-              <Th>Health</Th>
-              <Th>Wear</Th>
-              <Th num>Temp</Th>
-              <Th num>Power-on</Th>
-              <Th num>Reallocated</Th>
-            </THead>
-            <TBody>
-              {snap.smart.map((drive) => (
-                <tr key={drive.device}>
-                  <Td cell="primary">
-                    <span className="row-name">{drive.device}</span>
-                    <span className="cell-sub">{drive.model || drive.type}</span>
-                  </Td>
-                  <Td cell="key">
-                    <span className="status" data-tone={drive.error ? 'neutral' : /pass|ok/i.test(drive.health) ? 'positive' : 'negative'}>
-                      <span className="status-dot" data-tone={drive.error ? 'neutral' : /pass|ok/i.test(drive.health) ? 'positive' : 'negative'} aria-hidden="true" />
-                      {drive.error ? 'unreadable' : drive.health || '—'}
-                    </span>
-                  </Td>
-                  <Td cell="field" label="Wear" className="meter-cell">
-                    <Meter value={drive.wear_percent} label={`${drive.device} wear`} />
-                  </Td>
-                  <Td num cell="field" label="Temp">
-                    {drive.temperature_c ? `${Math.round(drive.temperature_c)} °C` : '—'}
-                  </Td>
-                  <Td num cell="field" label="Power-on">
-                    {drive.power_on_hours ? `${drive.power_on_hours} h` : '—'}
-                  </Td>
-                  <Td num cell="field" label="Reallocated">
-                    {drive.reallocated}
-                  </Td>
-                </tr>
-              ))}
-            </TBody>
-          </Table>
-        </Panel>
+        <Band title="Drive health" desc="SMART and NVMe self-reports">
+          <Grid columns={{ minWidth: 300, repeat: 'fill' }} gap={3}>
+            {snap.smart.map((drive) => (
+              <Card key={drive.device} padding={4}>
+                <VStack gap={3}>
+                  <HStack gap={2} vAlign="center" hAlign="between">
+                    <VStack gap={0.5}>
+                      <Text type="code">{drive.device}</Text>
+                      <Text type="supporting" maxLines={1}>
+                        {drive.model || drive.type}
+                      </Text>
+                    </VStack>
+                    <HStack gap={1.5} vAlign="center">
+                      <StatusDot variant={healthTone(drive)} label={drive.error ? 'unreadable' : drive.health || 'unknown'} />
+                      <Text type="supporting">{drive.error ? 'unreadable' : drive.health || '—'}</Text>
+                    </HStack>
+                  </HStack>
+                  <Facts
+                    rows={[
+                      { label: 'Wear', value: <Meter value={drive.wear_percent} label={`${drive.device} wear`} width={96} /> },
+                      { label: 'Temperature', value: drive.temperature_c ? `${Math.round(drive.temperature_c)} °C` : null },
+                      { label: 'Power-on', value: drive.power_on_hours ? `${drive.power_on_hours} h` : null },
+                      { label: 'Reallocated', value: String(drive.reallocated) },
+                    ]}
+                  />
+                </VStack>
+              </Card>
+            ))}
+          </Grid>
+        </Band>
       ) : null}
     </>
   );
@@ -329,76 +438,82 @@ export function NetworkPage() {
     ],
     [rx.points, tx.points],
   );
-  if (!snap) return <WaitingForSnapshot />;
+  if (!snap) return <WaitingForSnapshot view={view} />;
   const ifaces = snap.network.filter((iface) => iface.iface !== 'lo');
   const sum = (key: 'rx_bps' | 'tx_bps') => ifaces.reduce((total, iface) => total + iface[key], 0);
   return (
     <>
-      <div className="chart-grid chart-grid-wide">
-        <ChartCard
-          title="Bandwidth"
-          desc={`Bits per second over ${ifaces.length} ${ifaces.length === 1 ? 'interface' : 'interfaces'}, loopback excluded.`}
-          now={netRate(sum('rx_bps') + sum('tx_bps'))}
-          series={chart}
-          unit="net"
-          legend={[netRate(sum('rx_bps')), netRate(sum('tx_bps'))]}
-          pending={rx.pending || tx.pending}
-          height={220}
-        />
-        <Panel title="Connections" desc="Kernel tables in the last sample.">
-          <Kv
-            rows={[
-              { label: 'Conntrack entries', value: String(snap.fd.conntrack || 0) },
-              { label: 'Open files', value: `${snap.fd.allocated} of ${snap.fd.max}` },
-              { label: 'Listening ports', value: String(snap.ports.length) },
-              { label: 'Interfaces up', value: `${snap.network.filter((iface) => iface.up).length} of ${snap.network.length}` },
-            ]}
+      <Band title="Traffic" desc={`${rangeLabel(range)} · loopback excluded`} first>
+        <Grid columns={CHART_GRID} gap={3}>
+          <ChartCard
+            title="Bandwidth"
+            desc={`Bits per second over ${ifaces.length} ${ifaces.length === 1 ? 'interface' : 'interfaces'}, loopback excluded.`}
+            now={netRate(sum('rx_bps') + sum('tx_bps'))}
+            series={chart}
+            unit="net"
+            legend={[netRate(sum('rx_bps')), netRate(sum('tx_bps'))]}
+            pending={rx.pending || tx.pending}
+            empty={emptyNote(view)}
+            height={220}
           />
-        </Panel>
-      </div>
-      <Panel title="Interfaces" desc="Live rates from the latest snapshot." flush>
-        <Table label="Interfaces">
-          <THead>
-            <Th>Interface</Th>
-            <Th num>In</Th>
-            <Th num>Out</Th>
-            <Th num>Speed</Th>
-            <Th num>Errors</Th>
-            <Th num>Drops</Th>
-            <Th>Driver</Th>
-          </THead>
-          <TBody>
+          <Section title="Connections" desc="Kernel tables in the last sample.">
+            <Facts
+              rows={[
+                { label: 'Conntrack entries', value: String(snap.fd.conntrack || 0) },
+                {
+                  label: 'Open files',
+                  // the kernel reports "no limit" as a 63-bit integer
+                  value: `${snap.fd.allocated} of ${snap.fd.max >= 2 ** 53 ? 'no limit' : snap.fd.max}`,
+                },
+                { label: 'Listening ports', value: String(snap.ports.length) },
+                { label: 'Interfaces up', value: `${snap.network.filter((iface) => iface.up).length} of ${snap.network.length}` },
+              ]}
+            />
+          </Section>
+        </Grid>
+      </Band>
+      <Band title="Interfaces" desc={`${snap.network.length} reported · live rates from the latest snapshot`}>
+        {snap.network.length === 0 ? (
+          <Empty>No interface reported.</Empty>
+        ) : (
+          <Grid columns={{ minWidth: 260, repeat: 'fill' }} gap={3}>
             {snap.network.map((iface) => (
-              <tr key={iface.iface}>
-                <Td cell="primary">
-                  <span className="row-name">
-                    <span className="status-dot" data-tone={iface.up ? 'positive' : 'neutral'} role="img" aria-label={iface.up ? 'up' : 'down'} />
-                    {iface.iface}
-                  </span>
-                </Td>
-                <Td num cell="key">
-                  {netRate(iface.rx_bps)}
-                </Td>
-                <Td num cell="field" label="Out">
-                  {netRate(iface.tx_bps)}
-                </Td>
-                <Td num cell="field" label="Speed">
-                  {iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}
-                </Td>
-                <Td num cell="field" label="Errors">
-                  {iface.rx_errors + iface.tx_errors}
-                </Td>
-                <Td num cell="field" label="Drops">
-                  {iface.rx_drops + iface.tx_drops}
-                </Td>
-                <Td cell="field" label="Driver">
-                  {iface.driver || '—'}
-                </Td>
-              </tr>
+              <Card key={iface.iface} padding={4}>
+                <VStack gap={3}>
+                  <HStack gap={2} vAlign="center" hAlign="between">
+                    <HStack gap={1.5} vAlign="center">
+                      <StatusDot variant={iface.up ? 'success' : 'neutral'} label={iface.up ? 'up' : 'down'} tooltip={iface.up ? 'up' : 'down'} />
+                      <Text type="code">{iface.iface}</Text>
+                    </HStack>
+                    <Text type="code" color="secondary" hasTabularNumbers>
+                      {iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}
+                    </Text>
+                  </HStack>
+                  <HStack gap={5} wrap="wrap">
+                    <VStack gap={0.5}>
+                      <Text type="supporting">In</Text>
+                      <Text type="code" hasTabularNumbers>
+                        {netRate(iface.rx_bps)}
+                      </Text>
+                    </VStack>
+                    <VStack gap={0.5}>
+                      <Text type="supporting">Out</Text>
+                      <Text type="code" hasTabularNumbers>
+                        {netRate(iface.tx_bps)}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  <HStack gap={4} wrap="wrap">
+                    <Stat label="Errors">{iface.rx_errors + iface.tx_errors}</Stat>
+                    <Stat label="Drops">{iface.rx_drops + iface.tx_drops}</Stat>
+                    <Stat label="Driver">{iface.driver || '—'}</Stat>
+                  </HStack>
+                </VStack>
+              </Card>
             ))}
-          </TBody>
-        </Table>
-      </Panel>
+          </Grid>
+        )}
+      </Band>
     </>
   );
 }

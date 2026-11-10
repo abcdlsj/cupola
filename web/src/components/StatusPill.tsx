@@ -1,9 +1,16 @@
+import type { ReactNode } from 'react';
+import { Badge } from '@astryxdesign/core/Badge';
+import { HStack } from '@astryxdesign/core/HStack';
+import { StatusDot as Dot } from '@astryxdesign/core/StatusDot';
+import { Text } from '@astryxdesign/core/Text';
 import type { NodeStatus, Severity } from '../data/types';
 
-const STATUS_TONE: Record<NodeStatus, string> = {
-  healthy: 'positive',
+type DotTone = 'success' | 'warning' | 'error' | 'neutral';
+
+const STATUS_TONE: Record<NodeStatus, DotTone> = {
+  healthy: 'success',
   degraded: 'warning',
-  offline: 'negative',
+  offline: 'error',
   unknown: 'neutral',
 };
 
@@ -14,8 +21,8 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
   unknown: 'Waiting',
 };
 
-const SEVERITY_TONE: Record<Severity, string> = {
-  critical: 'negative',
+const SEVERITY_TONE: Record<Severity, 'error' | 'warning' | 'neutral'> = {
+  critical: 'error',
   warning: 'warning',
   info: 'neutral',
 };
@@ -24,34 +31,35 @@ export function statusLabel(status: NodeStatus): string {
   return STATUS_LABEL[status] ?? String(status);
 }
 
+export function statusTone(status: NodeStatus): DotTone {
+  return STATUS_TONE[status] ?? 'neutral';
+}
+
+export function severityTone(severity: Severity): 'error' | 'warning' | 'neutral' {
+  return SEVERITY_TONE[severity] ?? 'neutral';
+}
+
 /** A node's state as a coloured dot; the label is for screen readers and the tooltip. */
 export function StatusDot({ status }: { status: NodeStatus }) {
   const label = statusLabel(status);
-  return <span className="status-dot" data-tone={STATUS_TONE[status] ?? 'neutral'} role="img" aria-label={label} title={label} />;
+  return <Dot variant={statusTone(status)} label={label} tooltip={label} />;
 }
 
 /** Dot and word, for headers where the state needs to be read, not just seen. */
 export function StatusPill({ status }: { status: NodeStatus }) {
+  const label = statusLabel(status);
   return (
-    <span className="status" data-tone={STATUS_TONE[status] ?? 'neutral'}>
-      <span className="status-dot" data-tone={STATUS_TONE[status] ?? 'neutral'} aria-hidden="true" />
-      {statusLabel(status)}
-    </span>
+    <HStack gap={1.5} vAlign="center">
+      <Dot variant={statusTone(status)} label={label} />
+      <Text type="supporting">{label}</Text>
+    </HStack>
   );
 }
 
-export function SeverityPill({ severity, children }: { severity: Severity; children?: React.ReactNode }) {
-  return (
-    <span className="pill" data-tone={SEVERITY_TONE[severity] ?? 'neutral'}>
-      {children ?? severity}
-    </span>
-  );
+export function SeverityPill({ severity, children }: { severity: Severity; children?: ReactNode }) {
+  return <Badge variant={severityTone(severity)} label={children ?? severity} />;
 }
 
 export function RunPill({ ok }: { ok: boolean }) {
-  return (
-    <span className="pill" data-tone={ok ? 'positive' : 'negative'}>
-      {ok ? 'OK' : 'Failed'}
-    </span>
-  );
+  return <Badge variant={ok ? 'success' : 'error'} label={ok ? 'OK' : 'Failed'} />;
 }

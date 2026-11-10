@@ -64,6 +64,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // `CUPOLA_DEV_HUB=http://127.0.0.1:4180 npm run dev` serves the UI from Vite
+    // against a running hub (e.g. scripts/e2e-hub.sh).
+    proxy: process.env.CUPOLA_DEV_HUB
+      ? { '/api': { target: process.env.CUPOLA_DEV_HUB, changeOrigin: false, ws: true } }
+      : undefined,
   },
   preview: {
     port: 4173,

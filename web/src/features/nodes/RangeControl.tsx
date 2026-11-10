@@ -1,11 +1,12 @@
-import { Clock } from '@phosphor-icons/react';
 import { useSearchParams } from 'react-router-dom';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 
+/** `short` is the segment text (it has to fit a 390 px phone); `label` is prose. */
 export const RANGES = [
-  { id: '1h', label: '1 hour' },
-  { id: '24h', label: '24 hours' },
-  { id: '7d', label: '7 days' },
-  { id: '30d', label: '30 days' },
+  { id: '1h', short: '1 h', label: '1 hour' },
+  { id: '24h', short: '24 h', label: '24 hours' },
+  { id: '7d', short: '7 d', label: '7 days' },
+  { id: '30d', short: '30 d', label: '30 days' },
 ] as const;
 
 const DEFAULT_RANGE = '1h';
@@ -24,19 +25,18 @@ export function useRange(): [string, (value: string) => void] {
   return [value, set];
 }
 
+/** "1 hour", "24 hours", … for descriptions. */
+export function rangeLabel(id: string): string {
+  return RANGES.find((range) => range.id === id)?.label ?? id;
+}
+
 export function RangeSelect() {
   const [value, setValue] = useRange();
   return (
-    <label className="select-wrap">
-      <Clock size={15} aria-hidden="true" />
-      <span className="sr-only">Chart window</span>
-      <select className="select-bare" value={value} onChange={(event) => setValue(event.target.value)}>
-        {RANGES.map((range) => (
-          <option key={range.id} value={range.id}>
-            {range.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <SegmentedControl label="Chart window" size="sm" value={value} onChange={setValue}>
+      {RANGES.map((range) => (
+        <SegmentedControlItem key={range.id} value={range.id} label={range.short} />
+      ))}
+    </SegmentedControl>
   );
 }

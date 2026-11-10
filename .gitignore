@@ -42,3 +42,6 @@ docs/screenshots/**/report.json
 .vscode/
 /demoagent
 /seedhub
+
+# Local demo hub (scripts/demo-hub)
+.demo-data/

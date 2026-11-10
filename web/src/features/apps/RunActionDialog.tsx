@@ -1,7 +1,17 @@
-import { useEffect, useId, useState } from 'react';
-import * as Dialog from '@radix-ui/react-dialog';
+import { useEffect, useState } from 'react';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { CodeBlock } from '@astryxdesign/core/CodeBlock';
+import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
 import { ApiError, useRunAction } from '../../data/queries';
 import type { Action, ActionResult } from '../../data/types';
+import { Facts } from '../../ui/kit';
 
 /**
  * Tile → confirmation naming the node and the action → run on the agent →
@@ -25,7 +35,6 @@ export function RunActionDialog({
   const [typed, setTyped] = useState('');
   const [result, setResult] = useState<ActionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fieldId = useId();
   const run = useRunAction();
 
   useEffect(() => {
@@ -41,9 +50,10 @@ export function RunActionDialog({
 
   if (!action) return null;
   const canRun = !action.danger || typed.trim() === action.name;
+  const close = () => onOpenChange(false);
 
   const submit = async () => {
-    if (!canRun) return;
+    if (!canRun || run.isPending) return;
     setError(null);
     try {
       const value = await run.mutateAsync({ nodeId, actionId: action.id });
@@ -54,109 +64,98 @@ export function RunActionDialog({
     }
   };
 
+  const subtitle = `${nodeName} · ${action.type === 'wol' ? 'Wake-on-LAN' : 'Local script'} · ${
+    action.allow_api ? 'token-callable' : 'UI only'
+  }`;
+  const showResult = phase === 'result' && result != null;
+
+  const content = showResult ? (
+    <VStack gap={3}>
+      <HStack gap={2} vAlign="center" wrap="wrap">
+        <Badge
+          variant={result.exit_code === 0 ? 'success' : 'error'}
+          label={result.exit_code === 0 ? 'Exited 0' : `Exited ${result.exit_code}`}
+        />
+        <Text type="supporting">{(result.duration_ms / 1000).toFixed(1)} s</Text>
+        {result.truncated ? <Text type="supporting">output truncated to 8 KiB</Text> : null}
+      </HStack>
+      <Facts
+        rows={[
+          { label: 'Exit code', value: String(result.exit_code) },
+          {
+            label: 'Duration',
+            value: `${(result.duration_ms / 1000).toFixed(1)} s`,
+          },
+          { label: 'Run', value: result.run_id.slice(0, 8) },
+        ]}
+      />
+      {result.stdout ? (
+        <CodeBlock code={result.stdout} title="stdout" size="sm" width="100%" maxHeight={240} isWrapped />
+      ) : null}
+      {result.stderr ? (
+        <CodeBlock code={result.stderr} title="stderr" size="sm" width="100%" maxHeight={240} isWrapped />
+      ) : null}
+      {!result.stdout && !result.stderr ? <Text type="supporting">The action printed nothing.</Text> : null}
+    </VStack>
+  ) : (
+    <VStack gap={3}>
+      {action.description ? <Text>{action.description}</Text> : null}
+      {action.danger ? (
+        <TextInput
+          label={`Type ${action.name} to confirm this action`}
+          value={typed}
+          onChange={setTyped}
+          onEnter={() => void submit()}
+          placeholder={action.name}
+          autoComplete="off"
+          autoCapitalize="off"
+          hasAutoCorrect={false}
+          hasSpellCheck={false}
+          hasAutoFocus
+          width="100%"
+        />
+      ) : null}
+      {error ? <Banner status="error" title={error} collapsible={false} /> : null}
+    </VStack>
+  );
+
+  const footer = showResult ? (
+    <HStack gap={2} hAlign="end" wrap="wrap">
+      <Button label="Run again" variant="secondary" onClick={() => setPhase('confirm')} />
+      <Button label="Close" variant="primary" onClick={close} />
+    </HStack>
+  ) : (
+    <HStack gap={2} hAlign="end" wrap="wrap">
+      <Button label="Cancel" variant="secondary" onClick={close} />
+      <Button
+        label={run.isPending ? 'Running…' : `Run ${action.name}`}
+        variant={action.danger ? 'destructive' : 'primary'}
+        isLoading={run.isPending}
+        isDisabled={!canRun}
+        tooltip={canRun ? undefined : 'Type the action name to enable Run'}
+        onClick={() => void submit()}
+      />
+    </HStack>
+  );
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="overlay" />
-        <Dialog.Content className="dialog" aria-describedby={`${fieldId}-desc`}>
-          <Dialog.Title className="dialog-title">
-            {phase === 'confirm' ? `Run ${action.name}?` : action.name}
-          </Dialog.Title>
-          <Dialog.Description className="dialog-desc" id={`${fieldId}-desc`}>
-            {nodeName} · {action.type === 'wol' ? 'Wake-on-LAN' : 'Local script'} ·{' '}
-            {action.allow_api ? 'token-callable' : 'UI only'}
-          </Dialog.Description>
-
-          {phase === 'confirm' ? (
-            <>
-              <p className="dialog-desc" style={{ marginTop: 12 }}>
-                {action.description}
-              </p>
-              {action.danger ? (
-                <div className="dialog-body">
-                  <label className="field-label" htmlFor={fieldId}>
-                    Type {action.name} to confirm this action
-                  </label>
-                  <input
-                    id={fieldId}
-                    className="input"
-                    value={typed}
-                    onChange={(event) => setTyped(event.target.value)}
-                    autoComplete="off"
-                    spellCheck={false}
-                    placeholder={action.name}
-                  />
-                </div>
-              ) : null}
-              {error ? (
-                <p className="form-error" role="alert">
-                  {error}
-                </p>
-              ) : null}
-              <div className="dialog-foot">
-                <Dialog.Close asChild>
-                  <button type="button" className="btn btn-quiet">
-                    Cancel
-                  </button>
-                </Dialog.Close>
-                <button
-                  type="button"
-                  className={action.danger ? 'btn btn-danger' : 'btn btn-primary'}
-                  onClick={() => void submit()}
-                  disabled={!canRun || run.isPending}
-                  title={canRun ? undefined : 'Type the action name to enable Run'}
-                >
-                  {run.isPending ? 'Running…' : `Run ${action.name}`}
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {phase === 'result' && result ? (
-            <>
-              <div className="dialog-body">
-                <div className="result-status">
-                  <span className="pill" data-tone={result.exit_code === 0 ? 'positive' : 'negative'}>
-                    {result.exit_code === 0 ? 'Exited 0' : `Exited ${result.exit_code}`}
-                  </span>
-                  <span className="quiet">{(result.duration_ms / 1000).toFixed(1)} s</span>
-                  {result.truncated ? <span className="quiet">output truncated to 8 KiB</span> : null}
-                </div>
-                <div className="result-grid">
-                  <div className="result-cell">
-                    <div className="result-label">Exit code</div>
-                    <div className="result-value">{result.exit_code}</div>
-                  </div>
-                  <div className="result-cell">
-                    <div className="result-label">Duration</div>
-                    <div className="result-value">{(result.duration_ms / 1000).toFixed(1)} s</div>
-                  </div>
-                  <div className="result-cell">
-                    <div className="result-label">Run</div>
-                    <div className="result-value fig">{result.run_id.slice(0, 8)}</div>
-                  </div>
-                </div>
-                {result.stdout ? <pre className="output">{result.stdout}</pre> : null}
-                {result.stderr ? (
-                  <pre className="output" data-tone="negative">
-                    {result.stderr}
-                  </pre>
-                ) : null}
-              </div>
-              <div className="dialog-foot">
-                <button type="button" className="btn btn-quiet" onClick={() => setPhase('confirm')}>
-                  Run again
-                </button>
-                <Dialog.Close asChild>
-                  <button type="button" className="btn btn-ghost">
-                    Close
-                  </button>
-                </Dialog.Close>
-              </div>
-            </>
-          ) : null}
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <Dialog
+      isOpen={open}
+      onOpenChange={onOpenChange}
+      purpose={run.isPending ? 'required' : action.danger ? 'form' : 'info'}
+      width={showResult ? 640 : 480}
+    >
+      <Layout
+        header={
+          <DialogHeader
+            title={showResult ? action.name : `Run ${action.name}?`}
+            subtitle={subtitle}
+            onOpenChange={onOpenChange}
+          />
+        }
+        content={<LayoutContent>{content}</LayoutContent>}
+        footer={<LayoutFooter>{footer}</LayoutFooter>}
+      />
+    </Dialog>
   );
 }

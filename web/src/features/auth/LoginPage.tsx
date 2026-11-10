@@ -1,11 +1,34 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Center } from '@astryxdesign/core/Center';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
 import { CupolaMark } from '../../components/CupolaMark';
 import { api, ApiError, hubBase, setHub, setToken } from '../../data/api';
 import { useLogin, useMe } from '../../data/queries';
 import type { Me } from '../../data/types';
 
 type Mode = 'password' | 'connect';
+
+/** Outside the shell: the page paints its own ground and keeps clear of the notch and home bar. */
+const pageStyle: CSSProperties = {
+  minHeight: '100dvh',
+  boxSizing: 'border-box',
+  backgroundColor: 'var(--color-background-body)',
+  paddingTop: 'max(24px, env(safe-area-inset-top))',
+  paddingBottom: 'max(24px, env(safe-area-inset-bottom))',
+  paddingLeft: 'max(16px, env(safe-area-inset-left))',
+  paddingRight: 'max(16px, env(safe-area-inset-right))',
+};
+
+const columnStyle: CSSProperties = { width: '100%', maxWidth: 400 };
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -57,111 +80,137 @@ export function LoginPage() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <span className="about-mark" aria-hidden="true">
-          <CupolaMark size={26} />
-        </span>
-        <h1 className="login-title">Cupola</h1>
-        <p className="login-sub">
-          {storedHub ? `Connected to ${storedHub}.` : 'Self-hosted monitoring for the boxes you run.'}
-        </p>
-        <div className="login-tabs">
-          <button type="button" className="tab" aria-current={mode === 'password' ? 'page' : undefined} onClick={() => setMode('password')}>
-            Password
-          </button>
-          <button type="button" className="tab" aria-current={mode === 'connect' ? 'page' : undefined} onClick={() => setMode('connect')}>
-            Hub + token
-          </button>
-        </div>
-
-        {mode === 'password' ? (
-          <form
-            className="form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void signIn();
-            }}
-          >
-            <label className="form-field">
-              <span>Admin password</span>
-              <input
-                className="input input-ui"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            {error ? <p className="form-error" role="alert">{error}</p> : null}
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? 'Signing in…' : 'Sign in'}
-              </button>
-            </div>
-            <p className="login-foot">
-              This works when the hub serves the PWA (same origin). For a static build on GitHub Pages, use the hub URL and a read token.
-            </p>
-          </form>
-        ) : (
-          <form
-            className="form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void connect();
-            }}
-          >
-            <label className="form-field">
-              <span>Hub URL</span>
-              <input
-                className="input input-ui"
-                type="url"
-                value={hub}
-                onChange={(event) => setHubValue(event.target.value)}
-                placeholder="https://hub.lan:8080"
-                required
-              />
-            </label>
-            <label className="form-field">
-              <span>API token</span>
-              <input
-                className="input input-ui"
-                type="password"
-                value={token}
-                onChange={(event) => setTokenValue(event.target.value)}
-                placeholder="cupola_…"
-                required
-              />
-            </label>
-            {error ? <p className="form-error" role="alert">{error}</p> : null}
-            <div className="form-actions">
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? 'Connecting…' : 'Connect'}
-              </button>
-            </div>
-            <p className="login-foot">
-              The token is stored in this browser's localStorage and sent as a bearer. Create one in Settings → Tokens with the read scope.
-              The hub must allow this origin in CUPOLA_CORS_ORIGINS.
-            </p>
+    <Center axis="both" style={pageStyle}>
+      <VStack gap={4} hAlign="stretch" style={columnStyle}>
+        <VStack gap={2} hAlign="center">
+          <CupolaMark size={28} />
+          <Heading level={1}>Cupola</Heading>
+          <Text type="supporting" justify="center">
             {storedHub ? (
-              <button
-                type="button"
-                className="text-link"
-                onClick={() => {
-                  setHub('');
-                  setToken('');
-                  setHubValue('');
-                  setTokenValue('');
-                  setError(null);
+              <>
+                Connected to <Text type="code">{storedHub}</Text>
+              </>
+            ) : (
+              'Self-hosted monitoring for the boxes you run.'
+            )}
+          </Text>
+        </VStack>
+
+        <Card padding={6} width="100%">
+          <VStack gap={5}>
+            <SegmentedControl
+              label="Sign-in method"
+              layout="fill"
+              value={mode}
+              onChange={(value) => {
+                setError(null);
+                setMode(value as Mode);
+              }}
+            >
+              <SegmentedControlItem value="password" label="Password" />
+              <SegmentedControlItem value="connect" label="Hub + token" />
+            </SegmentedControl>
+
+            {mode === 'password' ? (
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!password) {
+                    setError('Enter the admin password.');
+                    return;
+                  }
+                  void signIn();
                 }}
               >
-                Forget this hub
-              </button>
-            ) : null}
-          </form>
-        )}
-      </div>
-    </div>
+                <VStack gap={4}>
+                  <TextInput
+                    label="Admin password"
+                    type="password"
+                    size="lg"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete="current-password"
+                    enterKeyHint="go"
+                    hasAutoFocus
+                  />
+                  {error ? (
+                    <VStack role="alert" data-testid="form-error">
+                      <Banner status="error" title={error} collapsible={false} />
+                    </VStack>
+                  ) : null}
+                  <Button type="submit" label="Sign in" variant="primary" size="lg" width="100%" isLoading={busy} />
+                  <Text type="supporting">
+                    This works when the hub serves the PWA (same origin). For a static build on GitHub Pages, use the hub URL and a
+                    read token.
+                  </Text>
+                </VStack>
+              </form>
+            ) : (
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!hub.trim() || !token.trim()) {
+                    setError('Enter the hub URL and an API token.');
+                    return;
+                  }
+                  void connect();
+                }}
+              >
+                <VStack gap={4}>
+                  <TextInput
+                    label="Hub URL"
+                    type="url"
+                    size="lg"
+                    value={hub}
+                    onChange={setHubValue}
+                    placeholder="https://hub.lan:8080"
+                    autoCapitalize="none"
+                    hasAutoCorrect={false}
+                    enterKeyHint="next"
+                  />
+                  <TextInput
+                    label="API token"
+                    type="password"
+                    size="lg"
+                    value={token}
+                    onChange={setTokenValue}
+                    placeholder="cupola_…"
+                    autoComplete="off"
+                    enterKeyHint="go"
+                  />
+                  {error ? (
+                    <VStack role="alert" data-testid="form-error">
+                      <Banner status="error" title={error} collapsible={false} />
+                    </VStack>
+                  ) : null}
+                  <Button type="submit" label="Connect" variant="primary" size="lg" width="100%" isLoading={busy} />
+                  <Text type="supporting">
+                    The token is stored in this browser's localStorage and sent as a bearer. Create one in Settings → Tokens with the
+                    read scope. The hub must allow this origin in <Text type="code">CUPOLA_CORS_ORIGINS</Text>.
+                  </Text>
+                  {storedHub ? (
+                    <HStack>
+                      <Button
+                        label="Forget this hub"
+                        variant="ghost"
+                        onClick={() => {
+                          setHub('');
+                          setToken('');
+                          setHubValue('');
+                          setTokenValue('');
+                          setError(null);
+                        }}
+                      />
+                    </HStack>
+                  ) : null}
+                </VStack>
+              </form>
+            )}
+          </VStack>
+        </Card>
+      </VStack>
+    </Center>
   );
 }

@@ -1,6 +1,18 @@
-import { useState } from 'react';
+// taste-skill-ignore em-dash: the em dash is the missing-value mark.
+import { useState, type MouseEvent } from 'react';
+import { Divider } from '@astryxdesign/core/Divider';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Selector } from '@astryxdesign/core/Selector';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import type { FleetService, Service } from '../data/types';
 import { duration } from '../lib/format';
+import { useIsPhone } from '../ui/kit';
 
 type Row = Service | FleetService;
 
@@ -23,17 +35,29 @@ export function unitTone(state: string): 'ok' | 'fail' | 'idle' {
   return 'idle';
 }
 
-export function UnitPill({ state }: { state: string }) {
+function dotVariant(state: string): 'success' | 'error' | 'neutral' {
   const tone = unitTone(state);
+  return tone === 'ok' ? 'success' : tone === 'fail' ? 'error' : 'neutral';
+}
+
+function stateWord(state: string): string {
+  return STATE_WORD[state] ?? state;
+}
+
+/** A unit's state as a dot and its word. */
+export function UnitPill({ state }: { state: string }) {
+  const word = stateWord(state);
   return (
-    <span className={`unit-pill${tone === 'ok' ? ' ok' : tone === 'fail' ? ' fail' : ''}`}>
-      <span className="unit-pill-dot" aria-hidden="true" />
-      {STATE_WORD[state] ?? state}
-    </span>
+    <HStack gap={1.5} vAlign="center">
+      <StatusDot variant={dotVariant(state)} label={word} />
+      <Text type="supporting" textWrap="nowrap">
+        {word}
+      </Text>
+    </HStack>
   );
 }
 
-/** The states present in the list, as filter chips with honest counts. */
+/** The states present in the list, as a segmented filter with honest counts. */
 export function UnitState({
   units,
   value,
@@ -43,6 +67,7 @@ export function UnitState({
   value?: string;
   onChange?: (next: string) => void;
 }) {
+  const phone = useIsPhone();
   const [local, setLocal] = useState('all');
   const active = value ?? local;
   const set = onChange ?? setLocal;
@@ -54,15 +79,28 @@ export function UnitState({
     ['active', 'Running'],
     ['inactive', 'Inactive'],
   ];
-  const options = all.filter(([key]) => key === 'all' || (counts[key] ?? 0) > 0);
+  const options = all
+    .filter(([key]) => key === 'all' || key === active || (counts[key] ?? 0) > 0)
+    .map(([key, label]) => ({ value: key, label: `${label} ${counts[key] ?? 0}` }));
+  if (phone) {
+    return (
+      <Selector
+        label="Filter by state"
+        isLabelHidden
+        size="md"
+        variant="secondary"
+        value={active}
+        options={options}
+        onChange={(next) => set(next ?? 'all')}
+      />
+    );
+  }
   return (
-    <div className="chips" role="group" aria-label="Filter by state">
-      {options.map(([key, label]) => (
-        <button type="button" className="chip" key={key} aria-pressed={active === key} onClick={() => set(key)}>
-          {label} <span className="chip-count">{counts[key] ?? 0}</span>
-        </button>
+    <SegmentedControl label="Filter by state" size="sm" value={active} onChange={set}>
+      {options.map((option) => (
+        <SegmentedControlItem key={option.value} value={option.value} label={option.label} />
       ))}
-    </div>
+    </SegmentedControl>
   );
 }
 
@@ -72,99 +110,204 @@ function since(value?: number): string {
   return age < 0 ? '—' : `${duration(age)} ago`;
 }
 
+interface UnitRow extends Record<string, unknown> {
+  key: string;
+  unit: Row;
+  nodeId: string;
+  nodeName: string;
+  changed: string;
+}
+
+function unitHref(nodeId: string, name: string): string {
+  return `/nodes/${encodeURIComponent(nodeId)}/services/${encodeURIComponent(name)}`;
+}
+
 /**
- * One row per unit: the name and its description on one line, the figures
- * right-aligned. Under 900 px the description moves under the name and the
- * remaining fields become a single subline, so no column is dropped.
+ * One row per unit: the name over its description, the system, the state and
+ * the figures right-aligned. Below 900 px every unit becomes one block, so no
+ * field is dropped. The unit name links to its detail route.
  */
 export function UnitTable({
   rows,
   onOpen,
+  nodeId,
   showNode = true,
   showSubState = false,
 }: {
   rows: Row[];
+  /** called instead of following the unit link */
   onOpen?: (unit: Row) => void;
+  /** the node these rows belong to, for rows that do not carry their own */
+  nodeId?: string;
   showNode?: boolean;
   showSubState?: boolean;
 }) {
+  const phone = useIsPhone();
   if (rows.length === 0) {
     return (
-      <p className="empty" role="status">
-        No unit matches this filter.
-      </p>
+      <EmptyState
+        title="No unit matches this filter"
+        description="Clear the filter or pick another state to see more units."
+        isCompact
+        headingLevel={3}
+      />
     );
   }
-  return (
-    <div className="table-wrap">
-      <table className="table unit-table">
-        <thead>
-          <tr>
-            <th scope="col" className="unit-dot" />
-            <th scope="col">Unit</th>
-            {showNode ? (
-              <th scope="col" className="opt-m">
-                System
-              </th>
+
+  const data: UnitRow[] = rows.map((unit) => {
+    const fleet = isFleet(unit);
+    const id = fleet ? unit.node_id : (nodeId ?? '');
+    return {
+      key: `${id}-${unit.name}`,
+      unit,
+      nodeId: id,
+      nodeName: fleet ? unit.node_name : '',
+      changed: since(unit.since),
+    };
+  });
+
+  const open = onOpen
+    ? (unit: Row) => (event: MouseEvent) => {
+        event.preventDefault();
+        onOpen(unit);
+      }
+    : undefined;
+
+  const name = (row: UnitRow) =>
+    row.nodeId || open ? (
+      <Link href={row.nodeId ? unitHref(row.nodeId, row.unit.name) : '#'} onClick={open?.(row.unit)} maxLines={1}>
+        <Text type="code">{row.unit.name}</Text>
+      </Link>
+    ) : (
+      <Text type="code" maxLines={1}>
+        {row.unit.name}
+      </Text>
+    );
+
+  if (phone) {
+    return (
+      <VStack gap={0}>
+        {data.map((row, index) => (
+          <VStack key={row.key} gap={0}>
+            {index > 0 ? <Divider /> : null}
+            <VStack gap={1} paddingBlock={3}>
+              <HStack gap={2} vAlign="center" hAlign="between">
+                <HStack gap={1.5} vAlign="center">
+                  <StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />
+                  {name(row)}
+                </HStack>
+                <Text type="code" size="sm" hasTabularNumbers textWrap="nowrap" color="secondary">
+                  {row.changed}
+                </Text>
+              </HStack>
+              {row.unit.description ? (
+                <Text type="supporting" maxLines={1}>
+                  {row.unit.description}
+                </Text>
+              ) : null}
+              <Text type="supporting" maxLines={1}>
+                {[
+                  showNode ? row.nodeName : null,
+                  stateWord(row.unit.active_state),
+                  showSubState && row.unit.sub_state !== stateWord(row.unit.active_state) && row.unit.sub_state !== row.unit.active_state
+                    ? row.unit.sub_state
+                    : null,
+                  row.unit.enabled,
+                  `${row.unit.restarts ?? 0} ${row.unit.restarts === 1 ? 'restart' : 'restarts'}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            </VStack>
+          </VStack>
+        ))}
+      </VStack>
+    );
+  }
+
+  const columns: TableColumn<UnitRow>[] = [
+    {
+      key: 'unit',
+      header: 'Unit',
+      width: pixel(380),
+      renderCell: (row) => (
+        <HStack gap={2} vAlign="center">
+          <StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />
+          <VStack gap={0}>
+            {name(row)}
+            {row.unit.description ? (
+              <Text type="supporting" maxLines={1}>
+                {row.unit.description}
+              </Text>
             ) : null}
-            <th scope="col">State</th>
-            {showSubState ? (
-              <th scope="col" className="opt-t">
-                Sub state
-              </th>
-            ) : null}
-            <th scope="col" className="num opt-t">
-              Restarts
-            </th>
-            <th scope="col" className="num">
-              Changed
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((unit) => {
-            const fleet = isFleet(unit);
-            const nodeName = fleet ? unit.node_name : '';
-            const changed = since(unit.since);
-            return (
-              <tr
-                key={`${fleet ? unit.node_id : ''}-${unit.name}`}
-                className={onOpen ? 'row-click' : undefined}
-                onClick={onOpen ? () => onOpen(unit) : undefined}
-              >
-                <td className="unit-dot">
-                  <span className="unit-dot-mark" data-tone={unitTone(unit.active_state)} aria-hidden="true" />
-                </td>
-                <td className="unit-name">
-                  <span className="unit-cell">
-                    <span className="unit-id" title={unit.name}>
-                      {unit.name}
-                    </span>
-                    <span className="unit-desc" title={unit.description}>
-                      {unit.description}
-                    </span>
-                    <span
-                      className="unit-sub"
-                      title={showNode ? [nodeName, unit.enabled].filter(Boolean).join(' · ') : changed}
-                    >
-                      {showNode
-                        ? [nodeName, unit.enabled].filter(Boolean).join(' · ')
-                        : changed}
-                    </span>
-                  </span>
-                </td>
-                {showNode ? <td className="mono opt-m">{nodeName || '—'}</td> : null}
-                <td>
-                  <UnitPill state={unit.active_state} />
-                </td>
-                {showSubState ? <td className="mono opt-t">{unit.sub_state || '—'}</td> : null}
-                <td className="num opt-t">{unit.restarts ? `${unit.restarts}×` : '0'}</td>
-                <td className="num mono">{changed}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+          </VStack>
+        </HStack>
+      ),
+    },
+  ];
+  if (showNode) {
+    columns.push({
+      key: 'node',
+      header: 'System',
+      width: proportional(1, { minWidth: 120 }),
+      renderCell: (row) =>
+        row.nodeName && row.nodeId ? (
+          <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} maxLines={1}>
+            {row.nodeName}
+          </Link>
+        ) : (
+          <Text type="code" color="secondary">
+            —
+          </Text>
+        ),
+    });
+  }
+  columns.push({
+    key: 'state',
+    header: 'State',
+    width: pixel(120),
+    renderCell: (row) => (
+      <Text type="supporting" textWrap="nowrap">
+        {stateWord(row.unit.active_state)}
+      </Text>
+    ),
+  });
+  if (showSubState) {
+    columns.push({
+      key: 'sub',
+      header: 'Sub state',
+      width: pixel(120),
+      renderCell: (row) => (
+        <Text type="supporting" textWrap="nowrap">
+          {row.unit.sub_state || '—'}
+        </Text>
+      ),
+    });
+  }
+  columns.push(
+    {
+      key: 'restarts',
+      header: 'Restarts',
+      width: pixel(96),
+      align: 'end',
+      renderCell: (row) => (
+        <Text type="code" hasTabularNumbers color={row.unit.restarts ? undefined : 'secondary'}>
+          {row.unit.restarts ? `${row.unit.restarts}×` : '0'}
+        </Text>
+      ),
+    },
+    {
+      key: 'changed',
+      header: 'Changed',
+      width: pixel(120),
+      align: 'end',
+      renderCell: (row) => (
+        <Text type="code" hasTabularNumbers textWrap="nowrap" color={row.changed === '—' ? 'secondary' : undefined}>
+          {row.changed}
+        </Text>
+      ),
+    },
   );
+
+  return <Table data={data} columns={columns} idKey="key" density="compact" dividers="rows" hasHover />;
 }

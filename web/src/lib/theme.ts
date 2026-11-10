@@ -27,13 +27,17 @@ export function resolvedTheme(preference = themePreference()): Theme {
   return media()?.matches ? 'light' : 'dark';
 }
 
-/** Writes the choice to <html> so tokens.css can switch, and keeps the browser chrome in step. */
+/**
+ * Writes the choice to <html> so the pre-paint ground in base.css follows it
+ * (the Astryx <Theme> reads the same preference), and keeps the browser chrome
+ * in step with the resolved ground.
+ */
 export function applyTheme(preference = themePreference()): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
   if (preference === 'system') delete root.dataset.theme;
   else root.dataset.theme = preference;
-  const ground = getComputedStyle(root).getPropertyValue('--ground').trim();
+  const ground = getComputedStyle(root).backgroundColor;
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta && ground) meta.setAttribute('content', ground);
 }
@@ -74,9 +78,19 @@ export function useResolvedTheme(): Theme {
   return useSyncExternalStore(subscribe, () => resolvedTheme(), () => 'dark');
 }
 
-/** Resolves a CSS colour (including var(--x)) for canvas, which cannot read variables. */
+/**
+ * Resolves a CSS colour (including var(--x)) for canvas, which cannot read
+ * variables. Astryx scopes its tokens to the theme root, so the probe is
+ * placed inside it rather than on <html>.
+ */
 export function cssColor(value: string): string {
-  const match = /^var\((--[\w-]+)\)$/.exec(value.trim());
-  if (!match || typeof document === 'undefined') return value;
-  return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || value;
+  if (!value.includes('var(') || typeof document === 'undefined') return value;
+  const host = document.querySelector('[data-astryx-theme]') ?? document.body;
+  const probe = document.createElement('span');
+  probe.style.display = 'none';
+  probe.style.color = value;
+  host.appendChild(probe);
+  const resolved = getComputedStyle(probe).color;
+  probe.remove();
+  return resolved || value;
 }

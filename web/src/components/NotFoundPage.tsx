@@ -1,25 +1,25 @@
-import { Link } from 'react-router-dom';
-import { PageHeader } from '../components/Panel';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { Link } from '@astryxdesign/core/Link';
+import { PageHead } from '../ui/kit';
 
 export function NotFoundPage() {
   return (
     <>
-      <PageHeader title="Not found" finding="This route has no screen." />
-      <div className="panel">
-        <p className="empty">
-          The view was renamed or never existed. <Link className="link" to="/">Back to the overview</Link>.
-        </p>
-      </div>
+      <PageHead title="Not found" />
+      <EmptyState
+        title="This route has no screen"
+        description="The view was renamed or never existed."
+        actions={<Link href="/">Back to systems</Link>}
+      />
     </>
   );
 }
 
+/** An object route whose object is gone: say which, and link back. */
+export function MissingThing({ what, back, backLabel }: { what: string; back: string; backLabel: string }) {
+  return <EmptyState title={what} description="It was removed, renamed or never existed." actions={<Link href={back}>{backLabel}</Link>} />;
+}
+
 export function MissingNode({ nodeId }: { nodeId: string }) {
-  return (
-    <div className="panel">
-      <p className="empty">
-        No node has the id “{nodeId}”. <Link className="link" to="/nodes">Back to the fleet</Link>.
-      </p>
-    </div>
-  );
+  return <MissingThing what={`No node has the id “${nodeId}”`} back="/" backLabel="Back to systems" />;
 }

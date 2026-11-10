@@ -1,4 +1,8 @@
-@import "tailwindcss";
-@import "./tokens.css";
-@import "./base.css";
-@import "./app.css";
+/* Astryx owns the reset, the components and the theme (built from
+   src/themes/cupola/cupolaTheme.ts by `npm run theme`). The two files below
+   only load Cupola's self-hosted fonts and paint the ground before React. */
+@import '@astryxdesign/core/reset.css';
+@import '@astryxdesign/core/astryx.css';
+@import '../themes/cupola/cupola.css';
+@import './fonts.css';
+@import './base.css';

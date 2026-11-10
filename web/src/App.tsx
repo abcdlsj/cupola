@@ -1,6 +1,11 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { LinkProvider } from '@astryxdesign/core/Link';
+import { Theme } from '@astryxdesign/core/theme';
+import { cupolaTheme } from './themes/cupola/cupola';
+import { RouterLink } from './ui/RouterLink';
+import { useThemePreference } from './lib/theme';
 import { AppShell } from './components/AppShell';
 import { NotFoundPage } from './components/NotFoundPage';
 import { CupolaMark } from './components/CupolaMark';
@@ -64,9 +69,12 @@ function RequireAuth({ children }: { children: ReactNode }) {
  * the back button always works.
  */
 export function App() {
+  const preference = useThemePreference();
   return (
     <QueryClientProvider client={client}>
+      <Theme theme={cupolaTheme} mode={preference}>
       <BrowserRouter>
+      <LinkProvider component={RouterLink}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/connect" element={<LoginPage />} />
@@ -111,7 +119,9 @@ export function App() {
             <Route path="*" element={<NotFoundPage />} />
           </Route>
         </Routes>
+      </LinkProvider>
       </BrowserRouter>
+      </Theme>
     </QueryClientProvider>
   );
 }

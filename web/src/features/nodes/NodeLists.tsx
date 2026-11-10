@@ -1,42 +1,123 @@
-import { useMemo, useState } from 'react';
-import { Link, useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import {
-  FunnelSimple,
-  Terminal,
-} from '@phosphor-icons/react';
-import { Panel } from '../../components/Panel';
-import { Table, TBody, Td, Th, THead } from '../../components/DataTable';
-import { Empty } from '../../components/States';
-import { Kv } from '../../components/Kv';
+// taste-skill-ignore em-dash: the em dash is the missing-value mark.
+import { useMemo, useState, type ReactNode } from 'react';
+import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
+import { Badge } from '@astryxdesign/core/Badge';
+import { Button } from '@astryxdesign/core/Button';
+import { Divider } from '@astryxdesign/core/Divider';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { Grid } from '@astryxdesign/core/Grid';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { List, ListItem } from '@astryxdesign/core/List';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { ErrorPanel, Empty, LoadingRows } from '../../components/States';
+import { MissingThing } from '../../components/NotFoundPage';
+import { UnitPill, UnitState, UnitTable } from '../../components/UnitTable';
 import { RunActionDialog } from '../apps/RunActionDialog';
-import { useActions, useContainerHistory, useNode, useRuns } from '../../data/queries';
-import { actionMark } from '../../lib/actionIcon';
-import type { Action, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
+import { ActionMark, ActionRows, LastRun, RunsTable, actionKind } from '../apps/AppsPage';
+import { useActions, useContainerHistory, useRuns } from '../../data/queries';
+import type { Action, Container, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { seriesColor } from '../../lib/chart';
 import { useRange } from './RangeControl';
 import { ChartCard } from '../../components/ChartCard';
-import { Meter } from '../../components/Meter';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
-
+import { Band, Facts, Figure, Meter, Section, useIsPhone } from '../../ui/kit';
 
 function useSnap() {
   return useOutletContext<NodeView>();
 }
 
-function NotFound({ what, to }: { what: string; to: string }) {
+const WAITING = 'Waiting for the first snapshot.';
+
+function enc(value: string | number): string {
+  return encodeURIComponent(String(value));
+}
+
+/** A grey dash where a value is missing, mono text otherwise. */
+function Mono({ value, lines }: { value: ReactNode; lines?: number }) {
+  if (value == null || value === '') {
+    return (
+      <Text type="code" color="secondary">
+        —
+      </Text>
+    );
+  }
   return (
-    <Panel title="Not found">
-      <Empty>
-        {what} is no longer in the latest snapshot. <Link className="link" to={to}>Back to the list</Link>.
-      </Empty>
-    </Panel>
+    <Text type="code" hasTabularNumbers maxLines={lines} textWrap={lines ? undefined : 'nowrap'}>
+      {value}
+    </Text>
   );
+}
+
+/**
+ * A detail route inside a node: a link back to the list, the object's name as
+ * the h2 (the node name above it is the h1), one context line and controls.
+ */
+function DetailHead({
+  back,
+  backLabel,
+  title,
+  desc,
+  actions,
+  leading,
+}: {
+  back: string;
+  backLabel: string;
+  title: ReactNode;
+  desc?: ReactNode;
+  actions?: ReactNode;
+  leading?: ReactNode;
+}) {
+  return (
+    <VStack gap={1}>
+      <HStack gap={1}>
+        <Link href={back}>{backLabel}</Link>
+      </HStack>
+      <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+        <HStack gap={2} vAlign="center">
+          {leading}
+          <VStack gap={0.5}>
+            <Heading level={2}>{title}</Heading>
+            {desc ? <Text type="supporting">{desc}</Text> : null}
+          </VStack>
+        </HStack>
+        {actions ? (
+          <HStack gap={2} vAlign="center" wrap="wrap">
+            {actions}
+          </HStack>
+        ) : null}
+      </HStack>
+    </VStack>
+  );
+}
+
+function Gone({ what, back, backLabel }: { what: string; back: string; backLabel: string }) {
+  return (
+    <>
+      <Band first>
+        <MissingThing what={what} back={back} backLabel={backLabel} />
+      </Band>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------ processes */
+
+interface ProcRow extends Record<string, unknown> {
+  pid: number;
+  proc: ProcessInfo;
 }
 
 export function ProcessesPage() {
   const view = useSnap();
+  const phone = useIsPhone();
   const { nodeId = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const query = params.get('q') ?? '';
@@ -54,207 +135,359 @@ export function ProcessesPage() {
       .filter((proc) => (needle ? `${proc.name} ${proc.user} ${proc.command}`.toLowerCase().includes(needle) : true))
       .sort((a, b) => b.cpu_percent - a.cpu_percent);
   }, [snap, query]);
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
+  if (!snap) return <Empty>{WAITING}</Empty>;
+
+  const cores = Math.max(1, snap.node.cores);
+  const total = snap.memory.total;
+  const now = Date.now();
+  const href = (proc: ProcessInfo) => `/nodes/${enc(nodeId)}/processes/${proc.pid}`;
+  const cpuShare = (proc: ProcessInfo) => Math.min(100, proc.cpu_percent / cores);
+  const memShare = (proc: ProcessInfo) => (total > 0 ? (proc.rss_bytes / total) * 100 : null);
+
+  const filter = (
+    <TextInput
+      label="Filter processes"
+      isLabelHidden
+      type="search"
+      enterKeyHint="search"
+      size={phone ? 'md' : 'sm'}
+      width={phone ? '100%' : 240}
+      value={query}
+      hasClear
+      onChange={setQuery}
+      placeholder={phone ? 'Filter processes…' : 'Filter by name, user or command…'}
+    />
+  );
+
+  const columns: TableColumn<ProcRow>[] = [
+    {
+      key: 'pid',
+      header: 'PID',
+      width: pixel(80),
+      align: 'end',
+      renderCell: ({ proc }) => <Mono value={proc.pid} />,
+    },
+    {
+      key: 'name',
+      header: 'Name',
+      width: pixel(180),
+      renderCell: ({ proc }) => (
+        <VStack gap={0}>
+          <Link href={href(proc)} maxLines={1}>
+            {proc.name}
+          </Link>
+          <Text type="supporting" maxLines={1}>
+            {proc.user}
+          </Text>
+        </VStack>
+      ),
+    },
+    {
+      key: 'command',
+      header: 'Command line',
+      width: proportional(1, { minWidth: 200 }),
+      renderCell: ({ proc }) => (
+        <Text type="code" size="sm" color="secondary" maxLines={1}>
+          {proc.command || proc.name}
+        </Text>
+      ),
+    },
+    {
+      key: 'cpu',
+      header: 'CPU',
+      width: pixel(140),
+      renderCell: ({ proc }) => (
+        <Meter
+          value={cpuShare(proc)}
+          text={percent(proc.cpu_percent, 1)}
+          tone="neutral"
+          width={56}
+          label={`${proc.name} CPU, bar is its share of all ${cores} threads`}
+        />
+      ),
+    },
+    {
+      key: 'memory',
+      header: 'Memory',
+      width: pixel(130),
+      renderCell: ({ proc }) => (
+        <Meter
+          value={memShare(proc)}
+          text={percent(memShare(proc) ?? Number.NaN, 1)}
+          tone="neutral"
+          width={56}
+          label={`${proc.name} share of memory`}
+        />
+      ),
+    },
+    {
+      key: 'rss',
+      header: 'RSS',
+      width: pixel(96),
+      align: 'end',
+      renderCell: ({ proc }) => <Mono value={size(proc.rss_bytes)} />,
+    },
+    {
+      key: 'threads',
+      header: 'Threads',
+      width: pixel(84),
+      align: 'end',
+      renderCell: ({ proc }) => <Mono value={proc.threads} />,
+    },
+    {
+      key: 'started',
+      header: 'Started',
+      width: pixel(104),
+      align: 'end',
+      renderCell: ({ proc }) => (
+        <Text type="code" hasTabularNumbers textWrap="nowrap">
+          {proc.started_at ? relative(proc.started_at, now) : '—'}
+        </Text>
+      ),
+    },
+  ];
+
   return (
-    <Panel
+    <Band
       title="Processes"
-      desc={`${procs.length} of ${snap.cpu.procs || snap.processes.length} by CPU. The agent samples the busiest; arguments are redacted.`}
-      meta={
-        <label className="filter">
-          <span className="sr-only">Filter processes</span>
-          <FunnelSimple size={15} aria-hidden="true" />
-          <input className="input input-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Filter…" />
-        </label>
-      }
-      flush
+      desc={`${procs.length} of ${snap.cpu.procs || snap.processes.length} by CPU · the agent samples the busiest · arguments redacted`}
+      actions={filter}
+      first
     >
       {procs.length === 0 ? (
-        <Empty>No process matches “{query}”.</Empty>
+        <EmptyState
+          title={query ? `No process matches “${query}”` : 'No process sampled'}
+          description={
+            query ? 'Clear the filter to see every sampled process.' : 'The agent has not reported processes yet.'
+          }
+          actions={
+            query ? (
+              <Button label="Clear filter" variant="secondary" size="sm" onClick={() => setQuery('')} />
+            ) : undefined
+          }
+          isCompact
+          headingLevel={3}
+        />
+      ) : phone ? (
+        <List hasDividers density="compact" edge="flush">
+          {procs.map((proc) => (
+            <ListItem
+              key={proc.pid}
+              href={href(proc)}
+              label={proc.name}
+              description={
+                <VStack gap={0.5}>
+                  <Text type="supporting" maxLines={1}>
+                    {`pid ${proc.pid} · ${proc.user} · ${size(proc.rss_bytes)} · ${proc.threads} threads`}
+                  </Text>
+                  <Text type="code" size="sm" color="secondary" maxLines={1}>
+                    {proc.command || proc.name}
+                  </Text>
+                </VStack>
+              }
+              endContent={<Figure value={proc.cpu_percent} unit="%" />}
+            />
+          ))}
+        </List>
       ) : (
-        <Table label="Processes">
-          <THead>
-            <Th>Process</Th>
-            <Th num>PID</Th>
-            <Th>User</Th>
-            <Th>CPU</Th>
-            <Th num>Memory</Th>
-            <Th num>Threads</Th>
-            <Th num>Started</Th>
-          </THead>
-          <TBody>
-            {procs.map((proc) => (
-              <tr key={proc.pid}>
-                <Td cell="primary">
-                  <Link className="row-name" title={proc.name} to={`/nodes/${nodeId}/processes/${proc.pid}`}>
-                    {proc.name}
-                  </Link>
-                  <span className="cell-sub" title={proc.command}>
-                    {proc.command}
-                  </span>
-                </Td>
-                <Td num cell="field" label="PID">
-                  {proc.pid}
-                </Td>
-                <Td cell="field" label="User">
-                  {proc.user}
-                </Td>
-                <Td cell="key" className="meter-cell">
-                  <Meter
-                    value={Math.min(100, proc.cpu_percent / Math.max(1, snap.node.cores))}
-                    text={percent(proc.cpu_percent, 1)}
-                    tone="neutral"
-                    label={`${proc.name} CPU, bar is its share of all ${snap.node.cores} threads`}
-                  />
-                </Td>
-                <Td num cell="field" label="Memory">
-                  {size(proc.rss_bytes)}
-                </Td>
-                <Td num cell="field" label="Threads">
-                  {proc.threads}
-                </Td>
-                <Td num cell="field" label="Started">
-                  {relative(proc.started_at, Date.now())}
-                </Td>
-              </tr>
-            ))}
-          </TBody>
-        </Table>
+        <Table
+          data={procs.map((proc) => ({ pid: proc.pid, proc }))}
+          columns={columns}
+          idKey="pid"
+          density="compact"
+          dividers="rows"
+          hasHover
+        />
       )}
-    </Panel>
+    </Band>
   );
 }
 
 export function ProcessDetailPage() {
   const view = useSnap();
   const { nodeId = '', pid = '' } = useParams();
-  const proc: ProcessInfo | undefined = view.snapshot?.processes.find((entry) => String(entry.pid) === pid);
-  if (!proc) return <NotFound what={`Process ${pid}`} to={`/nodes/${nodeId}/processes`} />;
+  const back = `/nodes/${enc(nodeId)}/processes`;
+  if (!view.snapshot) return <Empty>{WAITING}</Empty>;
+  const procs = view.snapshot.processes;
+  const proc: ProcessInfo | undefined = procs.find((entry) => String(entry.pid) === pid);
+  if (!proc)
+    return <Gone what={`Process ${pid} is not in the latest snapshot`} back={back} backLabel="Back to processes" />;
+  const parent = procs.find((entry) => entry.pid === proc.ppid);
+  const cores = Math.max(1, view.snapshot.node.cores);
+  const total = view.snapshot.memory.total;
   return (
-    <Panel title={proc.name} flush>
-      <div className="panel-body">
-        <Kv
-          rows={[
-            { label: 'PID', value: proc.pid },
-            { label: 'Parent PID', value: proc.ppid },
-            { label: 'User', value: proc.user },
-            { label: 'State', value: proc.state },
-            { label: 'CPU', value: percent(proc.cpu_percent, 1) },
-            { label: 'Memory', value: size(proc.rss_bytes) },
-            { label: 'Threads', value: proc.threads },
-            { label: 'Started', value: eventTime(proc.started_at, Date.now()) },
-            { label: 'TTY', value: proc.tty || '—' },
-            { label: 'Working directory', value: proc.cwd || '—' },
-            { label: 'Cgroup', value: proc.cgroup || '—' },
-            { label: 'Container', value: proc.container || '—' },
-            { label: 'Command', value: <span className="fig">{proc.command}</span> },
-          ]}
-        />
-        <p className="note" style={{ marginTop: 12 }}>
-          Arguments are redacted by the agent. Read-only: Cupola never kills a process in v1.
-        </p>
-      </div>
-    </Panel>
+    <>
+      <DetailHead
+        back={back}
+        backLabel="Processes"
+        title={proc.name}
+        desc={[`pid ${proc.pid}`, proc.user, proc.state].filter(Boolean).join(' · ')}
+      />
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+        <Section title="Process">
+          <Facts
+            rows={[
+              { label: 'PID', value: String(proc.pid) },
+              {
+                label: 'Parent PID',
+                value: parent ? (
+                  <Link href={`${back}/${parent.pid}`}>
+                    <Text type="code" hasTabularNumbers>
+                      {`${proc.ppid} · ${parent.name}`}
+                    </Text>
+                  </Link>
+                ) : (
+                  String(proc.ppid)
+                ),
+              },
+              { label: 'User', value: proc.user },
+              { label: 'State', value: proc.state },
+              {
+                label: 'CPU',
+                value: (
+                  <Meter
+                    value={Math.min(100, proc.cpu_percent / cores)}
+                    text={percent(proc.cpu_percent, 1)}
+                    tone="neutral"
+                    label={`CPU, bar is the share of all ${cores} threads`}
+                  />
+                ),
+              },
+              {
+                label: 'Memory',
+                value: (
+                  <Meter
+                    value={total > 0 ? (proc.rss_bytes / total) * 100 : null}
+                    text={size(proc.rss_bytes)}
+                    tone="neutral"
+                    label="Resident memory, bar is the share of all memory"
+                  />
+                ),
+              },
+              { label: 'Threads', value: String(proc.threads) },
+              {
+                label: 'Started',
+                value: proc.started_at ? eventTime(proc.started_at, Date.now()) : '',
+              },
+            ]}
+          />
+        </Section>
+        <VStack gap={3}>
+          <Section title="Context">
+            <Facts
+              rows={[
+                {
+                  label: 'TTY',
+                  value: proc.tty ? <Mono value={proc.tty} lines={1} /> : '',
+                },
+                {
+                  label: 'Working directory',
+                  value: proc.cwd ? <Mono value={proc.cwd} lines={1} /> : '',
+                },
+                {
+                  label: 'Cgroup',
+                  value: proc.cgroup ? <Mono value={proc.cgroup} lines={1} /> : '',
+                },
+                {
+                  label: 'Container',
+                  value: proc.container ? <Mono value={proc.container} lines={1} /> : '',
+                },
+              ]}
+            />
+          </Section>
+          <Section title="Command line" desc="Arguments are redacted by the agent">
+            <Text type="code" wordBreak="break-all">
+              {proc.command || proc.name}
+            </Text>
+          </Section>
+        </VStack>
+      </Grid>
+      <Text type="supporting">Read-only: Cupola never kills a process in v1.</Text>
+    </>
   );
 }
+
+/* ------------------------------------------------------------------- services */
 
 export function ServicesPage() {
   const view = useSnap();
   const { nodeId = '' } = useParams();
-  const [failedOnly, setFailedOnly] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const state = params.get('filter') ?? 'all';
   const snap = view.snapshot;
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
-  const services = snap.services.filter((service) => (failedOnly ? service.active_state === 'failed' : true));
+  if (!snap) return <Empty>{WAITING}</Empty>;
+  const all = snap.services;
+  const services = all.filter((service) => state === 'all' || service.active_state === state);
+  const failed = all.filter((service) => service.active_state === 'failed').length;
+  const setState = (next: string) => {
+    const search = new URLSearchParams(params);
+    if (next && next !== 'all') search.set('filter', next);
+    else search.delete('filter');
+    setParams(search, { replace: true });
+  };
   return (
-    <Panel
+    <Band
       title="Services"
-      meta={
-        <>
-          <label className="check">
-            <input type="checkbox" checked={failedOnly} onChange={(event) => setFailedOnly(event.target.checked)} />
-            Failed only
-          </label>
-          <span>{services.length} of {snap.services.length} services</span>
-        </>
-      }
-      flush
+      desc={`${services.length} of ${all.length} systemd units · ${failed} failed`}
+      actions={all.length > 0 ? <UnitState units={all} value={state} onChange={setState} /> : undefined}
+      first
     >
-      {services.length === 0 ? (
-        <Empty>{failedOnly ? 'No failed service.' : 'The agent reported no systemd services.'}</Empty>
+      {all.length === 0 ? (
+        <EmptyState
+          title="No systemd service reported"
+          description="The agent found no systemd on this host, or the collector is off."
+          isCompact
+          headingLevel={3}
+        />
       ) : (
-        <Table label="systemd services">
-          <THead>
-            <Th>Unit</Th>
-            <Th>State</Th>
-            <Th>Sub</Th>
-            <Th>Enabled</Th>
-            <Th num>Restarts</Th>
-          </THead>
-          <TBody>
-            {services.map((service) => (
-              <tr key={service.name}>
-                <Td cell="primary">
-                  <Link
-                    className="row-name"
-                    title={service.name}
-                    to={`/nodes/${nodeId}/services/${encodeURIComponent(service.name)}`}
-                  >
-                    {service.name}
-                  </Link>
-                  <span className="cell-sub" title={service.description}>
-                    {service.description}
-                  </span>
-                </Td>
-                <Td cell="field" label="State">
-                  <span className="pill" data-tone={service.active_state === 'failed' ? 'negative' : service.active_state === 'active' ? 'positive' : 'neutral'}>
-                    {service.active_state}
-                  </span>
-                </Td>
-                <Td cell="field" label="Sub">
-                  {service.sub_state}
-                </Td>
-                <Td cell="field" label="Enabled">
-                  {service.enabled}
-                </Td>
-                <Td num cell="key">
-                  {service.restarts}
-                </Td>
-              </tr>
-            ))}
-          </TBody>
-        </Table>
+        <UnitTable rows={services} nodeId={nodeId} showNode={false} showSubState />
       )}
-    </Panel>
+    </Band>
   );
 }
 
 export function ServiceDetailPage() {
   const view = useSnap();
   const { nodeId = '', unit = '' } = useParams();
+  const back = `/nodes/${enc(nodeId)}/services`;
+  if (!view.snapshot) return <Empty>{WAITING}</Empty>;
   const name = decodeURIComponent(unit);
-  const service = view.snapshot?.services.find((entry) => entry.name === name);
-  if (!service) return <NotFound what={name} to={`/nodes/${nodeId}/services`} />;
+  const service = view.snapshot.services.find((entry) => entry.name === name);
+  if (!service) return <Gone what={`${name} is not in the latest snapshot`} back={back} backLabel="Back to services" />;
   return (
-    <Panel title={service.name} flush>
-      <div className="panel-body">
-        <Kv
-          rows={[
-            { label: 'Description', value: service.description },
-            { label: 'Load state', value: service.load_state },
-            { label: 'Active state', value: service.active_state },
-            { label: 'Sub state', value: service.sub_state },
-            { label: 'Enabled', value: service.enabled },
-            { label: 'Restarts', value: service.restarts },
-          ]}
-        />
-        <p className="note" style={{ marginTop: 12 }}>Read-only: Cupola does not restart units in v1.</p>
-      </div>
-    </Panel>
+    <>
+      <DetailHead back={back} backLabel="Services" title={service.name} desc={service.description} />
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+        <Section title="Unit">
+          <Facts
+            rows={[
+              {
+                label: 'Active state',
+                value: <UnitPill state={service.active_state} />,
+              },
+              { label: 'Sub state', value: service.sub_state },
+              { label: 'Load state', value: service.load_state },
+              { label: 'Enabled', value: service.enabled },
+              { label: 'Restarts', value: String(service.restarts) },
+              {
+                label: 'Description',
+                value: service.description ? <Text maxLines={2}>{service.description}</Text> : '',
+              },
+            ]}
+          />
+        </Section>
+      </Grid>
+      <Text type="supporting">Read-only: Cupola does not restart units in v1.</Text>
+    </>
   );
 }
+
+/* ----------------------------------------------------------------- containers */
 
 const IMAGE_ROWS = 8;
 /** Four distinct data hues is what the token set offers; the table has the rest. */
 const CHART_CONTAINERS = 4;
+const HISTORY_EMPTY = 'No sample in this window yet. History is written once a minute.';
 
 /** Turns container history rows into the chart's series, one colour each. */
 export function historyChart(containers: ContainerSeries[], pick: 'cpu' | 'mem'): ChartSeries[] {
@@ -283,45 +516,203 @@ export function percentCeiling(peak: number): number {
   return Math.min(100, Math.max(10, Math.ceil((peak * 1.25) / step) * step));
 }
 
+function containerTone(state: string): 'success' | 'warning' | 'neutral' {
+  if (state === 'running') return 'success';
+  if (state === 'restarting' || state === 'exited') return 'warning';
+  return 'neutral';
+}
+
+function ContainerState({ state }: { state: string }) {
+  return (
+    <HStack gap={1.5} vAlign="center">
+      <StatusDot variant={containerTone(state)} label={state} />
+      <Text type="supporting" textWrap="nowrap">
+        {state}
+      </Text>
+    </HStack>
+  );
+}
+
 /**
- * Docker images ranked by size. The bar is the image's own size (every layer it
- * is built from, so shared layers count once per image); the header figure is
- * the bytes those images actually hold on disk, where each layer counts once.
+ * Docker images ranked by size. The bar is the image's own size against the
+ * largest (every layer it is built from, so shared layers count once per
+ * image); the band figure is the bytes those images actually hold on disk,
+ * where each layer counts once.
  */
-function ImageChart({ images }: { images: DockerImage[] }) {
+function Images({ images }: { images: DockerImage[] }) {
   const ranked = [...images].sort((a, b) => b.size - a.size);
   const top = ranked.slice(0, IMAGE_ROWS);
   const rest = ranked.slice(IMAGE_ROWS);
   const largest = top[0]?.size || 1;
   const onDisk = images.reduce((sum, image) => sum + Math.max(0, image.size - image.shared_size), 0);
   const restBytes = rest.reduce((sum, image) => sum + image.size, 0);
-  return (
-    <Panel title="Images" meta={`${images.length} images · ${size(onDisk)} on disk`} flush>
-      {images.length === 0 ? (
-        <Empty>The image list is empty or the Docker socket is not readable by the agent.</Empty>
-      ) : (
-        <div className="bar-list image-bars">
-          {top.map((image) => (
-            <div className="bar-row image-row" key={image.id}>
-              <span className="bar-label image-label" title={`${image.repo_tag} · ${image.containers} containers · ${image.id}`}>
-                {image.repo_tag}
-              </span>
-              <span className="bar-track">
-                <span className="bar-fill" style={{ width: `${Math.max(2, (image.size / largest) * 100)}%` }} />
-              </span>
-              <span className="bar-value fig">{size(image.size)}</span>
-            </div>
-          ))}
-          {rest.length > 0 ? (
-            <div className="bar-row image-row" key="rest">
-              <span className="bar-label image-label">{rest.length} more</span>
-              <span className="bar-track" />
-              <span className="bar-value fig">{size(restBytes)}</span>
-            </div>
+  const row = (key: string, label: ReactNode, sub: string | null, bar: number | null, value: string, index: number) => (
+    <VStack key={key} gap={0}>
+      {index > 0 ? <Divider /> : null}
+      <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2}>
+        <VStack gap={0}>
+          {label}
+          {sub ? (
+            <Text type="supporting" maxLines={1}>
+              {sub}
+            </Text>
           ) : null}
-        </div>
+        </VStack>
+        <HStack gap={3} vAlign="center">
+          {bar != null ? (
+            <Meter
+              value={bar}
+              label={`${key} size against the largest image`}
+              tone="neutral"
+              width={160}
+              showValue={false}
+            />
+          ) : null}
+          <VStack width={72}>
+            <Text type="code" hasTabularNumbers textWrap="nowrap" justify="end">
+              {value}
+            </Text>
+          </VStack>
+        </HStack>
+      </HStack>
+    </VStack>
+  );
+  return (
+    <Band title="Images" desc={`${images.length} images · ${size(onDisk)} on disk · largest first`}>
+      {images.length === 0 ? (
+        <EmptyState
+          title="No image reported"
+          description="The image list is empty or the Docker socket is not readable by the agent."
+          isCompact
+          headingLevel={3}
+        />
+      ) : (
+        <VStack gap={0}>
+          {top.map((image, index) =>
+            row(
+              image.id,
+              <Text type="code" maxLines={1}>
+                {image.repo_tag}
+              </Text>,
+              `${image.containers} ${image.containers === 1 ? 'container' : 'containers'} · ${image.id.replace(/^sha256:/, '').slice(0, 12)}${image.dangling ? ' · dangling' : ''}`,
+              Math.max(2, (image.size / largest) * 100),
+              size(image.size),
+              index,
+            ),
+          )}
+          {rest.length > 0
+            ? row('rest', <Text type="supporting">{rest.length} more</Text>, null, null, size(restBytes), top.length)
+            : null}
+        </VStack>
       )}
-    </Panel>
+    </Band>
+  );
+}
+
+interface BoxRow extends Record<string, unknown> {
+  id: string;
+  box: Container;
+}
+
+function ContainersTable({ nodeId, containers, cores }: { nodeId: string; containers: Container[]; cores: number }) {
+  const phone = useIsPhone();
+  const href = (box: Container) => `/nodes/${enc(nodeId)}/containers/${enc(box.id)}`;
+  const up = (box: Container) => (box.uptime_sec ? duration(box.uptime_sec) : '—');
+  if (phone) {
+    return (
+      <List hasDividers density="compact" edge="flush">
+        {containers.map((box) => (
+          <ListItem
+            key={box.id}
+            href={href(box)}
+            startContent={<StatusDot variant={containerTone(box.state)} label={box.state} />}
+            label={box.name}
+            description={`${box.image} · ${box.state} · ${size(box.mem_bytes)} · up ${up(box)} · ${box.restarts} restarts`}
+            endContent={<Figure value={box.cpu_percent} unit="%" />}
+          />
+        ))}
+      </List>
+    );
+  }
+  const columns: TableColumn<BoxRow>[] = [
+    {
+      key: 'name',
+      header: 'Container',
+      width: proportional(1, { minWidth: 180 }),
+      renderCell: ({ box }) => (
+        <HStack gap={2} vAlign="center">
+          <StatusDot variant={containerTone(box.state)} label={box.state} />
+          <Link href={href(box)} maxLines={1}>
+            {box.name}
+          </Link>
+        </HStack>
+      ),
+    },
+    {
+      key: 'image',
+      header: 'Image',
+      width: proportional(1, { minWidth: 200 }),
+      renderCell: ({ box }) => (
+        <Text type="code" size="sm" color="secondary" maxLines={1}>
+          {box.image}
+        </Text>
+      ),
+    },
+    {
+      key: 'state',
+      header: 'State',
+      width: pixel(110),
+      renderCell: ({ box }) => (
+        <Text type="supporting" textWrap="nowrap">
+          {box.state}
+        </Text>
+      ),
+    },
+    {
+      key: 'cpu',
+      header: 'CPU',
+      width: pixel(140),
+      renderCell: ({ box }) => (
+        <Meter
+          value={Math.min(100, box.cpu_percent / cores)}
+          text={percent(box.cpu_percent, 1)}
+          tone="neutral"
+          width={56}
+          label={`${box.name} CPU, bar is its share of all ${cores} threads`}
+        />
+      ),
+    },
+    {
+      key: 'memory',
+      header: 'Memory',
+      width: pixel(100),
+      align: 'end',
+      renderCell: ({ box }) => <Mono value={size(box.mem_bytes)} />,
+    },
+    {
+      key: 'restarts',
+      header: 'Restarts',
+      width: pixel(90),
+      align: 'end',
+      renderCell: ({ box }) => <Mono value={box.restarts} />,
+    },
+    {
+      key: 'up',
+      header: 'Up',
+      width: pixel(90),
+      align: 'end',
+      renderCell: ({ box }) => <Mono value={box.uptime_sec ? duration(box.uptime_sec) : ''} />,
+    },
+  ];
+  return (
+    <Table
+      data={containers.map((box) => ({ id: box.id, box }))}
+      columns={columns}
+      idKey="id"
+      density="compact"
+      dividers="rows"
+      hasHover
+    />
   );
 }
 
@@ -340,84 +731,63 @@ export function ContainersPage() {
         .slice(0, CHART_CONTAINERS),
     [history.data],
   );
-  if (!snap) return <Empty>Waiting for the first snapshot.</Empty>;
+  if (!snap) return <Empty>{WAITING}</Empty>;
   const cpu = historyChart(containers, 'cpu');
   const memory = historyChart(containers, 'mem');
-  const cpuMax = percentCeiling(peakOf(containers.flatMap((entry) => entry.points), 'cpu'));
-  const empty = 'No sample in this window yet. History is written once a minute.';
+  const cpuMax = percentCeiling(
+    peakOf(
+      containers.flatMap((entry) => entry.points),
+      'cpu',
+    ),
+  );
+  const running = snap.containers.filter((box) => box.state === 'running').length;
   return (
     <>
-      <div className="chart-grid">
-        <ChartCard
-          title="Container CPU"
-          desc={`The ${cpu.length || ''} busiest containers in this window.`.replace('The  ', 'The ')}
-          now={percent(snap.containers.reduce((sum, container) => sum + container.cpu_percent, 0), 1)}
-          series={cpu}
-          unit="percent"
-          maxValue={cpuMax}
-          pending={history.isPending}
-          empty={empty}
-        />
-        <ChartCard
-          title="Container memory"
-          desc="Resident memory of the same containers."
-          now={size(snap.containers.reduce((sum, container) => sum + container.mem_bytes, 0))}
-          series={memory}
-          unit="bytes"
-          pending={history.isPending}
-          empty={empty}
-        />
-      </div>
-      <ImageChart images={snap.images ?? []} />
-      <Panel title="Containers" meta={`${snap.containers.length} ${snap.containers.length === 1 ? 'container' : 'containers'}`} flush>
+      <Band
+        title="Containers"
+        desc={`${snap.containers.length} ${snap.containers.length === 1 ? 'container' : 'containers'} · ${running} running · Docker over the unix socket`}
+        first
+      >
+        <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
+          <ChartCard
+            title="Container CPU"
+            desc={
+              cpu.length > 1
+                ? `The ${cpu.length} busiest containers in this window`
+                : 'The busiest container in this window'
+            }
+            now={percent(
+              snap.containers.reduce((sum, container) => sum + container.cpu_percent, 0),
+              1,
+            )}
+            series={cpu}
+            unit="percent"
+            maxValue={cpuMax}
+            pending={history.isPending}
+            empty={HISTORY_EMPTY}
+          />
+          <ChartCard
+            title="Container memory"
+            desc="Resident memory of the same containers"
+            now={size(snap.containers.reduce((sum, container) => sum + container.mem_bytes, 0))}
+            series={memory}
+            unit="bytes"
+            pending={history.isPending}
+            empty={HISTORY_EMPTY}
+          />
+        </Grid>
         {snap.containers.length === 0 ? (
-          <Empty>No container or the Docker socket is not readable by the agent.</Empty>
+          <EmptyState
+            title="No container reported"
+            description="No container runs here, or the Docker socket is not readable by the agent."
+            isCompact
+            headingLevel={3}
+          />
         ) : (
-          <Table label="Containers">
-            <THead>
-              <Th>Container</Th>
-              <Th>Image</Th>
-              <Th>State</Th>
-              <Th num>CPU</Th>
-              <Th num>Memory</Th>
-              <Th num>Restarts</Th>
-              <Th num>Up</Th>
-            </THead>
-            <TBody>
-              {snap.containers.map((container) => (
-                <tr key={container.id}>
-                  <Td cell="primary">
-                    <Link className="row-name" title={container.name} to={`/nodes/${nodeId}/containers/${container.id}`}>
-                      {container.name}
-                    </Link>
-                  </Td>
-                  <Td cell="field" label="Image">
-                    <span title={container.image}>{container.image}</span>
-                  </Td>
-                  <Td cell="field" label="State">
-                    <span className="status" data-tone={container.state === 'running' ? 'positive' : container.state === 'restarting' || container.state === 'exited' ? 'warning' : 'neutral'}>
-                      <span className="status-dot" data-tone={container.state === 'running' ? 'positive' : container.state === 'restarting' || container.state === 'exited' ? 'warning' : 'neutral'} aria-hidden="true" />
-                      {container.state}
-                    </span>
-                  </Td>
-                  <Td num cell="key">
-                    {percent(container.cpu_percent, 1)}
-                  </Td>
-                  <Td num cell="field" label="Memory">
-                    {size(container.mem_bytes)}
-                  </Td>
-                  <Td num cell="field" label="Restarts">
-                    {container.restarts}
-                  </Td>
-                  <Td num cell="field" label="Up">
-                    {container.uptime_sec ? duration(container.uptime_sec) : '—'}
-                  </Td>
-                </tr>
-              ))}
-            </TBody>
-          </Table>
+          <ContainersTable nodeId={nodeId} containers={snap.containers} cores={Math.max(1, snap.node.cores)} />
         )}
-      </Panel>
+      </Band>
+      <Images images={snap.images ?? []} />
     </>
   );
 }
@@ -428,51 +798,97 @@ export function ContainerDetailPage() {
   const [range] = useRange();
   const container = view.snapshot?.containers.find((entry) => entry.id === containerId);
   const history = useContainerHistory(nodeId, range, container ? [container.id] : []);
-  if (!container) return <NotFound what="This container" to={`/nodes/${nodeId}/containers`} />;
+  const back = `/nodes/${enc(nodeId)}/containers`;
+  if (!view.snapshot) return <Empty>{WAITING}</Empty>;
+  if (!container)
+    return <Gone what="This container is not in the latest snapshot" back={back} backLabel="Back to containers" />;
   const series = history.data?.containers ?? [];
+  const memShare = container.mem_limit > 0 ? (container.mem_bytes / container.mem_limit) * 100 : null;
   return (
     <>
-    <div className="chart-grid">
-      <ChartCard
-        title="CPU"
-        desc={`${container.name} over the window.`}
-        now={percent(container.cpu_percent, 1)}
-        series={historyChart(series, 'cpu')}
-        unit="percent"
-        maxValue={percentCeiling(peakOf(series.flatMap((entry) => entry.points), 'cpu'))}
-        pending={history.isPending}
-        empty="No sample in this window yet. History is written once a minute."
+      <DetailHead
+        back={back}
+        backLabel="Containers"
+        title={container.name}
+        desc={`${container.image} · ${container.status || container.state}`}
+        leading={
+          <StatusDot variant={containerTone(container.state)} label={container.state} tooltip={container.state} />
+        }
       />
-      <ChartCard
-        title="Memory"
-        desc={container.mem_limit ? `Resident memory against a ${size(container.mem_limit)} limit.` : 'Resident memory; no limit set.'}
-        now={size(container.mem_bytes)}
-        series={historyChart(series, 'mem')}
-        unit="bytes"
-        pending={history.isPending}
-        empty="No sample in this window yet. History is written once a minute."
-      />
-    </div>
-    <Panel title={container.name} flush>
-      <div className="panel-body">
-        <Kv
+      <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
+        <ChartCard
+          title="CPU"
+          desc={`${container.name} over the window`}
+          now={percent(container.cpu_percent, 1)}
+          series={historyChart(series, 'cpu')}
+          unit="percent"
+          maxValue={percentCeiling(
+            peakOf(
+              series.flatMap((entry) => entry.points),
+              'cpu',
+            ),
+          )}
+          pending={history.isPending}
+          empty={HISTORY_EMPTY}
+        />
+        <ChartCard
+          title="Memory"
+          desc={
+            container.mem_limit
+              ? `Resident memory against a ${size(container.mem_limit)} limit`
+              : 'Resident memory; no limit set'
+          }
+          now={size(container.mem_bytes)}
+          series={historyChart(series, 'mem')}
+          unit="bytes"
+          pending={history.isPending}
+          empty={HISTORY_EMPTY}
+        />
+      </Grid>
+      <Section title="Container">
+        <Facts
           rows={[
-            { label: 'ID', value: <span className="fig">{container.id}</span> },
-            { label: 'Image', value: container.image },
-            { label: 'State', value: container.state },
+            { label: 'ID', value: <Mono value={container.id} lines={1} /> },
+            {
+              label: 'Image',
+              value: <Mono value={container.image} lines={1} />,
+            },
+            {
+              label: 'State',
+              value: <ContainerState state={container.state} />,
+            },
             { label: 'Status', value: container.status },
             { label: 'CPU', value: percent(container.cpu_percent, 1) },
-            { label: 'Memory', value: `${size(container.mem_bytes)} of ${size(container.mem_limit)}` },
-            { label: 'Restarts', value: container.restarts },
-            { label: 'Uptime', value: container.uptime_sec ? duration(container.uptime_sec) : '—' },
-            { label: 'Ports', value: container.ports.join(', ') || '—' },
+            {
+              label: 'Memory',
+              value:
+                memShare != null ? (
+                  <Meter
+                    value={memShare}
+                    text={`${size(container.mem_bytes)} of ${size(container.mem_limit)}`}
+                    label="Memory against the limit"
+                  />
+                ) : (
+                  `${size(container.mem_bytes)} · no limit`
+                ),
+            },
+            { label: 'Restarts', value: String(container.restarts) },
+            {
+              label: 'Uptime',
+              value: container.uptime_sec ? duration(container.uptime_sec) : '',
+            },
+            {
+              label: 'Ports',
+              value: container.ports.length ? <Mono value={container.ports.join(', ')} lines={2} /> : '',
+            },
           ]}
         />
-      </div>
-    </Panel>
+      </Section>
     </>
   );
 }
+
+/* ----------------------------------------------------------------------- apps */
 
 export function AppsTab() {
   const view = useSnap();
@@ -482,159 +898,111 @@ export function AppsTab() {
   const [open, setOpen] = useState(false);
   const runs = useRuns(nodeId);
   const actions = query.data?.actions ?? [];
+  const own = (runs.data ?? []).filter((run) => actions.some((action) => action.id === run.action_id));
   return (
     <>
-      <div className="app-list">
-        {actions.map((action) => {
-          const mark = actionMark(action);
-          const last = action.last_run_at ? relative(action.last_run_at, Date.now()) : 'never run';
-          return (
-            <button
-              type="button"
-              className="app-row"
-              key={action.id}
-              onClick={() => {
-                setSelected(action);
-                setOpen(true);
-              }}
-            >
-              <span className="app-mark" aria-hidden="true" data-danger={action.danger ? 'true' : undefined}>
-                {mark.kind === 'image' ? <img src={mark.src} alt="" /> : <mark.Icon size={17} />}
-              </span>
-              <span className="app-main">
-                <span className="app-name-line">
-                  <span className="app-name" title={action.name}>
-                    {action.name}
-                  </span>
-                  {action.danger ? (
-                    <span className="pill" data-tone="negative">
-                      Dangerous
-                    </span>
-                  ) : null}
-                </span>
-                <span className="app-desc" title={action.description}>
-                  {action.description}
-                </span>
-              </span>
-              <span className="app-state">
-                {action.last_ok == null ? (
-                  <span className="pill" data-tone="neutral">
-                    Never run
-                  </span>
-                ) : (
-                  <span className="pill" data-tone={action.last_ok ? 'positive' : 'negative'}>
-                    {action.last_ok ? 'OK' : 'Failed'}
-                  </span>
-                )}
-              </span>
-              <span className="app-meta" title={`${last} · ${action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}`}>
-                {last} · {action.type === 'wol' ? 'Wake-on-LAN' : 'Script'}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-      {actions.length === 0 ? (
-        <div className="panel">
-          <Empty>No action is configured on this agent. Actions live in the agent config (0600) only.</Empty>
-        </div>
-      ) : null}
-      <Panel title="Recent runs" meta={`${runs.data?.length ?? 0} recorded`} flush>
-        <RunsTable runs={runs.data?.filter((run) => actions.some((action) => action.id === run.action_id)) ?? []} onRun={(run) => {
-          const action = actions.find((entry) => entry.id === run.action_id);
-          if (action) {
-            setSelected(action);
-            setOpen(true);
-          }
-        }} />
-      </Panel>
+      <Band title="Apps" desc="Actions live in the agent config and are run by the hub" first>
+        {query.isPending ? (
+          <LoadingRows rows={3} columns={3} />
+        ) : query.isError ? (
+          <ErrorPanel what="Could not load this agent's actions." onRetry={() => void query.refetch()} />
+        ) : actions.length === 0 ? (
+          <EmptyState
+            title="No action is configured on this agent"
+            description="Actions live in the agent config (0600) only; the hub cannot create them."
+            isCompact
+            headingLevel={3}
+          />
+        ) : (
+          <ActionRows
+            actions={actions}
+            nodeId={nodeId}
+            nodeName={view.node.name}
+            onRun={(action) => {
+              setSelected(action);
+              setOpen(true);
+            }}
+          />
+        )}
+      </Band>
+      <Band title="Recent runs" desc={`${own.length} recorded`}>
+        <RunsTable runs={own} />
+      </Band>
       <RunActionDialog action={selected} nodeId={nodeId} nodeName={view.node.name} open={open} onOpenChange={setOpen} />
     </>
   );
 }
 
-function RunsTable({ runs, onRun }: { runs: import('../../data/types').ActionRun[]; onRun: (run: import('../../data/types').ActionRun) => void }) {
-  if (runs.length === 0) return <Empty>No run recorded yet.</Empty>;
-  return (
-    <Table label="Recent action runs">
-      <THead>
-        <Th>Action</Th>
-        <Th num>Started</Th>
-        <Th>Actor</Th>
-        <Th num>Duration</Th>
-        <Th>Result</Th>
-      </THead>
-      <TBody>
-        {runs.map((run) => (
-          <tr key={run.id}>
-            <Td cell="primary">
-              <button type="button" className="row-link" onClick={() => onRun(run)}>
-                {run.action_name || run.action_id}
-              </button>
-            </Td>
-            <Td num cell="field" label="Started">
-              {relative(run.ts, Date.now())}
-            </Td>
-            <Td cell="field" label="Actor">
-              {run.actor} · {run.source}
-            </Td>
-            <Td num cell="field" label="Duration">
-              {(run.duration_ms / 1000).toFixed(1)} s
-            </Td>
-            <Td cell="key">
-              <span className="pill" data-tone={run.ok ? 'positive' : 'negative'}>
-                {run.ok ? 'Exited 0' : `Exited ${run.exit_code}`}
-              </span>
-            </Td>
-          </tr>
-        ))}
-      </TBody>
-    </Table>
-  );
-}
-
 export function AppDetailPage() {
+  const view = useSnap();
   const { nodeId = '', actionId = '' } = useParams();
-  const query = useNode(nodeId);
   const actions = useActions(nodeId);
   const runs = useRuns(nodeId);
   const [open, setOpen] = useState(false);
+  const back = `/nodes/${enc(nodeId)}/apps`;
+  if (actions.isPending) return <LoadingRows rows={4} columns={2} />;
+  if (actions.isError)
+    return <ErrorPanel what="Could not load this agent's actions." onRetry={() => void actions.refetch()} />;
   const action = actions.data?.actions.find((entry) => entry.id === actionId);
-  if (!query.data) return <Empty>Loading…</Empty>;
-  if (!action) return <NotFound what={`Action ${actionId}`} to={`/nodes/${nodeId}/apps`} />;
-  const mark = actionMark(action);
-  const Icon = mark.kind === 'symbol' ? mark.Icon : Terminal;
+  if (!action) return <Gone what={`No action has the id “${actionId}”`} back={back} backLabel="Back to apps" />;
+  const own = (runs.data ?? []).filter((run) => run.action_id === actionId);
   return (
     <>
-      <Panel title={action.name} flush>
-        <div className="panel-body">
-          <div className="app-detail-head">
-            <Icon size={22} aria-hidden="true" />
-            <div>
-              <p className="app-detail-desc">{action.description}</p>
-              <p className="note">
-                {action.type === 'wol' ? 'Wake-on-LAN packet from the agent.' : 'Fixed script from the agent config: no shell, no arguments, scrubbed environment.'}{' '}
-                {action.allow_api ? 'Token-callable.' : 'Not callable through the API.'} {action.danger ? 'Requires typing the name.' : ''}
-              </p>
-            </div>
-          </div>
-          <div className="dialog-foot" style={{ justifyContent: 'flex-start' }}>
-            <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
-              Run {action.name}
-            </button>
-          </div>
-        </div>
-      </Panel>
-      <Panel title="Runs" meta={`${runs.data?.filter((run) => run.action_id === actionId).length ?? 0} recorded`} flush>
-        <RunsTable
-          runs={(runs.data ?? []).filter((run) => run.action_id === actionId)}
-          onRun={() => setOpen(true)}
-        />
-      </Panel>
-      <RunActionDialog action={action} nodeId={nodeId} nodeName={query.data.node.name} open={open} onOpenChange={setOpen} />
+      <DetailHead
+        back={back}
+        backLabel="Apps"
+        leading={<ActionMark action={action} size={24} />}
+        title={action.name}
+        desc={action.description}
+        actions={
+          <Button
+            label={`Run ${action.name}`}
+            variant={action.danger ? 'destructive' : 'primary'}
+            onClick={() => setOpen(true)}
+          />
+        }
+      />
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+        <Section title="Action">
+          <Facts
+            rows={[
+              { label: 'Type', value: actionKind(action) },
+              {
+                label: 'API',
+                value: action.allow_api ? 'Token-callable' : 'Not callable through the API',
+              },
+              {
+                label: 'Confirmation',
+                value: action.danger ? <Badge variant="error" label="Requires typing the name" /> : 'One click',
+              },
+              { label: 'Last result', value: <LastRun action={action} /> },
+              {
+                label: 'Last run',
+                value: action.last_run_at ? relative(action.last_run_at, Date.now()) : '',
+              },
+            ]}
+          />
+        </Section>
+        <Section title="How it runs">
+          <Text type="supporting">
+            {action.type === 'wol'
+              ? 'Wake-on-LAN packet sent by the agent.'
+              : 'Fixed script from the agent config: no shell, no arguments, scrubbed environment.'}
+          </Text>
+          <Text type="supporting">
+            One run at a time, 60 s timeout, output truncated to 8 KiB. Every result is an event.
+          </Text>
+        </Section>
+      </Grid>
+      <Band title="Runs" desc={`${own.length} recorded`}>
+        <RunsTable runs={own} showAction={false} />
+      </Band>
+      <RunActionDialog action={action} nodeId={nodeId} nodeName={view.node.name} open={open} onOpenChange={setOpen} />
     </>
   );
 }
+
+/* --------------------------------------------------------------------- events */
 
 export function NodeEventsPage() {
   const view = useSnap();

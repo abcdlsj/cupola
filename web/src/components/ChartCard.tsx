@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react';
+import { Card } from '@astryxdesign/core/Card';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import { SeriesChart, type ChartMarker, type ChartSeries, type ChartUnit } from './SeriesChart';
 
 /**
- * One metric in the node chart grid: title and a one-line description on the
- * left, the current reading on the right, the chart, and a swatch legend when
- * there is more than one series. Loading and empty windows keep the frame.
+ * One metric in a chart grid: title and one line of context on the left, the
+ * current reading on the right, the chart, and a swatch legend when there is
+ * more than one series. Loading and empty windows keep the frame's height.
  */
 export function ChartCard({
   title,
@@ -37,34 +42,55 @@ export function ChartCard({
   // one sample is a dot, not a curve: wait for the second before drawing axes
   const hasData = series.some((entry) => entry.points.length > 1);
   return (
-    <section className="panel chart-card" aria-label={title}>
-      <header className="chart-card-head">
-        <div className="panel-heading">
-          <h2 className="panel-title">{title}</h2>
-          <p className="panel-desc">{desc}</p>
-        </div>
-        {now != null ? <span className="chart-card-now">{now}</span> : null}
-      </header>
-      <div className="chart-card-plot" style={{ minHeight: height }}>
-        {hasData ? (
-          <SeriesChart series={series} unit={unit} threshold={threshold} marker={marker} maxValue={maxValue} label={title} height={height} />
-        ) : (
-          <p className="chart-card-empty" style={{ height }}>
-            {pending ? 'Loading this window from the hub…' : empty}
-          </p>
-        )}
-      </div>
-      {series.length > 1 ? (
-        <div className="chart-legend">
-          {series.map((entry, index) => (
-            <span className="chart-legend-item" key={entry.label}>
-              <span className="chart-legend-swatch" style={{ background: entry.color }} aria-hidden="true" />
-              {entry.label}
-              {legend?.[index] != null ? <span className="fig chart-legend-value">{legend[index]}</span> : null}
-            </span>
-          ))}
-        </div>
-      ) : null}
-    </section>
+    <Card>
+      <section aria-label={title}>
+        <VStack gap={2}>
+          <HStack hAlign="between" vAlign="start" gap={3}>
+            <VStack gap={0.5}>
+              <Heading level={3}>{title}</Heading>
+              <Text type="supporting">{desc}</Text>
+            </VStack>
+            {now != null ? (
+              <Text type="code" size="lg" hasTabularNumbers textWrap="nowrap">
+                {now}
+              </Text>
+            ) : null}
+          </HStack>
+          {hasData ? (
+            <SeriesChart
+              series={series}
+              unit={unit}
+              threshold={threshold}
+              marker={marker}
+              maxValue={maxValue}
+              label={title}
+              height={height}
+            />
+          ) : (
+            <VStack height={height} hAlign="center" vAlign="center">
+              <Text type="supporting">{pending ? 'Loading this window from the hub…' : empty}</Text>
+            </VStack>
+          )}
+          {series.length > 1 ? (
+            <HStack gap={4} wrap="wrap">
+              {series.map((entry, index) => (
+                <HStack key={entry.label} gap={1.5} vAlign="center">
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 8, height: 8, borderRadius: 999, background: entry.color, flex: 'none' }}
+                  />
+                  <Text type="supporting">{entry.label}</Text>
+                  {legend?.[index] != null ? (
+                    <Text type="code" hasTabularNumbers>
+                      {legend[index]}
+                    </Text>
+                  ) : null}
+                </HStack>
+              ))}
+            </HStack>
+          ) : null}
+        </VStack>
+      </section>
+    </Card>
   );
 }

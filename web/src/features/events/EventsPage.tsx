@@ -1,10 +1,15 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
-import { PageHeader, Panel } from '../../components/Panel';
+import { useParams } from 'react-router-dom';
+import { Button } from '@astryxdesign/core/Button';
+import { Link } from '@astryxdesign/core/Link';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import { SeverityPill } from '../../components/StatusPill';
-import { Empty } from '../../components/States';
-import { Kv } from '../../components/Kv';
+import { MissingThing } from '../../components/NotFoundPage';
+import { ErrorPanel, LoadingPage } from '../../components/States';
+import { ApiError } from '../../data/api';
 import { useEvent } from '../../data/queries';
 import { relative, stamp } from '../../lib/format';
+import { Facts, PageHead, Section } from '../../ui/kit';
 import { EventsList } from './EventsList';
 
 export function EventsPage() {
@@ -17,53 +22,73 @@ export function EventsPage() {
   );
 }
 
+const back = <Link href="/events">Events</Link>;
+
 export function EventDetailPage() {
   const { eventId } = useParams();
-  const navigate = useNavigate();
   const query = useEvent(eventId);
-  if (query.isPending) return <Empty>Loading…</Empty>;
-  if (query.isError || !query.data) {
+  if (query.isPending) return <LoadingPage title="Event" />;
+  if (query.isError && !(query.error instanceof ApiError && query.error.status === 404)) {
     return (
-      <Panel title="Not found">
-        <Empty>
-          No such event. <Link className="link" to="/events">Back to events</Link>.
-        </Empty>
-      </Panel>
+      <>
+        <PageHead title={`Event ${eventId ?? ''}`} leading={back} />
+        <ErrorPanel what="Couldn't load this event." onRetry={() => void query.refetch()} />
+      </>
+    );
+  }
+  if (!query.data) {
+    return (
+      <>
+        <PageHead title="Not found" leading={back} />
+        <MissingThing what={`No event has the id “${eventId ?? ''}”`} back="/events" backLabel="Back to events" />
+      </>
     );
   }
   const event = query.data;
-  const params = new URLSearchParams({ kind: event.kind, severity: event.severity, node: event.node_id });
+  const params = new URLSearchParams({
+    kind: event.kind,
+    severity: event.severity,
+    node: event.node_id,
+  });
   return (
     <>
-      <PageHeader
+      <PageHead
+        leading={back}
         title={`Event ${event.id}`}
-        finding={`${event.message} · ${stamp(event.ts)} UTC`}
-        actions={
-          <>
-            <button type="button" className="btn btn-ghost" onClick={() => navigate(`/alerts/rules/new?${params.toString()}`)}>
-              Alert me about this
-            </button>
-</>
-        }
+        desc={`${event.message} · ${stamp(event.ts)} UTC`}
+        actions={<Button label="Alert me about this" variant="secondary" href={`/alerts/rules/new?${params.toString()}`} />}
       />
-      <Panel title="Event" meta={<SeverityPill severity={event.severity} />} flush>
-        <div className="panel-body">
-          <Kv
+      <VStack maxWidth={760}>
+        <Section title="Event" actions={<SeverityPill severity={event.severity} />}>
+          <Facts
             rows={[
-              { label: 'Node', value: <Link className="link" to={`/nodes/${event.node_id}/events`}>{event.node_id}</Link> },
+              {
+                label: 'Node',
+                value: (
+                  <Link href={`/nodes/${event.node_id}/events`} type="code">
+                    {event.node_id}
+                  </Link>
+                ),
+              },
               { label: 'Kind', value: event.kind },
               { label: 'Severity', value: event.severity },
-              { label: 'Time', value: `${stamp(event.ts)} UTC · ${relative(event.ts, Date.now())}` },
-              { label: 'Message', value: event.message },
-              { label: 'Metadata', value: event.meta ? <span className="fig">{event.meta}</span> : '—' },
+              {
+                label: 'Time',
+                value: `${stamp(event.ts)} UTC · ${relative(event.ts, Date.now())}`,
+              },
+              {
+                label: 'Message',
+                value: <Text justify="end">{event.message}</Text>,
+              },
+              { label: 'Metadata', value: event.meta ?? '' },
             ]}
           />
-          <p className="note" style={{ marginTop: 12 }}>
-            An event rule can notify a webhook, ntfy, Discord, Slack or Telegram channel when events like this one occur. You can also create
-            one from Alerts → New rule.
-          </p>
-        </div>
-      </Panel>
+          <Text type="supporting">
+            An event rule can notify a webhook, ntfy, Discord, Slack or Telegram channel when events like this one occur. You can
+            also create one from Alerts → New rule.
+          </Text>
+        </Section>
+      </VStack>
     </>
   );
 }

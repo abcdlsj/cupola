@@ -1,17 +1,29 @@
 import { useState } from 'react';
-import { CaretRight } from '@phosphor-icons/react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { Panel } from '../../components/Panel';
-import { SeverityPill } from '../../components/StatusPill';
-import { Empty, ErrorPanel } from '../../components/States';
-import { EventsSkeleton } from '../../components/Skeletons';
+import { CaretDown, CaretRight } from '@phosphor-icons/react';
+import { useSearchParams } from 'react-router-dom';
+import { Button } from '@astryxdesign/core/Button';
+import { Collapsible } from '@astryxdesign/core/Collapsible';
+import { Divider } from '@astryxdesign/core/Divider';
+import { EmptyState } from '@astryxdesign/core/EmptyState';
+import { Grid } from '@astryxdesign/core/Grid';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { Selector } from '@astryxdesign/core/Selector';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
+import { SeverityPill, severityTone } from '../../components/StatusPill';
+import { ErrorPanel, LoadingRows } from '../../components/States';
 import { useEvents } from '../../data/queries';
 import type { Event, Severity } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
 import { groupEvents, type EventGroup } from '../../lib/events';
+import { Band, PageHead, useIsPhone } from '../../ui/kit';
 
-const KINDS = ['', 'node', 'service', 'container', 'system', 'network', 'action', 'disk'];
-const SEVERITIES = ['', 'info', 'warning', 'critical'];
+const ALL = 'all';
+const KINDS = ['node', 'service', 'container', 'system', 'network', 'action', 'disk'];
+const SEVERITIES: Severity[] = ['info', 'warning', 'critical'];
 
 /** One word per kind, so the group header reads as a noun, not a key. */
 const KIND_LABEL: Record<string, string> = {
@@ -25,7 +37,19 @@ const KIND_LABEL: Record<string, string> = {
   agent: 'Agent',
 };
 
-const SEVERITY_RANK: Record<string, number> = { critical: 0, warning: 1, info: 2 };
+const SEVERITY_LABEL: Record<Severity, string> = {
+  info: 'Info',
+  warning: 'Warning',
+  critical: 'Critical',
+};
+
+const SEVERITY_RANK: Record<string, number> = {
+  critical: 0,
+  warning: 1,
+  info: 2,
+};
+
+const kindLabel = (kind: string) => KIND_LABEL[kind] ?? kind;
 
 interface KindGroup {
   kind: string;
@@ -33,6 +57,7 @@ interface KindGroup {
   /** Occurrences, not rows: a folded row of twenty counts as twenty. */
   count: number;
   worst: Severity;
+  newest: number;
 }
 
 /**
@@ -51,24 +76,52 @@ function groupByKind(groups: EventGroup[]): KindGroup[] {
   for (const [kind, list] of buckets) {
     let worst: Severity = 'info';
     let count = 0;
+    let newest = 0;
     for (const group of list) {
       count += group.count;
+      newest = Math.max(newest, group.latest.ts);
       if ((SEVERITY_RANK[group.latest.severity] ?? 3) < (SEVERITY_RANK[worst] ?? 3)) {
         worst = group.latest.severity;
       }
     }
-    out.push({ kind, groups: list, count, worst });
+    out.push({ kind, groups: list, count, worst, newest });
   }
-  return out.sort(
-    (a, b) => (SEVERITY_RANK[a.worst] ?? 3) - (SEVERITY_RANK[b.worst] ?? 3) || b.count - a.count,
-  );
+  return out.sort((a, b) => (SEVERITY_RANK[a.worst] ?? 3) - (SEVERITY_RANK[b.worst] ?? 3) || b.count - a.count);
 }
 
-function EventLink({ event }: { event: Event }) {
+/**
+ * One table row. A folded group is its head row plus, when opened, one row per
+ * older occurrence, so occurrences keep the table's columns.
+ */
+interface FeedRow extends Record<string, unknown> {
+  id: string;
+  event: Event;
+  /** Set on the head row of a folded group. */
+  group?: EventGroup;
+  occurrence?: boolean;
+}
+
+function rowsOf(groups: EventGroup[], open: ReadonlySet<number>): FeedRow[] {
+  const rows: FeedRow[] = [];
+  for (const group of groups) {
+    const head = group.latest;
+    if (group.count === 1) {
+      rows.push({ id: String(head.id), event: head });
+      continue;
+    }
+    rows.push({ id: String(head.id), event: head, group });
+    if (open.has(head.id)) {
+      for (const event of group.events.slice(1)) rows.push({ id: String(event.id), event, occurrence: true });
+    }
+  }
+  return rows;
+}
+
+function Mono({ children, secondary }: { children: string; secondary?: boolean }) {
   return (
-    <Link className="link" to={`/events/${event.id}`}>
-      {event.message}
-    </Link>
+    <Text type="code" hasTabularNumbers textWrap="nowrap" color={secondary ? 'secondary' : undefined}>
+      {children}
+    </Text>
   );
 }
 
@@ -85,6 +138,7 @@ export function EventsList({
   level?: 1 | 2;
   compact?: boolean;
 }) {
+  const phone = useIsPhone();
   const [params, setParams] = useSearchParams();
   const [severity, setSeverity] = useState(params.get('severity') ?? '');
   const [kind, setKind] = useState(params.get('kind') ?? '');
@@ -119,12 +173,11 @@ export function EventsList({
   // quiet fleet is one readable group rather than a stack of closed lids.
   const defaultFolded = (): ReadonlySet<string> => {
     const critical = kinds.filter((entry) => entry.worst === 'critical');
-    const open = critical.length > 0 ? critical : kinds.slice(0, 1);
-    return new Set(kinds.filter((entry) => !open.includes(entry)).map((entry) => entry.kind));
+    const opened = critical.length > 0 ? critical : kinds.slice(0, 1);
+    return new Set(kinds.filter((entry) => !opened.includes(entry)).map((entry) => entry.kind));
   };
 
-  const isFolded = (entry: KindGroup) =>
-    collapsed === null ? defaultFolded().has(entry.kind) : collapsed.has(entry.kind);
+  const isFolded = (entry: KindGroup) => (collapsed === null ? defaultFolded().has(entry.kind) : collapsed.has(entry.kind));
 
   const toggleKind = (entry: KindGroup) => {
     setCollapsed((current) => {
@@ -146,148 +199,250 @@ export function EventsList({
     });
   };
 
-  const renderGroup = (group: EventGroup) => {
-    if (group.count === 1) {
-      const event = group.latest;
+  const message = (row: FeedRow) => {
+    const { event, group } = row;
+    if (!group) {
       return (
-        <li className="event-row" key={event.id}>
-          <span className="event-time">{eventTime(event.ts, now)}</span>
-          <span className="event-node">{event.node_id}</span>
-          <SeverityPill severity={event.severity} />
-          <span className="event-message">
-            <EventLink event={event} />
-          </span>
-          <span className="event-kind quiet">{relative(event.ts, now)}</span>
-        </li>
+        <Link href={`/events/${event.id}`} tooltip={event.message}>
+          {event.message}
+        </Link>
       );
     }
-    const head = group.latest;
-    const expanded = open.has(head.id);
+    const expanded = open.has(event.id);
     return (
-      <li className="event-group" key={`${group.key}:${head.id}`}>
-        <div className="event-row">
-          <span className="event-time">{eventTime(head.ts, now)}</span>
-          <span className="event-node">{head.node_id}</span>
-          <SeverityPill severity={head.severity} />
-          <span className="event-message event-message-fold">
-            <button
-              type="button"
-              className="event-fold"
-              aria-expanded={expanded}
-              aria-label={`${expanded ? 'Hide' : 'Show'} ${group.count} occurrences of ${head.message}`}
-              onClick={() => toggle(head.id)}
-            >
-              <CaretRight size={11} aria-hidden="true" data-open={expanded ? 'true' : undefined} />
-              <span className="event-fold-text">{head.message}</span>
-              <span className="event-count fig">×{group.count}</span>
-            </button>
-          </span>
-          <span className="event-kind quiet">{relative(head.ts, now)}</span>
-        </div>
-        {expanded ? (
-          <ul className="event-occurrences">
-            {group.events.slice(1).map((event) => (
-              <li className="event-row event-occurrence" key={event.id}>
-                <span className="event-time">{eventTime(event.ts, now)}</span>
-                <span className="event-node" aria-hidden="true" />
-                <span aria-hidden="true" />
-                <span className="event-message">
-                  <EventLink event={event} />
-                </span>
-                <span className="event-kind quiet">{relative(event.ts, now)}</span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </li>
+      <HStack gap={2} vAlign="center">
+        <Button
+          variant="ghost"
+          size={phone ? 'lg' : 'sm'}
+          isIconOnly
+          label={`${expanded ? 'Hide' : 'Show'} ${group.count} occurrences of ${event.message}`}
+          aria-expanded={expanded}
+          icon={expanded ? <CaretDown size={14} aria-hidden="true" /> : <CaretRight size={14} aria-hidden="true" />}
+          onClick={() => toggle(event.id)}
+        />
+        <Link href={`/events/${event.id}`} tooltip={event.message}>
+          {event.message}
+        </Link>
+        <Text type="code" hasTabularNumbers textWrap="nowrap" color="secondary">
+          {`×${group.count}`}
+        </Text>
+      </HStack>
     );
   };
 
+  const columns: TableColumn<FeedRow>[] = [
+    {
+      key: 'when',
+      header: 'When',
+      width: pixel(112),
+      renderCell: (row) => <Mono secondary={row.occurrence}>{eventTime(row.event.ts, now)}</Mono>,
+    },
+    {
+      key: 'system',
+      header: 'System',
+      width: pixel(128),
+      renderCell: (row) =>
+        row.occurrence ? null : (
+          <Link href={`/nodes/${row.event.node_id}/events`} type="code">
+            {row.event.node_id}
+          </Link>
+        ),
+    },
+    {
+      key: 'severity',
+      header: 'Severity',
+      width: pixel(104),
+      renderCell: (row) => (row.occurrence ? null : <SeverityPill severity={row.event.severity} />),
+    },
+    {
+      key: 'event',
+      header: 'Event',
+      width: proportional(1, { minWidth: 280 }),
+      renderCell: (row) =>
+        row.occurrence ? (
+          <HStack gap={2} vAlign="center" paddingInlineStart={8}>
+            {message(row)}
+          </HStack>
+        ) : (
+          message(row)
+        ),
+    },
+    {
+      key: 'age',
+      header: 'Age',
+      width: pixel(96),
+      align: 'end',
+      renderCell: (row) => (
+        <Text type="supporting" textWrap="nowrap">
+          {relative(row.event.ts, now)}
+        </Text>
+      ),
+    },
+  ];
+
+  /** Below 900 px a row is a block: the message, then where and when. */
+  const blocks = (rows: FeedRow[]) => (
+    <VStack gap={0}>
+      {rows.map((row, index) => (
+        <VStack key={row.id} gap={0}>
+          {index > 0 ? <Divider /> : null}
+          <VStack gap={1} paddingBlock={3} paddingInlineStart={row.occurrence ? 6 : 0}>
+            {message(row)}
+            <HStack gap={2} vAlign="center" wrap="wrap" paddingInlineStart={row.group ? 10 : 0}>
+              {row.occurrence ? null : <SeverityPill severity={row.event.severity} />}
+              {row.occurrence ? null : (
+                <Link href={`/nodes/${row.event.node_id}/events`} type="code">
+                  {row.event.node_id}
+                </Link>
+              )}
+              <Mono secondary>{eventTime(row.event.ts, now)}</Mono>
+              <Text type="supporting">{relative(row.event.ts, now)}</Text>
+            </HStack>
+          </VStack>
+        </VStack>
+      ))}
+    </VStack>
+  );
+
+  const filters = compact ? null : (
+    <>
+      <Selector
+        label="Severity"
+        isLabelHidden
+        size="sm"
+        variant="secondary"
+        value={severity || ALL}
+        options={[
+          { value: ALL, label: 'All severities' },
+          ...SEVERITIES.map((value) => ({
+            value,
+            label: SEVERITY_LABEL[value],
+          })),
+        ]}
+        onChange={(value) => {
+          const next = value === ALL ? '' : value;
+          setSeverity(next);
+          apply(next, kind);
+        }}
+      />
+      <Selector
+        label="Kind"
+        isLabelHidden
+        size="sm"
+        variant="secondary"
+        value={kind || ALL}
+        options={[{ value: ALL, label: 'All kinds' }, ...KINDS.map((value) => ({ value, label: kindLabel(value) }))]}
+        onChange={(value) => {
+          const next = value === ALL ? '' : value;
+          setKind(next);
+          apply(severity, next);
+        }}
+      />
+    </>
+  );
+
+  const summary = `${events.length} ${events.length === 1 ? 'event' : 'events'}${
+    folded > 0 ? ` · ${groups.length} ${groups.length === 1 ? 'row' : 'rows'}` : ''
+  }`;
+
+  const feed = query.isError ? (
+    <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
+  ) : query.isPending ? (
+    <LoadingRows rows={6} columns={5} />
+  ) : groups.length === 0 ? (
+    <EmptyState
+      title="No events match this filter"
+      description="Events appear when a unit fails, a container restarts, a port opens or a threshold fires."
+      isCompact
+      headingLevel={3}
+    />
+  ) : (
+    <VStack gap={0}>
+      {kinds.map((entry, index) => {
+        const hidden = isFolded(entry);
+        const rows = rowsOf(entry.groups, open);
+        return (
+          <VStack key={entry.kind} gap={0}>
+            {index > 0 ? <Divider /> : null}
+            <VStack gap={0} paddingBlock={1}>
+              <Collapsible
+                chevronPosition="start"
+                isOpen={!hidden}
+                onOpenChange={() => toggleKind(entry)}
+                trigger={
+                  <HStack gap={2} vAlign="center" wrap="wrap" minHeight={phone ? 44 : undefined}>
+                    <Text weight="semibold">{kindLabel(entry.kind)}</Text>
+                    <SeverityPill severity={entry.worst} />
+                    <Text type="supporting" hasTabularNumbers>
+                      {entry.groups.length} {entry.groups.length === 1 ? 'row' : 'rows'} · {entry.count}{' '}
+                      {entry.count === 1 ? 'event' : 'events'}
+                    </Text>
+                  </HStack>
+                }
+              >
+                {hidden ? null : (
+                  <VStack gap={0} paddingBlockStart={2}>
+                    {phone ? (
+                      blocks(rows)
+                    ) : (
+                      <Table data={rows} columns={columns} idKey="id" density="compact" dividers="rows" textOverflow="truncate" />
+                    )}
+                  </VStack>
+                )}
+              </Collapsible>
+            </VStack>
+          </VStack>
+        );
+      })}
+    </VStack>
+  );
+
+  if (level === 2) {
+    return (
+      <Band
+        title={title}
+        desc={desc}
+        first
+        actions={
+          <>
+            {filters}
+            <Text type="supporting">{summary}</Text>
+          </>
+        }
+      >
+        {feed}
+      </Band>
+    );
+  }
+
   return (
-    <Panel
-      title={title}
-      level={level}
-      desc={desc}
-      meta={
-        <>
-          {!compact ? (
-            <>
-              <label className="select-wrap">
-                <span className="sr-only">Severity</span>
-                <select
-                  className="select-bare"
-                  value={severity}
-                  onChange={(event) => {
-                    setSeverity(event.target.value);
-                    apply(event.target.value, kind);
-                  }}
-                >
-                  {SEVERITIES.map((value) => (
-                    <option key={value} value={value}>
-                      {value || 'All severities'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="select-wrap">
-                <span className="sr-only">Kind</span>
-                <select
-                  className="select-bare"
-                  value={kind}
-                  onChange={(event) => {
-                    setKind(event.target.value);
-                    apply(severity, event.target.value);
-                  }}
-                >
-                  {KINDS.map((value) => (
-                    <option key={value} value={value}>
-                      {value || 'All kinds'}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          ) : null}
-          <span className="event-count-summary">
-            {events.length} events
-            {folded > 0 ? ` · ${groups.length} rows` : ''}
-          </span>
-        </>
-      }
-      flush
-    >
-      {query.isError ? (
-        <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
-      ) : query.isPending ? (
-        <EventsSkeleton />
-      ) : groups.length === 0 ? (
-        <Empty>No events match this filter. Events appear when a unit fails, a container restarts, a port opens or a threshold fires.</Empty>
-      ) : (
-        <ul className="event-list">
-          {kinds.map((entry) => {
-            const hidden = isFolded(entry);
-            return (
-              <li className="event-kind" key={entry.kind}>
-                <button
-                  type="button"
-                  className="event-kind-head"
-                  aria-expanded={!hidden}
-                  onClick={() => toggleKind(entry)}
-                >
-                  <CaretRight size={12} aria-hidden="true" data-open={hidden ? undefined : 'true'} />
-                  <span className="event-kind-name">{KIND_LABEL[entry.kind] ?? entry.kind}</span>
-                  <SeverityPill severity={entry.worst} />
-                  <span className="event-kind-count">
-                    {entry.groups.length} {entry.groups.length === 1 ? 'row' : 'rows'} · {entry.count}{' '}
-                    {entry.count === 1 ? 'event' : 'events'}
-                  </span>
-                </button>
-                {hidden ? null : <ul className="event-kind-body">{entry.groups.map(renderGroup)}</ul>}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </Panel>
+    <>
+      <PageHead title={title} desc={desc} actions={filters} />
+      {kinds.length > 0 ? (
+        <Band title="By kind" desc="Occurrences per kind in the loaded window, worst first" first>
+          <Grid columns={{ minWidth: 160, repeat: 'fit' }} gap={3}>
+            {kinds.map((entry) => (
+              <HStack key={entry.kind} gap={2} vAlign="center">
+                <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
+                <VStack gap={0}>
+                  <Text>{kindLabel(entry.kind)}</Text>
+                  <Text type="supporting" hasTabularNumbers>
+                    {entry.count} · newest {relative(entry.newest, now)}
+                  </Text>
+                </VStack>
+              </HStack>
+            ))}
+          </Grid>
+        </Band>
+      ) : null}
+      <Band
+        title="Timeline"
+        desc="Repeats on one node within an hour fold into one row"
+        first={kinds.length === 0}
+        actions={<Text type="supporting">{summary}</Text>}
+      >
+        {feed}
+      </Band>
+    </>
   );
 }

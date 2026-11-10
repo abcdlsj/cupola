@@ -1,18 +1,37 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { PageHeader, Panel } from '../../components/Panel';
-import { Empty } from '../../components/States';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Banner } from '@astryxdesign/core/Banner';
+import { Button } from '@astryxdesign/core/Button';
+import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList';
+import { Grid } from '@astryxdesign/core/Grid';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { NumberInput } from '@astryxdesign/core/NumberInput';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Selector } from '@astryxdesign/core/Selector';
+import { Switch } from '@astryxdesign/core/Switch';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { MissingThing } from '../../components/NotFoundPage';
+import { LoadingPage } from '../../components/States';
 import { useChannels, useDeleteRule, useFleet, useMe, useRule, useSaveRule, ApiError } from '../../data/queries';
 import type { AlertRule, Severity } from '../../data/types';
+import { PageHead, Section, useIsPhone } from '../../ui/kit';
 
 const METRICS = ['cpu', 'mem', 'load', 'disk', 'inode', 'temp', 'psi_cpu', 'psi_io'];
 const KINDS = ['node', 'service', 'container', 'system', 'network', 'action', 'disk', 'agent'];
 const SEVERITIES: Severity[] = ['info', 'warning', 'critical'];
+/** Selector options need a non-empty value; the rule stores "" for these. */
+const ANY = 'any';
+
+const back = <Link href="/alerts">Alerts</Link>;
 
 export function RuleEditorPage() {
   const { ruleId } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const phone = useIsPhone();
   const me = useMe();
   const editing = Boolean(ruleId && ruleId !== 'new');
   const existing = useRule(editing ? ruleId : undefined);
@@ -21,6 +40,7 @@ export function RuleEditorPage() {
   const save = useSaveRule();
   const remove = useDeleteRule();
   const [error, setError] = useState<string | null>(null);
+  const [nameMissing, setNameMissing] = useState(false);
   const [form, setForm] = useState<Partial<AlertRule>>({
     name: '',
     type: params.get('kind') ? 'event' : 'metric',
@@ -44,6 +64,10 @@ export function RuleEditorPage() {
 
   const submit = async () => {
     setError(null);
+    if (!form.name?.trim()) {
+      setNameMissing(true);
+      return;
+    }
     try {
       const saved = await save.mutateAsync(form);
       navigate(`/alerts/rules/${saved.id}`);
@@ -56,186 +80,187 @@ export function RuleEditorPage() {
 
   if (editing && existing.isError) {
     return (
-      <Panel title="Not found">
-        <Empty>No such rule. <Link className="link" to="/alerts">Back to alerts</Link>.</Empty>
-      </Panel>
+      <>
+        <PageHead title="Not found" leading={back} />
+        <MissingThing what={`No rule has the id “${ruleId ?? ''}”`} back="/alerts" backLabel="Back to alerts" />
+      </>
     );
   }
+  if ((editing && existing.isPending) || me.isPending) return <LoadingPage title="Rule" />;
+
+  const fieldGrid = { minWidth: 220, repeat: 'fit' as const };
+  const size = phone ? 'lg' : 'md';
 
   return (
     <>
-      <PageHeader
+      <PageHead
+        leading={back}
         title={editing ? form.name || 'Rule' : 'New rule'}
-        finding={
+        desc={
           form.type === 'event'
             ? 'Notify a channel when an event kind arrives (unit failed, container restarted, node offline, port opened).'
             : 'Notify a channel when a metric crosses a threshold for the configured duration.'
         }
       />
       {!admin ? (
-        <Panel title="Read-only">
-          <Empty>This session uses an API token. Sign in as the hub admin to edit rules.</Empty>
-        </Panel>
+        <Banner
+          status="info"
+          title="Read-only"
+          description="This session uses an API token. Sign in as the hub admin to edit rules."
+          collapsible={false}
+        />
       ) : (
-        <Panel title="Rule" flush>
-          <form
-            className="form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <div className="form-grid">
-              <label className="form-field">
-                <span>Name</span>
-                <input className="input input-ui" value={form.name ?? ''} onChange={(event) => update('name', event.target.value)} required />
-              </label>
-              <label className="form-field">
-                <span>Type</span>
-                <select className="select" value={form.type} onChange={(event) => update('type', event.target.value as AlertRule['type'])}>
-                  <option value="metric">Metric threshold</option>
-                  <option value="event">Event</option>
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Severity</span>
-                <select className="select" value={form.severity} onChange={(event) => update('severity', event.target.value as Severity)}>
-                  {SEVERITIES.map((severity) => (
-                    <option key={severity} value={severity}>{severity}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Node</span>
-                <select className="select" value={form.node_id ?? ''} onChange={(event) => update('node_id', event.target.value)}>
-                  <option value="">All nodes</option>
-                  {(fleet.data?.nodes ?? []).map((view) => (
-                    <option key={view.node.id} value={view.node.id}>{view.node.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Channel</span>
-                <select className="select" value={form.channel_id ?? ''} onChange={(event) => update('channel_id', event.target.value)}>
-                  <option value="">In-app only</option>
-                  {(channels.data ?? []).map((channel) => (
-                    <option key={channel.id} value={channel.id}>{channel.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="form-field">
-                <span>Cooldown (s)</span>
-                <input
-                  className="input input-ui"
-                  type="number"
-                  min={0}
-                  value={form.cooldown_sec ?? 300}
-                  onChange={(event) => update('cooldown_sec', Number(event.target.value))}
-                />
-              </label>
-            </div>
-
-            {form.type === 'metric' ? (
-              <div className="form-grid">
-                <label className="form-field">
-                  <span>Metric</span>
-                  <select className="select" value={form.metric} onChange={(event) => update('metric', event.target.value)}>
-                    {METRICS.map((metric) => (
-                      <option key={metric} value={metric}>{metric}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>Comparator</span>
-                  <select className="select" value={form.comparator} onChange={(event) => update('comparator', event.target.value as 'gt' | 'lt')}>
-                    <option value="gt">above</option>
-                    <option value="lt">below</option>
-                  </select>
-                </label>
-                <label className="form-field">
-                  <span>Threshold</span>
-                  <input
-                    className="input input-ui"
-                    type="number"
-                    step="0.1"
-                    value={form.threshold ?? 0}
-                    onChange={(event) => update('threshold', Number(event.target.value))}
+        <VStack maxWidth={880}>
+          <Section title="Rule">
+            <form
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <VStack gap={5}>
+                <Grid columns={fieldGrid} gap={4}>
+                  <TextInput
+                    label="Name"
+                    isRequired
+                    value={form.name ?? ''}
+                    status={nameMissing && !form.name?.trim() ? { type: 'error', message: 'A rule needs a name.' } : undefined}
+                    onChange={(value) => update('name', value)}
                   />
-                </label>
-                <label className="form-field">
-                  <span>Duration (s)</span>
-                  <input
-                    className="input input-ui"
-                    type="number"
+                  <VStack gap={1}>
+                    <Text type="label">Type</Text>
+                    <SegmentedControl
+                      label="Type"
+                      value={form.type ?? 'metric'}
+                      onChange={(value) => update('type', value as AlertRule['type'])}
+                    >
+                      <SegmentedControlItem value="metric" label="Metric threshold" />
+                      <SegmentedControlItem value="event" label="Event" />
+                    </SegmentedControl>
+                  </VStack>
+                  <Selector
+                    label="Severity"
+                    value={form.severity ?? 'warning'}
+                    options={SEVERITIES}
+                    onChange={(value) => update('severity', value as Severity)}
+                  />
+                  <Selector
+                    label="Node"
+                    value={form.node_id || ANY}
+                    options={[
+                      { value: ANY, label: 'All nodes' },
+                      ...(fleet.data?.nodes ?? []).map((view) => ({ value: view.node.id, label: view.node.name })),
+                    ]}
+                    onChange={(value) => update('node_id', value === ANY ? '' : value)}
+                  />
+                  <Selector
+                    label="Channel"
+                    value={form.channel_id || ANY}
+                    options={[
+                      { value: ANY, label: 'In-app only' },
+                      ...(channels.data ?? []).map((channel) => ({ value: channel.id, label: channel.name })),
+                    ]}
+                    onChange={(value) => update('channel_id', value === ANY ? '' : value)}
+                  />
+                  <NumberInput
+                    label="Cooldown"
+                    units="s"
                     min={0}
-                    value={form.duration_sec ?? 0}
-                    onChange={(event) => update('duration_sec', Number(event.target.value))}
+                    isIntegerOnly
+                    value={form.cooldown_sec ?? 300}
+                    onChange={(value) => update('cooldown_sec', value)}
                   />
-                </label>
-              </div>
-            ) : (
-              <fieldset className="fieldset">
-                <legend className="field-label">Event kinds</legend>
-                <div className="check-row">
-                  {KINDS.map((kind) => {
-                    const checked = (form.kinds ?? []).includes(kind);
-                    return (
-                      <label className="check" key={kind}>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(event) => {
-                            const current = new Set(form.kinds ?? []);
-                            if (event.target.checked) current.add(kind);
-                            else current.delete(kind);
-                            update('kinds', [...current]);
-                          }}
-                        />
-                        {kind}
-                      </label>
-                    );
-                  })}
-                </div>
-              </fieldset>
-            )}
+                </Grid>
 
-            <label className="check">
-              <input type="checkbox" checked={form.enabled ?? true} onChange={(event) => update('enabled', event.target.checked)} />
-              Enabled
-            </label>
+                {form.type === 'metric' ? (
+                  <Grid columns={fieldGrid} gap={4}>
+                    <Selector
+                      label="Metric"
+                      value={form.metric ?? 'cpu'}
+                      options={METRICS}
+                      onChange={(value) => update('metric', value)}
+                    />
+                    <VStack gap={1}>
+                      <Text type="label">Comparator</Text>
+                      <SegmentedControl
+                        label="Comparator"
+                        value={form.comparator ?? 'gt'}
+                        onChange={(value) => update('comparator', value as 'gt' | 'lt')}
+                      >
+                        <SegmentedControlItem value="gt" label="above" />
+                        <SegmentedControlItem value="lt" label="below" />
+                      </SegmentedControl>
+                    </VStack>
+                    <NumberInput
+                      label="Threshold"
+                      step={0.1}
+                      value={form.threshold ?? 0}
+                      onChange={(value) => update('threshold', value)}
+                    />
+                    <NumberInput
+                      label="Duration"
+                      units="s"
+                      min={0}
+                      isIntegerOnly
+                      value={form.duration_sec ?? 0}
+                      onChange={(value) => update('duration_sec', value)}
+                    />
+                  </Grid>
+                ) : (
+                  <CheckboxList
+                    label="Event kinds"
+                    value={form.kinds ?? []}
+                    onChange={(values) => update('kinds', values)}
+                  >
+                    <Grid columns={{ minWidth: 160, repeat: 'fit' }} gap={0}>
+                      {KINDS.map((kind) => (
+                        <CheckboxListItem key={kind} value={kind} label={kind} />
+                      ))}
+                    </Grid>
+                  </CheckboxList>
+                )}
 
-            {error ? <p className="form-error" role="alert">{error}</p> : null}
-            {save.isError && !error ? <p className="form-error" role="alert">{save.error instanceof Error ? save.error.message : 'Save failed'}</p> : null}
+                <Switch label="Enabled" value={form.enabled ?? true} onChange={(checked) => update('enabled', checked)} />
 
-            <div className="form-actions">
-              {editing ? (
-                <button
-                  type="button"
-                  className="btn btn-quiet danger-text"
-                  onClick={async () => {
-                    if (!ruleId) return;
-                    if (!window.confirm('Delete this rule? Alerts already sent stay in the history.')) return;
-                    await remove.mutateAsync(ruleId);
-                    navigate('/alerts');
-                  }}
-                >
-                  Delete rule
-                </button>
-              ) : null}
-              <Link className="btn btn-quiet" to="/alerts">
-                Cancel
-              </Link>
-              <button type="submit" className="btn btn-primary" disabled={save.isPending}>
-                {save.isPending ? 'Saving…' : 'Save rule'}
-              </button>
-            </div>
-          </form>
-        </Panel>
+                {error ? <Banner status="error" title={error} collapsible={false} /> : null}
+                {save.isError && !error ? (
+                  <Banner
+                    status="error"
+                    title={save.error instanceof Error ? save.error.message : 'Save failed'}
+                    collapsible={false}
+                  />
+                ) : null}
+
+                <HStack gap={2} vAlign="center" hAlign="end" wrap="wrap">
+                  {editing ? (
+                    <Button
+                      label="Delete rule"
+                      variant="destructive"
+                      size={size}
+                      isLoading={remove.isPending}
+                      onClick={async () => {
+                        if (!ruleId) return;
+                        if (!window.confirm('Delete this rule? Alerts already sent stay in the history.')) return;
+                        await remove.mutateAsync(ruleId);
+                        navigate('/alerts');
+                      }}
+                    />
+                  ) : null}
+                  <Button label="Cancel" variant="ghost" size={size} href="/alerts" />
+                  <Button type="submit" label="Save rule" variant="primary" size={size} isLoading={save.isPending} />
+                </HStack>
+              </VStack>
+            </form>
+          </Section>
+        </VStack>
       )}
-      <p className="note">
-        Metric rules evaluate on every poll and need the condition to hold for the duration. Event rules evaluate as events arrive. Webhook
-        URLs and channel secrets are encrypted at rest; delivery is signed with HMAC-SHA256 when a secret is set.
-      </p>
+      <VStack maxWidth={880}>
+        <Text type="supporting">
+          Metric rules evaluate on every poll and need the condition to hold for the duration. Event rules evaluate as events arrive. Webhook
+          URLs and channel secrets are encrypted at rest; delivery is signed with HMAC-SHA256 when a secret is set.
+        </Text>
+      </VStack>
     </>
   );
 }
