@@ -130,7 +130,6 @@ export function SystemsPage() {
     <>
       <PageHead
         title="Systems"
-        desc="4 systems · polling every 5 s"
         actions={
           <>
             <HStack gap={2} vAlign="center" paddingInline={2}>
@@ -159,7 +158,6 @@ export function SystemsPage() {
 
       <Band
         title="Fleet"
-        desc={`four systems, the two under load first · ${range}`}
         actions={
           <SegmentedControl label="Range" size="sm" value={range} onChange={setRange}>
             {RANGES.map((item) => (

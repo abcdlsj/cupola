@@ -7,6 +7,7 @@ import { HStack } from '@astryxdesign/core/HStack';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Switch } from '@astryxdesign/core/Switch';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Selector } from '@astryxdesign/core/Selector';
 import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
@@ -25,6 +26,21 @@ const SECTIONS = [
 ];
 
 function SettingsTabs({ section }: { section: string }) {
+  const phone = useMediaQuery('(max-width: 899px)');
+  if (phone) {
+    return (
+      <Selector
+        label="Settings section"
+        size="sm"
+        variant="secondary"
+        value={section}
+        options={SECTIONS.map((entry) => ({ value: entry.slug, label: entry.label }))}
+        onChange={(value) => {
+          location.hash = `#/settings/${value}`;
+        }}
+      />
+    );
+  }
   return (
     <TabList value={section} onChange={() => undefined} hasDivider size="sm">
       {SECTIONS.map((entry) => (
@@ -301,7 +317,7 @@ function AboutSection() {
 export function SettingsPage({ section }: { section: string }) {
   return (
     <>
-      <PageHead title="Settings" desc="Hub configuration · changes apply immediately" />
+      <PageHead title="Settings" desc="Hub configuration" />
       <SettingsTabs section={section} />
       {section === 'nodes' ? <NodesSection /> : null}
       {section === 'alerts' ? <AlertsSection /> : null}

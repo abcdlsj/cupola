@@ -64,13 +64,7 @@ function Nav({ mode, onMode }: { mode: Mode; onMode: (next: Mode) => void }) {
   return (
     <TopNav
       heading={
-        <TopNavHeading
-          heading="cupola"
-          logo={<CupolaMark size={20} />}
-          headingHref="#/"
-          subheading="4 systems · every 5 s"
-          subheadingHref="#/"
-        />
+        <TopNavHeading heading="cupola" logo={<CupolaMark size={20} />} headingHref="#/" />
       }
       startContent={NAV.map((item) => (
         <TopNavItem key={item.href} label={item.label} href={item.href} isSelected={item.match(path)} />

@@ -7,6 +7,8 @@ import { Grid } from '@astryxdesign/core/Grid';
 import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Selector } from '@astryxdesign/core/Selector';
+import { useMediaQuery } from '@astryxdesign/core/hooks';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Tab, TabList } from '@astryxdesign/core/TabList';
 import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
@@ -61,6 +63,7 @@ function tone(state: DemoNode['state']) {
 
 function NodeHead({ entry, tab }: { entry: DemoNode; tab: string }) {
   const [range, setRange] = useState<string>('1 h');
+  const phone = useMediaQuery('(max-width: 899px)');
   return (
     <VStack gap={3}>
       <PageHead
@@ -85,6 +88,18 @@ function NodeHead({ entry, tab }: { entry: DemoNode; tab: string }) {
           </>
         }
       />
+      {phone ? (
+        <Selector
+          label="View"
+          size="sm"
+          variant="secondary"
+          value={tab}
+          options={TABS.map((slug) => ({ value: slug, label: TAB_LABEL[slug] }))}
+          onChange={(value) => {
+            location.hash = `#/nodes/${entry.id}${value === 'overview' ? '' : `/${value}`}`;
+          }}
+        />
+      ) : (
       <TabList value={tab} onChange={() => undefined} hasDivider size="sm">
         {TABS.map((slug) => (
           <Tab
@@ -95,6 +110,7 @@ function NodeHead({ entry, tab }: { entry: DemoNode; tab: string }) {
           />
         ))}
       </TabList>
+      )}
     </VStack>
   );
 }
@@ -151,6 +167,7 @@ interface ProcRow extends Record<string, unknown> {
 
 function ProcessesTab() {
   const [picked, setPicked] = useState<ProcRow | null>(null);
+  const phone = useMediaQuery('(max-width: 899px)');
   const rows = processes as unknown as ProcRow[];
   const columns: TableColumn<ProcRow>[] = [
     {
@@ -233,14 +250,41 @@ function ProcessesTab() {
   return (
     <VStack gap={3}>
       <Band title="Processes" desc="214 running · arguments redacted" first>
-        <Table
-          data={rows}
-          columns={columns}
-          idKey="pid"
-          density="compact"
-          dividers="rows"
-          hasHover
-        />
+        {phone ? (
+          <VStack gap={0}>
+            {rows.map((row) => (
+              <VStack key={row.pid} gap={1} paddingBlock={2}>
+                <HStack gap={2} vAlign="center" hAlign="between">
+                  <HStack gap={1.5} vAlign="center">
+                    <Text>{row.name}</Text>
+                    <Text type="supporting">{row.user}</Text>
+                  </HStack>
+                  <Text type="code" hasTabularNumbers>
+                    {row.cpu.toFixed(1)} %
+                  </Text>
+                </HStack>
+                <HStack gap={3} vAlign="center">
+                  <Text type="supporting">mem {row.memory.toFixed(1)}%</Text>
+                  <Text type="supporting">{row.threads} threads</Text>
+                  <Text type="supporting">{row.rss}</Text>
+                  <Button label="Inspect" variant="ghost" size="sm" onClick={() => setPicked(row)} />
+                </HStack>
+                <Text type="code" maxLines={1}>
+                  {row.cmd}
+                </Text>
+              </VStack>
+            ))}
+          </VStack>
+        ) : (
+          <Table
+            data={rows}
+            columns={columns}
+            idKey="pid"
+            density="compact"
+            dividers="rows"
+            hasHover
+          />
+        )}
       </Band>
       {picked ? (
         <Card>

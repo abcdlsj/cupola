@@ -72,7 +72,7 @@ export function ServicesPage() {
     <>
       <PageHead
         title="Services"
-        desc="systemd units the operator can act on · failed first"
+        desc="systemd units, failed first"
         actions={
           <VStack width={260}>
             <TextInput
@@ -149,7 +149,7 @@ export function AppsPage() {
     <>
       <PageHead
         title="Apps"
-        desc="Actions the agent advertises. The hub can only run these; it cannot define them."
+        desc="Actions the agent advertises"
 
       />
       <Band title="Actions" desc={`${actions.length} available`} first>
@@ -261,7 +261,6 @@ export function AlertsPage() {
     <>
       <PageHead
         title="Alerts"
-        desc={`${firing.length} firing · ${rules.length} rules`}
         actions={<Button label="New rule" variant="primary" onClick={() => undefined} />}
       />
 
@@ -333,7 +332,6 @@ export function EventsPage() {
     <>
       <PageHead
         title="Events"
-        desc="Everything the hub and the agents decided was worth telling you"
         actions={
           <HStack gap={2} wrap="wrap">
             <Button label="All" variant={kind === null ? 'primary' : 'ghost'} size="sm" onClick={() => setKind(null)} />
