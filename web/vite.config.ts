@@ -49,6 +49,12 @@ export default defineConfig({
   ],
   build: {
     target: 'es2022',
+    rollupOptions: {
+      // second entry: the Astryx design-system demo, isolated from the app bundle
+      input: process.env.VITE_DEMO_ONLY
+        ? { demo: 'demo.html' }
+        : { main: 'index.html', demo: 'demo.html' },
+    },
   },
   server: {
     port: 5173,
