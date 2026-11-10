@@ -29,7 +29,7 @@ export const cupolaTheme = defineTheme({
   components: {
     // Cupola's meters are a thin bar beside a figure, not a full-width progress row.
     'progress-bar': {
-      base: { width: '96px', height: '6px' },
+      base: { width: '100%', height: '6px' },
     },
     card: {
       base: { boxShadow: 'none' },

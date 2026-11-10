@@ -18,10 +18,12 @@ export function Chart({
   host,
   timestamps,
   series,
+  height = 180,
 }: {
   host: RefObject<HTMLDivElement | null>;
   timestamps: number[];
   series: { label: string; data: number[] }[];
+  height?: number;
 }) {
   const plot = useRef<uPlot | null>(null);
   const { mode, token } = useTheme();
@@ -48,7 +50,7 @@ export function Chart({
       const width = element.clientWidth || 320;
       const options: uPlot.Options = {
         width,
-        height: 180,
+        height,
         padding: [8, 8, 0, 0],
         legend: { show: false },
         cursor: { y: false, points: { size: 6 } },
@@ -101,7 +103,7 @@ export function Chart({
       plot.current?.destroy();
       plot.current = null;
     };
-  }, [host, timestamps, series, mode, token]);
+  }, [host, timestamps, series, mode, token, height]);
 
   return null;
 }
