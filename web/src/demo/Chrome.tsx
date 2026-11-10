@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import * as Icon from '@phosphor-icons/react';
 import { AppShell } from '@astryxdesign/core/AppShell';
 import { IconButton } from '@astryxdesign/core/IconButton';
+import { useMediaQuery } from '@astryxdesign/core/hooks';
 import { TopNav, TopNavHeading, TopNavItem } from '@astryxdesign/core/TopNav';
 import { Text } from '@astryxdesign/core/Text';
 import { Theme } from '@astryxdesign/core/theme';
@@ -44,18 +45,9 @@ export function useMode(): [Mode, (next: Mode) => void] {
   return [mode, setMode];
 }
 
-/** Astryx has no breakpoint hook; the shell's phone range starts at 900 px. */
+/** Astryx's own hook wraps matchMedia; the shell switches at 900 px. */
 export function useIsPhone(): boolean {
-  const [phone, setPhone] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(max-width: 899px)').matches,
-  );
-  useEffect(() => {
-    const list = window.matchMedia('(max-width: 899px)');
-    const onChange = () => setPhone(list.matches);
-    list.addEventListener('change', onChange);
-    return () => list.removeEventListener('change', onChange);
-  }, []);
-  return phone;
+  return useMediaQuery('(max-width: 899px)');
 }
 
 const NAV = [
@@ -124,9 +116,9 @@ export function Chrome({
         height="auto"
         variant="section"
       >
-        <VStack gap={4}>
+        <VStack gap={6} paddingBlock={2}>
           {children}
-          <VStack gap={1} paddingBlock={2}>
+          <VStack gap={1} paddingBlock={3}>
             <Text type="supporting">
               Cupola · Astryx demo · raw 48 h, 1 m 30 d, 1 h 13 mo ·{' '}
               <a href="#/settings/about">about</a>

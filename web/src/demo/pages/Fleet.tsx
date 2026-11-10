@@ -3,27 +3,15 @@ import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
-import { Grid } from '@astryxdesign/core/Grid';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
-import {
-  pixel,
-  proportional,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHeaderCell,
-  TableRow,
-  type TableColumn,
-} from '@astryxdesign/core/Table';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { actions, events, rules, units } from '../fixtures';
 import { useIsPhone } from '../Chrome';
-import { CardSection, PageHead } from '../ui';
+import { Band, FindingRow, Kpi, KpiGrid, PageHead } from '../ui';
 
 interface UnitRow extends Record<string, unknown> {
   node: string;
@@ -37,10 +25,16 @@ const unitColumns: TableColumn<UnitRow>[] = [
   {
     key: 'unit',
     header: 'Unit',
-    width: proportional(2, { minWidth: 260 }),
+    width: proportional(2, { minWidth: 280 }),
     renderCell: (row) => (
       <VStack gap={0}>
-        <Text type="code">{row.unit}</Text>
+        <HStack gap={1.5} vAlign="center">
+          <StatusDot
+            variant={row.state === 'failed' ? 'error' : row.state === 'inactive' ? 'neutral' : 'success'}
+            label={row.state}
+          />
+          <Text type="code">{row.unit}</Text>
+        </HStack>
         <Text type="supporting">{row.description}</Text>
       </VStack>
     ),
@@ -54,21 +48,13 @@ const unitColumns: TableColumn<UnitRow>[] = [
   {
     key: 'state',
     header: 'State',
-    width: pixel(160),
-    renderCell: (row) => (
-      <HStack gap={1.5} vAlign="center">
-        <StatusDot
-          variant={row.state === 'failed' ? 'error' : row.state === 'inactive' ? 'neutral' : 'success'}
-          label={row.state}
-        />
-        <Text type="supporting">{row.state}</Text>
-      </HStack>
-    ),
+    width: pixel(140),
+    renderCell: (row) => <Text type="supporting">{row.state}</Text>,
   },
   {
     key: 'since',
     header: 'Since',
-    width: pixel(120),
+    width: pixel(110),
     renderCell: (row) => <Text type="supporting">{row.since}</Text>,
   },
 ];
@@ -77,42 +63,66 @@ export function ServicesPage() {
   const phone = useIsPhone();
   const [query, setQuery] = useState('');
   const shown = units.filter((unit) => `${unit.node} ${unit.unit}`.includes(query.trim().toLowerCase()));
-  const failed = units.filter((unit) => unit.state === 'failed').length;
+  const failed = shown.filter((unit) => unit.state === 'failed');
+  const rest = shown.filter((unit) => unit.state !== 'failed');
 
   return (
     <>
-      <PageHead title="Services" desc={`${units.length} units across 4 systems · ${failed} failed`} />
-      <VStack maxWidth={320}>
-        <TextInput
-          label="Filter units"
-          isLabelHidden
-          type="search"
-          value={query}
-          onChange={setQuery}
-          placeholder="Filter units…"
-        />
-      </VStack>
-      <Card padding={phone ? 3 : 0}>
+      <PageHead
+        title="Services"
+        desc="systemd units the operator can act on · failed first"
+        actions={
+          <VStack width={260}>
+            <TextInput
+              label="Filter units"
+              isLabelHidden
+              type="search"
+              value={query}
+              onChange={setQuery}
+              placeholder="Filter units…"
+            />
+          </VStack>
+        }
+      />
+
+      {failed.length ? (
+        <Band title="Failed" desc="Something stopped and stayed stopped" first>
+          <VStack gap={0}>
+            {failed.map((unit) => (
+              <FindingRow
+                key={`${unit.node}/${unit.unit}`}
+                state="error"
+                what={unit.unit}
+                where={`${unit.node} · ${unit.description}`}
+                ago={unit.since}
+                href={`#/nodes/${unit.node}/services`}
+              />
+            ))}
+          </VStack>
+        </Band>
+      ) : null}
+
+      <Band
+        title={failed.length ? 'Everything else' : 'Units'}
+        desc={`${rest.length} units · ${new Set(units.map((unit) => unit.node)).size} systems`}
+        first={failed.length === 0}
+      >
         {phone ? (
           <VStack gap={0}>
-            {shown.map((unit) => (
-              <VStack key={`${unit.node}/${unit.unit}`} gap={1} paddingBlock={2}>
-                <HStack gap={1.5} vAlign="center">
-                  <StatusDot
-                    variant={unit.state === 'failed' ? 'error' : unit.state === 'inactive' ? 'neutral' : 'success'}
-                    label={unit.state}
-                  />
-                  <Text type="code">{unit.unit}</Text>
-                </HStack>
-                <Text type="supporting">
-                  {unit.node} · {unit.state} · {unit.since}
-                </Text>
-              </VStack>
+            {rest.map((unit) => (
+              <FindingRow
+                key={`${unit.node}/${unit.unit}`}
+                state={unit.state === 'inactive' ? 'neutral' : 'success'}
+                what={unit.unit}
+                where={`${unit.node} · ${unit.description}`}
+                ago={unit.since}
+                href={`#/nodes/${unit.node}/services`}
+              />
             ))}
           </VStack>
         ) : (
           <Table
-            data={shown as unknown as UnitRow[]}
+            data={rest as unknown as UnitRow[]}
             columns={unitColumns}
             idKey={(row) => `${row.node}/${row.unit}`}
             density="compact"
@@ -120,7 +130,7 @@ export function ServicesPage() {
             hasHover
           />
         )}
-      </Card>
+      </Band>
     </>
   );
 }
@@ -130,32 +140,54 @@ export function AppsPage() {
     <>
       <PageHead
         title="Apps"
-        desc={`${actions.length} actions · defined in the agent config, run by the hub`}
-        actions={<Button label="How actions work" variant="ghost" onClick={() => { location.hash = '#/settings/about'; }} />}
+        desc="Actions the agent advertises. The hub can only run these; it cannot define them."
+        actions={<Button label="Read the rules" variant="ghost" onClick={() => { location.hash = '#/settings/about'; }} />}
       />
-      <Grid columns={{ minWidth: 260, max: 3 }} gap={3}>
-        {actions.map((action) => (
-          <Card key={action.id}>
-            <VStack gap={3}>
-              <HStack gap={2} vAlign="center" hAlign="between">
-                <Heading level={2}>{action.label}</Heading>
-                <Badge label={action.type} variant={action.type === 'wol' ? 'info' : 'neutral'} />
-              </HStack>
-              <VStack gap={1}>
-                <Text type="supporting">{action.detail}</Text>
+      <Band title="Actions" desc={`${actions.length} available`} first>
+        <VStack gap={0}>
+          {actions.map((action) => (
+            <HStack
+              key={action.id}
+              gap={3}
+              vAlign="center"
+              hAlign="between"
+              paddingBlock={3}
+              wrap="wrap"
+            >
+              <VStack gap={0.5}>
                 <HStack gap={1.5} vAlign="center">
+                  <Text>{action.label}</Text>
+                  <Badge label={action.type} variant={action.type === 'wol' ? 'info' : 'neutral'} />
                   <a href={`#/nodes/${action.node}/apps`}>{action.node}</a>
-                  <Text type="supporting">· last run {action.lastRun}</Text>
                 </HStack>
+                <Text type="supporting">
+                  {action.detail} · last run {action.lastRun}
+                </Text>
               </VStack>
               <HStack gap={2}>
-                <Button label="Run" variant="secondary" onClick={() => undefined} />
-                <Button label="History" variant="ghost" onClick={() => undefined} />
+                <Button label="History" variant="ghost" size="sm" onClick={() => undefined} />
+                <Button
+                  label={action.type === 'wol' ? 'Wake' : 'Run'}
+                  variant={action.type === 'wol' ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => undefined}
+                />
               </HStack>
-            </VStack>
-          </Card>
-        ))}
-      </Grid>
+            </HStack>
+          ))}
+        </VStack>
+      </Band>
+      <Card>
+        <VStack gap={2}>
+          <Text type="label" color="secondary">
+            Run limits
+          </Text>
+          <Text type="supporting">
+            One run per action per node, 60 s timeout, 8 KiB of output kept, every run becomes an event.
+            Dangerous actions ask you to type the action name first.
+          </Text>
+        </VStack>
+      </Card>
     </>
   );
 }
@@ -166,68 +198,60 @@ export function AlertsPage() {
     <>
       <PageHead
         title="Alerts"
-        desc={`${firing.length} firing · ${rules.length} rules · webhook and ntfy`}
+        desc="Two things are firing. Both notifications are working."
         actions={<Button label="New rule" variant="primary" onClick={() => undefined} />}
       />
-      <CardSection title="Firing" desc="What is wrong right now">
-        <VStack gap={0}>
-          {firing.length === 0 ? (
-            <Text type="supporting">Nothing is firing.</Text>
-          ) : (
-            firing.map((rule) => (
-              <HStack key={rule.id} gap={2} vAlign="center" hAlign="between" paddingBlock={2}>
-                <HStack gap={2} vAlign="center">
-                  <StatusDot variant="error" label="firing" isPulsing />
-                  <Text>{rule.what}</Text>
-                  <Text type="supporting">
-                    {rule.scope} · {rule.when}
-                  </Text>
-                </HStack>
-                <Text type="supporting">{rule.channel}</Text>
-              </HStack>
-            ))
-          )}
-        </VStack>
-      </CardSection>
-      <CardSection title="Rules" desc="Metric, event and prediction rules" padding={0}>
-        <Table density="compact" dividers="rows" hasHover>
-          <TableHeader>
-            <TableRow>
-              <TableHeaderCell>Rule</TableHeaderCell>
-              <TableHeaderCell>When</TableHeaderCell>
-              <TableHeaderCell>Channel</TableHeaderCell>
-              <TableHeaderCell>State</TableHeaderCell>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rules.map((rule) => (
-              <TableRow key={rule.id}>
-                <TableCell>
-                  <VStack gap={0}>
-                    <Text>{rule.what}</Text>
+
+      <KpiGrid>
+        <Kpi label="Firing" value={firing.length} state="error" note="both on beelink" />
+        <Kpi label="Rules" value={rules.length} note="2 muted · 1 healthy" />
+        <Kpi label="Delivered" value="18" unit="today" note="ntfy and webhook · signed" />
+        <Kpi label="Last delivery" value="38 m ago" note="webhook · 200 in 212 ms" />
+      </KpiGrid>
+
+      <Band title="Firing" desc="What is wrong right now, newest first" first>
+        <VStack gap={3}>
+          {firing.map((rule) => (
+            <Card key={rule.id}>
+              <VStack gap={3}>
+                <HStack gap={2} vAlign="center" hAlign="between" wrap="wrap">
+                  <HStack gap={2} vAlign="center">
+                    <StatusDot variant="error" label="firing" isPulsing />
+                    <Text weight="semibold">{rule.what}</Text>
                     <Text type="supporting">{rule.scope}</Text>
-                  </VStack>
-                </TableCell>
-                <TableCell>
-                  <Text type="code">{rule.when}</Text>
-                </TableCell>
-                <TableCell>
-                  <Text type="supporting">{rule.channel}</Text>
-                </TableCell>
-                <TableCell>
-                  <HStack gap={1.5} vAlign="center">
-                    <StatusDot
-                      variant={rule.state === 'firing' ? 'error' : rule.state === 'muted' ? 'neutral' : 'success'}
-                      label={rule.state}
-                    />
-                    <Text type="supporting">{rule.state}</Text>
                   </HStack>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </CardSection>
+                  <Text type="supporting">since 38 m ago</Text>
+                </HStack>
+                <Divider />
+                <HStack gap={4} vAlign="center" wrap="wrap">
+                  <Text type="code">{rule.when}</Text>
+                  <Text type="supporting">→ {rule.channel}</Text>
+                  <HStack gap={2}>
+                    <Button label="Silence 1 h" variant="ghost" size="sm" onClick={() => undefined} />
+                    <Button label="Open rule" variant="secondary" size="sm" onClick={() => undefined} />
+                  </HStack>
+                </HStack>
+              </VStack>
+            </Card>
+          ))}
+        </VStack>
+      </Band>
+
+      <Band title="All rules" desc="Metric, event, prediction and SMART rules">
+        <VStack gap={0}>
+          {rules.map((rule) => (
+            <FindingRow
+              key={rule.id}
+              state={rule.state === 'firing' ? 'error' : rule.state === 'muted' ? 'neutral' : 'success'}
+              what={rule.what}
+              where={`${rule.scope} · ${rule.when} · ${rule.channel}`}
+              action={
+                <Button label="Edit" variant="ghost" size="sm" onClick={() => undefined} />
+              }
+            />
+          ))}
+        </VStack>
+      </Band>
     </>
   );
 }
@@ -239,23 +263,26 @@ export function EventsPage() {
 
   return (
     <>
-      <PageHead title="Events" desc={`${events.length} in the last hour · grouped by kind`} />
-      <HStack gap={2} wrap="wrap">
-        <Button
-          label="All"
-          variant={kind === null ? 'primary' : 'ghost'}
-          onClick={() => setKind(null)}
-        />
-        {kinds.map((entry) => (
-          <Button
-            key={entry}
-            label={entry}
-            variant={kind === entry ? 'primary' : 'ghost'}
-            onClick={() => setKind(entry)}
-          />
-        ))}
-      </HStack>
-      <CardSection padding={0}>
+      <PageHead
+        title="Events"
+        desc="Everything the hub and the agents decided was worth telling you"
+        actions={
+          <HStack gap={2} wrap="wrap">
+            <Button label="All" variant={kind === null ? 'primary' : 'ghost'} size="sm" onClick={() => setKind(null)} />
+            {kinds.map((entry) => (
+              <Button
+                key={entry}
+                label={`${entry} (${events.filter((event) => event.kind === entry).length})`}
+                variant={kind === entry ? 'primary' : 'ghost'}
+                size="sm"
+                onClick={() => setKind(entry)}
+              />
+            ))}
+          </HStack>
+        }
+      />
+
+      <Band title="Timeline" desc={`${shown.length} events · grouped by kind`} first>
         <VStack gap={0}>
           {shown.map((event, index) => (
             <VStack key={event.id} gap={0}>
@@ -264,11 +291,7 @@ export function EventsPage() {
                 <HStack gap={2} vAlign="center">
                   <StatusDot
                     variant={
-                      event.severity === 'critical'
-                        ? 'error'
-                        : event.severity === 'warning'
-                          ? 'warning'
-                          : 'neutral'
+                      event.severity === 'critical' ? 'error' : event.severity === 'warning' ? 'warning' : 'neutral'
                     }
                     label={event.severity}
                   />
@@ -288,7 +311,7 @@ export function EventsPage() {
             </VStack>
           ))}
         </VStack>
-      </CardSection>
+      </Band>
     </>
   );
 }
@@ -297,9 +320,9 @@ export function NotFoundPage() {
   return (
     <Card>
       <VStack gap={3}>
-        <Heading level={1}>Not found</Heading>
+        <Text>Not found</Text>
         <Text type="supporting">This demo has no page at {location.hash || '#/'}.</Text>
-        <Button label="Back to systems" variant="secondary" onClick={() => { location.hash = '#/'; }} />
+        <Button label="Back to the fleet" variant="secondary" onClick={() => { location.hash = '#/'; }} />
       </VStack>
     </Card>
   );

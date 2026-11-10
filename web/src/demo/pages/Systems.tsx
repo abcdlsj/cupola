@@ -1,213 +1,259 @@
 import { useState } from 'react';
-import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
 import { Grid } from '@astryxdesign/core/Grid';
 import { HStack } from '@astryxdesign/core/HStack';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, TableBody, TableCell, TableHeader, TableHeaderCell, TableRow } from '@astryxdesign/core/Table';
+import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
-import { useIsPhone } from '../Chrome';
 import { nodes, units, type DemoNode } from '../fixtures';
-import { CardSection, ChartCard, Figure, Meter, PageHead } from '../ui';
+import { Band, ChartCard, FindingRow, Figure, Kpi, KpiGrid, Meter, PageHead } from '../ui';
+
+interface SystemRow extends Record<string, unknown> {
+  id: string;
+  name: string;
+  role: string;
+  os: string;
+  state: DemoNode['state'];
+  cpu: number | null;
+  memory: number | null;
+  disk: number | null;
+  load: number;
+  cores: number;
+  uptime: string;
+  mode: 'pull' | 'push';
+}
+
+const rows = nodes as unknown as SystemRow[];
 
 function tone(state: DemoNode['state']) {
   return state === 'healthy' ? 'success' : state === 'degraded' ? 'warning' : 'neutral';
 }
 
-function SystemName({ node }: { node: DemoNode }) {
-  return (
-    <HStack gap={1.5} vAlign="center">
-      <a href={`#/nodes/${node.id}`}>{node.name}</a>
-      <Text type="supporting">{node.role}</Text>
-      {node.mode === 'push' ? <Text type="supporting">· push</Text> : null}
-    </HStack>
-  );
-}
-
-function SystemsTable({ shown }: { shown: DemoNode[] }) {
-  return (
-    <Table density="compact" dividers="rows" hasHover>
-      <TableHeader>
-        <TableRow>
-          <TableHeaderCell>System</TableHeaderCell>
-          <TableHeaderCell>CPU</TableHeaderCell>
-          <TableHeaderCell>Memory</TableHeaderCell>
-          <TableHeaderCell>Disk</TableHeaderCell>
-          <TableHeaderCell>Load</TableHeaderCell>
-          <TableHeaderCell>Up</TableHeaderCell>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {shown.map((node) => (
-          <TableRow key={node.id}>
-            <TableCell>
-              <HStack gap={2} vAlign="center">
-                <StatusDot variant={tone(node.state)} label={node.state} tooltip={`${node.name}: ${node.state}`} />
-                <VStack gap={0}>
-                  <SystemName node={node} />
-                  <Text type="supporting">{node.os}</Text>
-                </VStack>
-              </HStack>
-            </TableCell>
-            <TableCell>
-              <Meter value={node.cpu} label={`${node.name} CPU`} />
-            </TableCell>
-            <TableCell>
-              <Meter value={node.memory} label={`${node.name} memory`} />
-            </TableCell>
-            <TableCell>
-              <Meter value={node.disk} label={`${node.name} root filesystem`} />
-            </TableCell>
-            <TableCell>
-              <Figure value={node.state === 'offline' ? null : node.load} unit={`/ ${node.cores}`} />
-            </TableCell>
-            <TableCell>
-              <Text type="supporting">{node.uptime}</Text>
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}
-
-/** Below 900 px a table stops being readable: the same data becomes one block per system. */
-function SystemRows({ shown }: { shown: DemoNode[] }) {
-  return (
-    <VStack gap={0}>
-      {shown.map((entry) => (
-        <VStack key={entry.id} gap={2} paddingBlock={3}>
-          <HStack gap={2} vAlign="center" hAlign="between">
-            <HStack gap={1.5} vAlign="center">
-              <StatusDot variant={tone(entry.state)} label={entry.state} />
-              <SystemName node={entry} />
-            </HStack>
-            <Text type="supporting">{entry.uptime}</Text>
+const columns: TableColumn<SystemRow>[] = [
+  {
+    key: 'name',
+    header: 'System',
+    width: proportional(1, { minWidth: 200 }),
+    renderCell: (row) => (
+      <HStack gap={2} vAlign="center">
+        <StatusDot variant={tone(row.state)} label={row.state} tooltip={`${row.name}: ${row.state}`} />
+        <VStack gap={0}>
+          <HStack gap={1.5} vAlign="center">
+            <a href={`#/nodes/${row.id}`}>{row.name}</a>
+            <Text type="supporting">{row.role}</Text>
           </HStack>
-          {(
-            [
-              ['CPU', entry.cpu],
-              ['Memory', entry.memory],
-              ['Disk', entry.disk],
-            ] as const
-          ).map(([label, value]) => (
-            <HStack key={label} gap={2} vAlign="center">
-              <VStack width={72}>
-                <Text type="supporting">{label}</Text>
-              </VStack>
-              <Meter value={value} label={`${entry.name} ${label}`} />
-            </HStack>
-          ))}
+          <Text type="supporting">
+            {row.os} · {row.mode}
+          </Text>
         </VStack>
-      ))}
-    </VStack>
-  );
-}
+      </HStack>
+    ),
+  },
+  {
+    key: 'cpu',
+    header: 'CPU',
+    width: proportional(1, { minWidth: 190 }),
+    renderCell: (row) => <Meter value={row.cpu} label={`${row.name} CPU`} width={72} />,
+  },
+  {
+    key: 'memory',
+    header: 'Memory',
+    width: proportional(1, { minWidth: 190 }),
+    renderCell: (row) => <Meter value={row.memory} label={`${row.name} memory`} width={72} />,
+  },
+  {
+    key: 'disk',
+    header: 'Disk',
+    width: proportional(1, { minWidth: 190 }),
+    renderCell: (row) => <Meter value={row.disk} label={`${row.name} root filesystem`} width={72} />,
+  },
+  {
+    key: 'load',
+    header: 'Load',
+    width: pixel(110),
+    renderCell: (row) => <Figure value={row.state === 'offline' ? null : row.load} unit={`/ ${row.cores}`} />,
+  },
+  {
+    key: 'uptime',
+    header: 'Up',
+    width: pixel(130),
+    renderCell: (row) => <Text type="supporting">{row.uptime}</Text>,
+  },
+];
+
+const RANGES = ['1 h', '24 h', '7 d'] as const;
 
 export function SystemsPage() {
-  const phone = useIsPhone();
-  const [query, setQuery] = useState('');
-  const shown = nodes.filter((entry) => entry.name.includes(query.trim().toLowerCase()));
+  const [range, setRange] = useState<string>('1 h');
   const failed = units.filter((unit) => unit.state === 'failed');
+  const offline = nodes.filter((node) => node.state === 'offline');
+  const worst = [...nodes]
+    .filter((node) => node.state !== 'offline')
+    .sort((a, b) => (b.disk ?? 0) - (a.disk ?? 0))[0];
+  const strained = nodes.filter((node) => node.state === 'degraded').length;
 
   return (
     <>
       <PageHead
-        title="Systems"
-        desc="4 systems · 2 need attention · beelink is at 93 % disk · 1 unit failed"
+        title="Fleet"
+        desc="Four machines, one page. Anything not green is listed before the charts."
         actions={
           <>
-            <Button label="Settings" variant="secondary" onClick={() => { location.hash = '#/settings/nodes'; }} />
-            <Button label="Refresh" variant="ghost" onClick={() => undefined} />
+            <HStack gap={2} vAlign="center" paddingInline={2}>
+              <StatusDot variant="success" label="Live" isPulsing tooltip="Polling every 5 s" />
+              <Text type="supporting">last ingest 2 s ago</Text>
+            </HStack>
+            <SegmentedControl
+              label="Range"
+              size="sm"
+              value={range}
+              onChange={(value) => setRange(value)}
+            >
+              {RANGES.map((entry) => (
+                <SegmentedControlItem key={entry} value={entry} label={entry} />
+              ))}
+            </SegmentedControl>
+            <Button label="Refresh" variant="secondary" onClick={() => undefined} />
           </>
         }
       />
 
-      <VStack maxWidth={320}>
-        <TextInput
-          label="Filter systems"
-          isLabelHidden
-          type="search"
-          value={query}
-          onChange={setQuery}
-          placeholder="Filter systems…"
+      <KpiGrid>
+        <Kpi
+          label="Online"
+          value={`${nodes.length - offline.length}`}
+          unit={`of ${nodes.length}`}
+          state={offline.length ? 'warning' : 'success'}
+          note={offline.length ? `${offline[0].name} silent for 14 m` : 'all systems reporting'}
         />
-      </VStack>
+        <Kpi
+          label="Needs attention"
+          value={strained}
+          state={strained ? 'warning' : 'success'}
+          note={strained ? 'beelink is degraded' : 'nothing strained'}
+        />
+        <Kpi
+          label="Failed units"
+          value={failed.length}
+          state={failed.length ? 'error' : 'success'}
+          note={failed.map((unit) => unit.unit).join(', ') || 'all units active'}
+        />
+        <Kpi
+          label="Tightest disk"
+          value={worst?.disk ?? null}
+          unit="%"
+          digits={1}
+          state="error"
+          meter={worst?.disk ?? null}
+          note={`${worst?.name} · ${range} window`}
+        />
+      </KpiGrid>
 
-      <Card padding={phone ? 3 : 0}>
-        {shown.length === 0 ? (
-          <Text type="supporting">No system matches “{query}”.</Text>
-        ) : phone ? (
-          <SystemRows shown={shown} />
-        ) : (
-          <SystemsTable shown={shown} />
-        )}
-      </Card>
-
-      <Grid columns={{ minWidth: 320, max: 4 }} gap={3}>
-        <ChartCard
-          title="CPU"
-          desc="beelink · 8 cores · system and iowait · last hour"
-          lines={[
-            { label: 'system', seed: 7, base: 62, swing: 26 },
-            { label: 'iowait', seed: 11, base: 9, swing: 14 },
-          ]}
-        />
-        <ChartCard
-          title="Memory"
-          desc="beelink · used and cache · last hour"
-          lines={[
-            { label: 'used', seed: 23, base: 84, swing: 9 },
-            { label: 'cache', seed: 29, base: 42, swing: 12 },
-          ]}
-        />
-        <ChartCard
-          title="Disk I/O"
-          desc="atlas · nvme0n1 · read · last hour"
-          lines={[{ label: 'read', seed: 31, base: 14, swing: 20 }]}
-        />
-        <ChartCard
-          title="Network"
-          desc="atlas · eno1 · receive · last hour"
-          lines={[{ label: 'rx', seed: 43, base: 36, swing: 28 }]}
-        />
-      </Grid>
-
-      <CardSection
-        title="Services"
-        padding={phone ? 3 : 0}
-        desc={`${units.length} units across 4 systems · ${failed.length} failed`}
+      <Band
+        title="Needs attention"
+        desc="beelink is degraded, loft has gone silent"
         actions={
-          <Button label="View all" variant="ghost" onClick={() => { location.hash = '#/services'; }} />
+          <Button label="All events" variant="ghost" onClick={() => { location.hash = '#/events'; }} />
+        }
+        first
+      >
+        <VStack gap={0}>
+          <FindingRow
+            state="error"
+            what="cupola-agent.service failed"
+            where="beelink · exit 1 · 203.0.113.24"
+            ago="14 m"
+            href="#/nodes/beelink/services"
+          />
+          <FindingRow
+            state="warning"
+            what="Root filesystem at 93 %"
+            where="beelink · 18.4 of 19.8 GiB · fills in 21 days"
+            value={93.1}
+            label="beelink root filesystem"
+            href="#/nodes/beelink/storage"
+          />
+          <FindingRow
+            state="warning"
+            what="Memory pressure"
+            where="beelink · 87.6 % for 12 minutes"
+            value={87.6}
+            label="beelink memory"
+            href="#/nodes/beelink/memory"
+          />
+          <FindingRow
+            state="neutral"
+            what="loft went silent"
+            where="push · last contact 14 m ago · expected hourly"
+            ago="14 m"
+            href="#/nodes/loft"
+          />
+        </VStack>
+      </Band>
+
+      <Band
+        title="Fleet load"
+        desc={`CPU and memory across all systems · ${range}`}
+        actions={
+          <Button label="Per system" variant="ghost" onClick={() => { location.hash = '#/nodes/beelink/cpu'; }} />
         }
       >
-        <VStack gap={0} padding={phone ? 0 : 3}>
-          {units.slice(0, 5).map((unit) => (
-            <HStack
-              key={`${unit.node}/${unit.unit}`}
-              gap={2}
-              vAlign="center"
-              hAlign="between"
-              paddingBlock={2}
-            >
-              <HStack gap={2} vAlign="center">
-                <StatusDot
-                  variant={unit.state === 'failed' ? 'error' : unit.state === 'inactive' ? 'neutral' : 'success'}
-                  label={unit.state}
-                />
-                <Text type="code">{unit.unit}</Text>
-                <Text type="supporting">on {unit.node}</Text>
-                {unit.state === 'failed' ? <Badge label="failed" variant="error" /> : null}
-              </HStack>
-              <Text type="supporting">{unit.since}</Text>
-            </HStack>
-          ))}
-        </VStack>
-      </CardSection>
+        <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+          <ChartCard
+            title="CPU"
+            desc="busiest system (beelink) against the fleet median"
+            lines={[
+              { label: 'beelink', seed: 7, base: 62, swing: 26 },
+              { label: 'median', seed: 11, base: 19, swing: 12 },
+            ]}
+            height={200}
+          />
+          <ChartCard
+            title="Memory"
+            desc="used memory, beelink against the fleet median"
+            lines={[
+              { label: 'beelink', seed: 23, base: 84, swing: 9 },
+              { label: 'median', seed: 29, base: 34, swing: 10 },
+            ]}
+            height={200}
+          />
+        </Grid>
+      </Band>
 
+      <Band title="Systems" desc="Every machine, worst disk first">
+        <Table
+          data={[...rows].sort((a, b) => (b.disk ?? -1) - (a.disk ?? -1))}
+          columns={columns}
+          idKey="id"
+          density="compact"
+          dividers="rows"
+          hasHover
+        />
+      </Band>
+
+      <Band
+        title="Units"
+        desc={`${units.length} across the fleet · failed first`}
+        actions={<Button label="All services" variant="ghost" onClick={() => { location.hash = '#/services'; }} />}
+      >
+        <VStack gap={0}>
+          {[...units]
+            .sort((a, b) => (a.state === 'failed' ? -1 : 0) - (b.state === 'failed' ? -1 : 0))
+            .slice(0, 5)
+            .map((unit) => (
+              <FindingRow
+                key={`${unit.node}/${unit.unit}`}
+                state={unit.state === 'failed' ? 'error' : unit.state === 'inactive' ? 'neutral' : 'success'}
+                what={unit.unit}
+                where={`${unit.node} · ${unit.description}`}
+                ago={unit.since}
+                href={`#/nodes/${unit.node}/services`}
+              />
+            ))}
+        </VStack>
+      </Band>
     </>
   );
 }

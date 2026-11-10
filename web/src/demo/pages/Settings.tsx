@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
 import { Divider } from '@astryxdesign/core/Divider';
 import { Grid } from '@astryxdesign/core/Grid';
-import { Heading } from '@astryxdesign/core/Heading';
 import { HStack } from '@astryxdesign/core/HStack';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
 import { Switch } from '@astryxdesign/core/Switch';
@@ -14,7 +12,7 @@ import { Text } from '@astryxdesign/core/Text';
 import { TextInput } from '@astryxdesign/core/TextInput';
 import { VStack } from '@astryxdesign/core/VStack';
 import { nodes, rules } from '../fixtures';
-import { CardSection, Figure, PageHead } from '../ui';
+import { Band, Figure, PageHead } from '../ui';
 
 const SECTIONS = [
   { slug: 'nodes', label: 'Nodes' },
@@ -42,7 +40,7 @@ function SettingsTabs({ section }: { section: string }) {
 
 function NodesSection() {
   return (
-    <CardSection title="Nodes" desc="Agent tokens are stored encrypted and indexed by SHA-256" padding={0}>
+    <Band title="Nodes" desc="Agent tokens are stored encrypted and indexed by SHA-256" first>
       <Table density="compact" dividers="rows">
         <TableHeader>
           <TableRow>
@@ -80,14 +78,14 @@ function NodesSection() {
           ))}
         </TableBody>
       </Table>
-    </CardSection>
+    </Band>
   );
 }
 
 function AlertsSection() {
   const [webhook, setWebhook] = useState(true);
   return (
-    <CardSection title="Alert delivery" desc="One webhook, five retries, signed when a secret is set">
+    <Band title="Alert delivery" desc="One webhook, five retries, signed when a secret is set" first>
       <VStack gap={4}>
         <Switch
           label="Sign deliveries"
@@ -105,14 +103,14 @@ function AlertsSection() {
           ))}
         </VStack>
       </VStack>
-    </CardSection>
+    </Band>
   );
 }
 
 function TokensSection() {
   return (
     <VStack gap={4}>
-      <CardSection title="API tokens" desc="Scoped, hashed at rest, revocable">
+      <Band title="API tokens" desc="Scoped, hashed at rest, revocable" first>
         <VStack gap={3}>
           <Grid columns={{ minWidth: 220, max: 2 }} gap={3}>
             <TextInput label="Name" value="grafana-read" onChange={() => undefined} />
@@ -123,8 +121,8 @@ function TokensSection() {
             <Text type="supporting">Shown once; only its SHA-256 is stored.</Text>
           </HStack>
         </VStack>
-      </CardSection>
-      <CardSection padding={0}>
+      </Band>
+      <Band>
         <Table density="compact" dividers="rows">
           <TableHeader>
             <TableRow>
@@ -153,14 +151,14 @@ function TokensSection() {
             ))}
           </TableBody>
         </Table>
-      </CardSection>
+      </Band>
     </VStack>
   );
 }
 
 function RetentionSection() {
   return (
-    <CardSection title="Retention" desc="Raw readings are dropped, rollups are kept">
+    <Band title="Retention" desc="Raw readings are dropped, rollups are kept" first>
       <Grid columns={{ minWidth: 220, max: 3 }} gap={4}>
         <VStack gap={2}>
           <Text type="supporting">Raw</Text>
@@ -184,7 +182,7 @@ function RetentionSection() {
         <Text type="code">184 MiB · WAL 12 MiB</Text>
         <Button label="Vacuum" variant="secondary" onClick={() => undefined} />
       </HStack>
-    </CardSection>
+    </Band>
   );
 }
 
@@ -192,7 +190,7 @@ function AppearanceSection() {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [compact, setCompact] = useState(true);
   return (
-    <CardSection title="Appearance" desc="Theme comes from tokens.css; nothing is hard-coded">
+    <Band title="Appearance" desc="The theme supplies every colour; nothing is hard-coded" first>
       <VStack gap={4}>
         <Switch
           label="Compact tables"
@@ -218,13 +216,13 @@ function AppearanceSection() {
           </HStack>
         </VStack>
       </VStack>
-    </CardSection>
+    </Band>
   );
 }
 
 function AboutSection() {
   return (
-    <CardSection title="About" desc="Self-hosted monitoring for the Linux boxes you run">
+    <Band title="About" desc="Self-hosted monitoring for the Linux boxes you run" first>
       <Grid columns={{ minWidth: 200, max: 4 }} gap={4}>
         <VStack gap={1}>
           <Text type="supporting">Hub</Text>
@@ -248,7 +246,7 @@ function AboutSection() {
         No telemetry, no accounts, no third-party runtime assets. Command lines are redacted; environment
         variables, prompts and file contents are never collected.
       </Text>
-    </CardSection>
+    </Band>
   );
 }
 
@@ -263,13 +261,12 @@ export function SettingsPage({ section }: { section: string }) {
       {section === 'retention' ? <RetentionSection /> : null}
       {section === 'appearance' ? <AppearanceSection /> : null}
       {section === 'about' ? <AboutSection /> : null}
-      <Card>
-        <HStack gap={2} vAlign="center">
-          <StatusDot variant="success" label="hub healthy" />
-          <Heading level={2}>Hub healthy</Heading>
-          <Text type="supporting">4 systems · last ingest 2 s ago</Text>
-        </HStack>
-      </Card>
+      <HStack gap={2} vAlign="center" paddingBlock={2}>
+        <StatusDot variant="success" label="hub healthy" isPulsing />
+        <Text type="supporting">
+          Hub healthy · 4 systems · last ingest 2 s ago · SQLite 184 MiB
+        </Text>
+      </HStack>
     </>
   );
 }

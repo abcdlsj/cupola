@@ -141,22 +141,6 @@ export const processes: Process[] = [
   { pid: 77, name: 'kworker/2:1', user: 'root', cpu: 0.9, memory: 0.0, threads: 1, rss: '0 B', cmd: 'kworker/2:1-events' },
 ];
 
-export interface AgentSession {
-  id: string;
-  tool: 'claude' | 'codex' | 'pi';
-  cwd: string;
-  started: string;
-  runtime: string;
-  status: 'working' | 'idle';
-  model: string;
-}
-
-export const agents: AgentSession[] = [
-  { id: 'ses_8f2a', tool: 'claude', cwd: '/srv/nextcloud', started: '12 m ago', runtime: '42 m', status: 'working', model: 'opus-4.6' },
-  { id: 'ses_71b0', tool: 'codex', cwd: '/srv/cupola', started: '1 h ago', runtime: '1 h 04 m', status: 'idle', model: 'gpt-6-codex' },
-  { id: 'ses_2c19', tool: 'pi', cwd: '/srv/backup', started: '3 h ago', runtime: '18 m', status: 'idle', model: 'sonnet-4.5' },
-];
-
 export interface Container {
   id: string;
   name: string;

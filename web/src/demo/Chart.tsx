@@ -19,11 +19,13 @@ export function Chart({
   timestamps,
   series,
   height = 180,
+  yMax = 100,
 }: {
   host: RefObject<HTMLDivElement | null>;
   timestamps: number[];
   series: { label: string; data: number[] }[];
   height?: number;
+  yMax?: number;
 }) {
   const plot = useRef<uPlot | null>(null);
   const { mode, token } = useTheme();
@@ -54,7 +56,7 @@ export function Chart({
         padding: [8, 8, 0, 0],
         legend: { show: false },
         cursor: { y: false, points: { size: 6 } },
-        scales: { x: { time: false }, y: { range: [0, 100] } },
+        scales: { x: { time: false }, y: { range: [0, yMax] } },
         axes: [
           {
             stroke: text,
@@ -103,7 +105,7 @@ export function Chart({
       plot.current?.destroy();
       plot.current = null;
     };
-  }, [host, timestamps, series, mode, token, height]);
+  }, [host, timestamps, series, mode, token, height, yMax]);
 
   return null;
 }

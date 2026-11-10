@@ -19,7 +19,7 @@ npm run dev            # then open http://localhost:5173/demo.html
   ```
   #/                              systems table, four chart cards, units strip
   #/nodes/beelink                 overview: KPI row, charts, units, events
-  #/nodes/atlas/{cpu,memory,storage,network,processes,agents,services,containers,apps,events}
+  #/nodes/atlas/{cpu,memory,storage,network,processes,services,containers,apps,events}
   #/services  #/apps  #/alerts  #/events
   #/settings/{nodes,alerts,tokens,retention,appearance,about}
   ```
@@ -28,6 +28,32 @@ npm run dev            # then open http://localhost:5173/demo.html
   component overrides (thin meter, no card shadow).
 - The demo never leaks into the app: `dist/assets/main-*.js` contains zero
   Astryx code, and the whole app suite still passes.
+
+## Redesign, not a port
+
+The first pass rebuilt Cupola's existing layout in Astryx components, which was
+the wrong exercise: it kept the old shell and the old "one card per thing"
+composition. The demo now follows Astryx's own dashboard idiom (`Layout` bands,
+`VStack gap={6}`, `Divider` between bands, `Heading level={3}` inside cards) and
+changes the page shapes with it:
+
+- **Home is a triage page, not a table with charts under it.** KPI tiles state
+  the four numbers an operator checks first (online, strained, failed units,
+  tightest disk), then *Needs attention* lists each finding as one row with its
+  meter, then two fleet-level charts, then the systems roster sorted worst disk
+  first, then units failed-first.
+- **A node is a header plus tabs plus bands.** Identity and controls sit in the
+  page header (back link, state dot, transport, range control), the KPI strip is
+  directly under it, and each tab is a band of charts, cards or rows — no nested
+  card-in-card panels.
+- **Per-core CPU, filesystems, interfaces and memory breakdown became tiles and
+  rows**, not five-column tables: a bar with a label reads faster than a grid.
+- **Processes gained an inspect panel** on a visible *Inspect* button, because a
+  table row is not a place to hide a detail view.
+- **Alerts lead with four KPI tiles and one card per firing rule** instead of a
+  table of rules; the rules table stays for the long tail.
+- **The agents tab is gone.** `058d014 feat!: drop AI agent sessions` removed the
+  roster from the product; the demo had carried it over from the old nav.
 
 ## Mapping
 
