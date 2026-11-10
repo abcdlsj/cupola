@@ -30,6 +30,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,webmanifest}'],
+        // The design-system demo is a second entry, not part of the PWA: keeping
+        // it out of the precache stops every install from downloading Astryx.
+        globIgnores: ['demo.html', 'assets/demo-*.js', 'assets/demo-*.css'],
         navigateFallback: 'index.html',
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
