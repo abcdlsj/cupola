@@ -5,12 +5,19 @@ system (`@astryxdesign/core`, MIT, v0.7.11, beta) built on StyleX. Published
 components ship pre-compiled CSS, so consuming them needs no StyleX compiler;
 authoring new StyleX styles or swizzling does.
 
-What exists on this branch:
+The demo is **local only**. It is never part of the shipped build:
 
 ```bash
 cd web
-npm run dev            # then open http://localhost:5173/demo.html
+npm run dev                     # then open http://localhost:5173/demo.html
+VITE_DEMO=1 npm run build       # build it on purpose
 ```
+
+A plain `npm run build` ships the app alone, and the PWA precache never contains
+the demo assets. (Checked on the live hub: `/opt/cupola/web` has no `demo.html`
+and no `assets/demo-*`.)
+
+What exists on this branch:
 
 - `web/demo.html` + `web/src/demo/*` — an isolated second Vite entry with a fake
   fleet (`atlas`, `beelink`, `studio`, `loft`). No hub, no auth, no API. Every

@@ -53,10 +53,13 @@ export default defineConfig({
   build: {
     target: 'es2022',
     rollupOptions: {
-      // second entry: the Astryx design-system demo, isolated from the app bundle
-      input: process.env.VITE_DEMO_ONLY
-        ? { demo: 'demo.html' }
-        : { main: 'index.html', demo: 'demo.html' },
+      // The Astryx design-system demo is a local evaluation entry, never part of
+      // the shipped build: `npm run dev` serves it at /demo.html, and
+      // `VITE_DEMO=1 npm run build` builds it on purpose. A plain build ships
+      // only the app.
+      input: process.env.VITE_DEMO === '1' || process.env.VITE_DEMO_ONLY
+        ? { main: 'index.html', demo: 'demo.html' }
+        : { main: 'index.html' },
     },
   },
   server: {
