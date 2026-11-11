@@ -91,7 +91,7 @@ export function ActionRows({
                     <Link href={actionHref(node, action.id)} maxLines={1}>
                       {action.name}
                     </Link>
-                    {action.danger ? <Badge variant="error" label="Dangerous" /> : null}
+                    {action.danger ? <Badge variant="red" label="Dangerous" /> : null}
                     {fleet && name ? (
                       <Link href={`/nodes/${encodeURIComponent(node)}/apps`} color="secondary">
                         {name}
@@ -105,21 +105,26 @@ export function ActionRows({
                   ) : null}
                 </VStack>
               </HStack>
-              <HStack gap={4} vAlign="center">
-                <VStack width={phone ? undefined : 96}>
-                  <LastRun action={action} />
+              <HStack gap={4} vAlign="center" hAlign={phone ? 'start' : 'end'}>
+                <VStack width={phone ? undefined : 120}>
+                  <HStack hAlign="end">
+                    <LastRun action={action} />
+                  </HStack>
                 </VStack>
                 <VStack width={phone ? undefined : 150}>
                   <Text type="supporting" textWrap="nowrap" justify={phone ? 'start' : 'end'}>
                     {last ? `${last} · ${actionKind(action)}` : actionKind(action)}
                   </Text>
                 </VStack>
-                <Button
-                  label={action.type === 'wol' ? 'Wake' : 'Run'}
-                  variant="secondary"
-                  size={phone ? 'md' : 'sm'}
-                  onClick={() => onRun(action)}
-                />
+                <VStack width={phone ? undefined : 64}>
+                  <Button
+                    label={action.type === 'wol' ? 'Wake' : 'Run'}
+                    variant="secondary"
+                    size={phone ? 'md' : 'sm'}
+                    width={phone ? undefined : 64}
+                    onClick={() => onRun(action)}
+                  />
+                </VStack>
               </HStack>
             </HStack>
           </VStack>
