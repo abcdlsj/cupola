@@ -4,5 +4,6 @@
 @import '@astryxdesign/core/reset.css';
 @import '@astryxdesign/core/astryx.css';
 @import '../themes/cupola/cupola.css';
+@import '@fontsource-variable/figtree';
 @import './fonts.css';
 @import './base.css';

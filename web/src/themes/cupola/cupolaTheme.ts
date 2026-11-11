@@ -3,7 +3,8 @@ import { neutralTheme } from '@astryxdesign/theme-neutral/built';
 
 /**
  * Astryx neutral, re-pointed at Cupola's two themes: near-black ground, 1 px
- * cool border, data-terminal blue, and IBM Plex for UI and figures.
+ * cool border, data-terminal blue, Astryx's own Figtree for UI and headings,
+ * IBM Plex Mono for every figure.
  *
  * Built for production with `npm run theme` (`astryx theme build`); the app
  * imports the generated `cupola.js` + `cupola.css`, never this file, so no
@@ -15,8 +16,8 @@ export const cupolaTheme = defineTheme({
   name: 'cupola',
   extends: neutralTheme,
   tokens: {
-    '--font-family-body': "'IBM Plex Sans', system-ui, sans-serif",
-    '--font-family-heading': "'IBM Plex Sans', system-ui, sans-serif",
+    '--font-family-body': "'Figtree Variable', Figtree, system-ui, sans-serif",
+    '--font-family-heading': "'Figtree Variable', Figtree, system-ui, sans-serif",
     '--font-family-code': "'IBM Plex Mono', ui-monospace, monospace",
     // Dense monitoring, one step up from the first pass: 15px body, 14px
     // supporting, 13px meta, 12px axis ticks.
