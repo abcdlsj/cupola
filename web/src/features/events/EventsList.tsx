@@ -10,7 +10,6 @@ import { HStack } from '@astryxdesign/core/HStack';
 import { Link } from '@astryxdesign/core/Link';
 import { Selector } from '@astryxdesign/core/Selector';
 import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
 import { Text } from '@astryxdesign/core/Text';
 import { VStack } from '@astryxdesign/core/VStack';
 import { SeverityPill, severityTone } from '../../components/StatusPill';
@@ -230,56 +229,6 @@ export function EventsList({
     );
   };
 
-  const columns: TableColumn<FeedRow>[] = [
-    {
-      key: 'when',
-      header: 'When',
-      width: pixel(112),
-      renderCell: (row) => <Mono secondary={row.occurrence}>{eventTime(row.event.ts, now)}</Mono>,
-    },
-    {
-      key: 'system',
-      header: 'System',
-      width: pixel(128),
-      renderCell: (row) =>
-        row.occurrence ? null : (
-          <Link href={`/nodes/${row.event.node_id}/events`} type="code">
-            {row.event.node_id}
-          </Link>
-        ),
-    },
-    {
-      key: 'severity',
-      header: 'Severity',
-      width: pixel(104),
-      renderCell: (row) => (row.occurrence ? null : <SeverityPill severity={row.event.severity} />),
-    },
-    {
-      key: 'event',
-      header: 'Event',
-      width: proportional(1, { minWidth: 280 }),
-      renderCell: (row) =>
-        row.occurrence ? (
-          <HStack gap={2} vAlign="center" paddingInlineStart={8}>
-            {message(row)}
-          </HStack>
-        ) : (
-          message(row)
-        ),
-    },
-    {
-      key: 'age',
-      header: 'Age',
-      width: pixel(96),
-      align: 'end',
-      renderCell: (row) => (
-        <Text type="supporting" textWrap="nowrap">
-          {relative(row.event.ts, now)}
-        </Text>
-      ),
-    },
-  ];
-
   /** Below 900 px a row is a block: the message, then where and when. */
   const blocks = (rows: FeedRow[]) => (
     <VStack gap={0}>
@@ -380,15 +329,7 @@ export function EventsList({
                   </HStack>
                 }
               >
-                {hidden ? null : (
-                  <VStack gap={0} paddingBlockStart={2}>
-                    {phone ? (
-                      blocks(rows)
-                    ) : (
-                      <Table data={rows} columns={columns} idKey="id" density="compact" dividers="rows" textOverflow="truncate" />
-                    )}
-                  </VStack>
-                )}
+                {hidden ? null : <VStack gap={0} paddingBlockStart={2}>{blocks(rows)}</VStack>}
               </Collapsible>
             </VStack>
           </VStack>

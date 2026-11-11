@@ -18,12 +18,13 @@ export const cupolaTheme = defineTheme({
     '--font-family-body': "'IBM Plex Sans', system-ui, sans-serif",
     '--font-family-heading': "'IBM Plex Sans', system-ui, sans-serif",
     '--font-family-code': "'IBM Plex Mono', ui-monospace, monospace",
-    // Dense monitoring: 14px body, 13px supporting, 12px meta, 11px axis ticks.
-    '--font-size-base': '14px',
-    '--font-size-lg': '16px',
-    '--font-size-sm': '13px',
-    '--font-size-xs': '12px',
-    '--font-size-2xs': '11px',
+    // Dense monitoring, one step up from the first pass: 15px body, 14px
+    // supporting, 13px meta, 12px axis ticks.
+    '--font-size-base': '15px',
+    '--font-size-lg': '17px',
+    '--font-size-sm': '14px',
+    '--font-size-xs': '13px',
+    '--font-size-2xs': '12px',
 
     '--color-accent': ['#1b6c80', '#4a8ad6'],
     '--color-text-accent': ['#155b6c', '#8fbcf0'],
