@@ -99,7 +99,7 @@ func (p *poller) processSnapshot(ctx context.Context, node model.NodeRecord, sna
 		})
 	}
 
-	for _, event := range diffEvents(previous, snap, node.ID, now) {
+	for _, event := range p.dampUnits(node.ID, snap, diffEvents(previous, snap, node.ID, now), now) {
 		p.emit(ctx, event)
 	}
 	p.evaluateMetricRules(ctx, node, snap, now)

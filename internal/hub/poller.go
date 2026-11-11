@@ -26,6 +26,7 @@ type poller struct {
 	nextTry    map[string]time.Time
 	wasOffline map[string]bool
 	prev       map[string]*model.Snapshot
+	units      map[string]*unitMemo
 
 	slowMu sync.Mutex
 	slow   map[string]slowSections
@@ -39,6 +40,7 @@ func newPoller(h *Hub, interval time.Duration) *poller {
 		nextTry:    make(map[string]time.Time),
 		wasOffline: make(map[string]bool),
 		prev:       make(map[string]*model.Snapshot),
+		units:      make(map[string]*unitMemo),
 		slow:       make(map[string]slowSections),
 	}
 }
@@ -331,6 +333,11 @@ func diffEvents(previous, current *model.Snapshot, nodeID string, now int64) []m
 			continue
 		}
 		key := fmt.Sprintf("%s/%d", port.Proto, port.Port)
+		// Protocol housekeeping binds and rebinds these all day; they never mean
+		// "a service started", so they are not news.
+		if chatterPorts[key] {
+			continue
+		}
 		if _, ok := previousPorts[key]; ok {
 			continue
 		}
@@ -695,4 +702,98 @@ func fetchPart[T any](ctx context.Context, endpoint nodeEndpoint, part, key stri
 		return nil, err
 	}
 	return out, nil
+}
+
+// chatterPorts are the protocol housekeeping listeners that bind, close and
+// rebind all day: DHCP, mDNS, SSDP, LLMNR and NetBIOS. A change there says
+// nothing about a service an operator runs, so it is not an event.
+var chatterPorts = map[string]bool{
+	"udp/67":   true, // DHCP server
+	"udp/68":   true, // DHCP client
+	"udp/137":  true, // NetBIOS name
+	"udp/138":  true, // NetBIOS datagram
+	"udp/1900": true, // SSDP
+	"udp/5353": true, // mDNS
+	"udp/5355": true, // LLMNR
+	"udp/546":  true, // DHCPv6 client
+	"udp/547":  true, // DHCPv6 server
+}
+
+// unitFailureWindow is how long a unit keeps failing before the hub says so
+// again. A oneshot on a five-minute timer restarts into failure over and over;
+// without a window the feed carries one identical warning per run.
+const unitFailureWindow = 6 * time.Hour
+
+// unitMemo remembers the last failure the hub reported for one unit, and
+// whether the unit is still failing.
+type unitMemo struct {
+	at      int64
+	failing bool
+}
+
+// dampUnits keeps the first failure, hides identical repeats inside the window
+// and announces the recovery once, so one broken timer reads as one line in the
+// feed instead of two dozen.
+func (p *poller) dampUnits(nodeID string, snap *model.Snapshot, events []model.Event, now int64) []model.Event {
+	if snap == nil {
+		return events
+	}
+	kept := make([]model.Event, 0, len(events))
+	for _, event := range events {
+		if event.Kind != "service" {
+			kept = append(kept, event)
+			continue
+		}
+		unit := strings.TrimPrefix(event.Message, "Unit failed: ")
+		if unit == event.Message {
+			kept = append(kept, event)
+			continue
+		}
+		key := nodeID + "\x00" + unit
+		previous := p.units[key]
+		if previous != nil && previous.failing && now-previous.at < unitFailureWindow.Milliseconds() {
+			// Still failing inside the window: stay quiet, but keep the memo's
+			// timestamp at the last report so the failure resurfaces every
+			// window instead of never.
+			continue
+		}
+		p.units[key] = &unitMemo{at: now, failing: true}
+		kept = append(kept, event)
+	}
+
+	// A unit that is no longer failed has recovered; say it once and forget it.
+	for key, memo := range p.units {
+		if !memo.failing {
+			if now-memo.at > unitFailureWindow.Milliseconds() {
+				delete(p.units, key)
+			}
+			continue
+		}
+		prefix, unit, ok := strings.Cut(key, "\x00")
+		if !ok || prefix != nodeID {
+			continue
+		}
+		service, present := findUnit(snap, unit)
+		if !present {
+			delete(p.units, key)
+			continue
+		}
+		if service.ActiveState == "failed" {
+			continue
+		}
+		memo.failing = false
+		memo.at = now
+		kept = append(kept, model.Event{NodeID: nodeID, Ts: now, Kind: "service", Severity: "info",
+			Message: "Unit recovered: " + unit, Meta: metaJSON(map[string]any{"unit": unit})})
+	}
+	return kept
+}
+
+func findUnit(snap *model.Snapshot, name string) (model.Service, bool) {
+	for _, service := range snap.Services {
+		if service.Name == name {
+			return service, true
+		}
+	}
+	return model.Service{}, false
 }
