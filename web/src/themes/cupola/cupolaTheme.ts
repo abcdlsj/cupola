@@ -25,6 +25,12 @@ export const cupolaTheme = defineTheme({
     '--font-size-sm': '14px',
     '--font-size-xs': '13px',
     '--font-size-2xs': '12px',
+    // A monitoring screen is read in passing, so the text sits one step heavier
+    // than a document: body and supporting at 500, labels at 600.
+    '--text-body-weight': '500',
+    '--text-label-weight': '600',
+    '--text-supporting-weight': '400',
+    '--text-code-weight': '500',
 
     '--color-accent': ['#1b6c80', '#4a8ad6'],
     '--color-text-accent': ['#155b6c', '#8fbcf0'],
