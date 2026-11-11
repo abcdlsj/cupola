@@ -775,7 +775,13 @@ func (p *poller) dampUnits(nodeID string, snap *model.Snapshot, events []model.E
 		}
 		service, present := findUnit(snap, unit)
 		if !present {
-			delete(p.units, key)
+			// A failed oneshot is pruned from the snapshot between runs (its
+			// state is inactive and nothing keeps it listed), so absence is not
+			// a recovery. Keep the memo — that is what keeps the next run of the
+			// same timer quiet — and forget it only after a day.
+			if now-memo.at > 24*time.Hour.Milliseconds() {
+				delete(p.units, key)
+			}
 			continue
 		}
 		if service.ActiveState == "failed" {

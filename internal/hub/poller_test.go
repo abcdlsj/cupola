@@ -70,20 +70,27 @@ func TestDampUnitsAnnouncesRecoveryOnce(t *testing.T) {
 	}
 }
 
-// A unit that leaves the snapshot entirely (uninstalled, node rebuilt) drops
-// its memo instead of emitting anything.
-func TestDampUnitsForgetsUnitsThatLeave(t *testing.T) {
+// The hub's own prune drops a failed oneshot from the snapshot between runs
+// (its state is inactive), so absence must not count as a recovery — that is
+// exactly the case the window exists for.
+func TestDampUnitsTreatsAbsenceAsStillFailing(t *testing.T) {
 	p := &poller{units: make(map[string]*unitMemo)}
-	failing := snapWithUnits(map[string]string{"weft.service": "failed"})
+	failing := snapWithUnits(map[string]string{"instabox-keepalive.service": "failed"})
+	pruned := snapWithUnits(nil)
 	now := time.Now().UnixMilli()
-	p.dampUnits("hwhk", failing, []model.Event{failedEvent("weft.service", now)}, now)
 
-	empty := snapWithUnits(nil)
-	if got := p.dampUnits("hwhk", empty, nil, now+60_000); len(got) != 0 {
-		t.Fatalf("want no events for a unit that is gone, got %d", len(got))
+	p.dampUnits("gcp-hk-1", failing, []model.Event{failedEvent("instabox-keepalive.service", now)}, now)
+	if got := p.dampUnits("gcp-hk-1", pruned, nil, now+60_000); len(got) != 0 {
+		t.Fatalf("absence produced %d events", len(got))
+	}
+	if got := p.dampUnits("gcp-hk-1", failing, []model.Event{failedEvent("instabox-keepalive.service", now+120_000)}, now+120_000); len(got) != 0 {
+		t.Fatalf("next run of the same timer produced %d events, want 0", len(got))
+	}
+	if got := p.dampUnits("gcp-hk-1", pruned, nil, now+25*time.Hour.Milliseconds()); len(got) != 0 {
+		t.Fatalf("a day of absence produced %d events", len(got))
 	}
 	if len(p.units) != 0 {
-		t.Fatalf("memo should be dropped, %d left", len(p.units))
+		t.Fatalf("a day of absence should forget the memo, %d left", len(p.units))
 	}
 }
 
