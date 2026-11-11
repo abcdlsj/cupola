@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-query';
 import { api, ApiError } from './api';
 import { supportsSeries } from '../lib/metrics';
+import { useDocumentVisible } from '../lib/visibility';
 import type {
   Action,
   ActionRun,
@@ -112,13 +113,15 @@ export function useLogout() {
 // ---------- fleet and nodes ----------
 
 export function useFleet() {
+  const visible = useDocumentVisible();
   const query = useQuery({
     queryKey: keys.fleet,
     queryFn: () => api<FleetSummary>(`${V1}/fleet/summary`),
     // The last good snapshot stays on screen while a poll is in flight or the
     // hub is unreachable; the banner names it.
     placeholderData: keepPreviousData,
-    refetchInterval: 10_000,
+    // A hidden tab is not being read; the stream reconnect on return refetches.
+    refetchInterval: visible ? 10_000 : false,
   });
   return {
     ...query,
@@ -583,10 +586,11 @@ export function useTailnetPeers(enabled = true) {
 }
 
 export function useJoinStatus(nodeId: string | null) {
+  const visible = useDocumentVisible();
   return useQuery({
     queryKey: keys.joinStatus(nodeId ?? ''),
     queryFn: () => api<JoinStatus>(`${V1}/join/${encodeURIComponent(nodeId ?? '')}/status`),
     enabled: Boolean(nodeId),
-    refetchInterval: (query) => (query.state.data?.joined ? false : 3000),
+    refetchInterval: (query) => (visible && !query.state.data?.joined ? 3000 : false),
   });
 }

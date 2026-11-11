@@ -17,6 +17,7 @@ import { OfflineBanner } from './OfflineBanner';
 import { useAlerts, useFleet, useMe } from '../data/queries';
 import { useStream } from '../data/stream';
 import { setThemePreference, useResolvedTheme } from '../lib/theme';
+import { useDocumentVisible } from '../lib/visibility';
 import { useIsPhone } from '../ui/kit';
 
 /** Five destinations: the fleet (systems, services), then the work (apps, alerts, events). */
@@ -116,7 +117,10 @@ export function AppShell() {
   const fleet = useFleet();
   const firing = useAlerts('firing').data?.length ?? 0;
   const phone = useIsPhone();
-  useStream(Boolean(me.data?.authenticated));
+  const visible = useDocumentVisible();
+  // A background tab drops the stream; the reconnect when it comes back
+  // invalidates every live key, so nothing is stale on return.
+  useStream(visible && Boolean(me.data?.authenticated));
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
