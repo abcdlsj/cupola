@@ -15,6 +15,10 @@ expand or shrink scope; update the plan when a decision changes.
   end to end without intermediate approval, then a single unified acceptance.
 - After each milestone: run all tests and the production build, commit with a
   conventional message, and continue. Do not stop for milestone review.
+- Every deploy is a release: tag it (`git tag vX.Y.Z`), push `main` and the tag,
+  and let the release workflow publish the binaries and images. The hub's
+  self-upgrade check compares itself with the newest GitHub release, so a deploy
+  without a tag leaves the release behind what is actually running.
 - Final acceptance requires the complete v1: agent, hub, all collectors,
   actions/WOL, alerts + event webhooks, scoped curl API, URL routes, PWA,
   push mode, Docker, systemd, docs and the Linux/beelink verification.
