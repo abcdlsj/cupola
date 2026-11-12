@@ -1,18 +1,5 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState } from 'react';
-import { AlertDialog } from '@astryxdesign/core/AlertDialog';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Button } from '@astryxdesign/core/Button';
-import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList';
-import { CodeBlock } from '@astryxdesign/core/CodeBlock';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { HStack } from '@astryxdesign/core/HStack';
-import { NumberInput } from '@astryxdesign/core/NumberInput';
-import { Selector } from '@astryxdesign/core/Selector';
-import { pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingRows } from '../../components/States';
 import {
   useChannels,
@@ -28,6 +15,17 @@ import {
 import type { APIToken, Channel } from '../../data/types';
 import { relative } from '../../lib/format';
 import { Band } from '../../ui/kit';
+import {
+  Banner,
+  Button,
+  CodeBlock,
+  EmptyState,
+  HStack,
+  Text,
+  VStack,
+  type TableColumn,
+} from '../../ui/primitives';
+import { CheckboxGroup, Dialog, NumberInput, Select, TextInput } from '../../ui/controls';
 import {
   AdminOnly,
   Aside,
@@ -85,18 +83,18 @@ export function AlertsSettingsPage() {
     }
   };
 
-  const columns: TableColumn<ChannelRow>[] = [
+  const columns: Array<TableColumn<ChannelRow>> = [
     {
       key: 'name',
       header: 'Channel',
-      width: proportional(1, { minWidth: 160 }),
+      width: '200px',
       renderCell: ({ channel }) => <Text weight="medium">{channel.name}</Text>,
     },
-    { key: 'kind', header: 'Kind', width: pixel(100), renderCell: ({ channel }) => <Text type="supporting">{channel.kind}</Text> },
+    { key: 'kind', header: 'Kind', width: '100px', renderCell: ({ channel }) => <Text type="supporting">{channel.kind}</Text> },
     {
       key: 'target',
       header: 'Target',
-      width: proportional(2, { minWidth: 180 }),
+      width: '100%',
       renderCell: ({ channel }) => (
         <Text type="code" color={channel.target ? undefined : 'secondary'}>
           {channel.target || '—'}
@@ -106,7 +104,7 @@ export function AlertsSettingsPage() {
     {
       key: 'secret',
       header: 'Secret',
-      width: pixel(100),
+      width: '100px',
       renderCell: ({ channel }) => (
         <Text type="supporting" color={channel.has_secret ? undefined : 'secondary'}>
           {channel.has_secret ? 'HMAC set' : '—'}
@@ -116,7 +114,7 @@ export function AlertsSettingsPage() {
     {
       key: 'actions',
       header: '',
-      width: pixel(150),
+      width: '150px',
       align: 'end',
       renderCell: ({ channel }) => (
         <HStack gap={1} hAlign="end">
@@ -150,7 +148,7 @@ export function AlertsSettingsPage() {
         ) : channels.isError ? (
           <ErrorPanel what="The channels could not be loaded." onRetry={() => void channels.refetch()} />
         ) : list.length === 0 ? (
-          <EmptyState isCompact title="No channel yet" description="Alerts are still recorded in the app when no channel is attached." />
+          <EmptyState title="No channel yet" description="Alerts are still recorded in the app when no channel is attached." />
         ) : (
           <RowsTable label="Alert channels" data={list.map((channel) => ({ id: channel.id, channel }))} columns={columns} idKey={(row) => row.id} />
         )}
@@ -169,7 +167,7 @@ export function AlertsSettingsPage() {
               <VStack gap={4}>
                 <Fields>
                   <TextInput label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} isRequired status={required(form.name, tried)} />
-                  <Selector label="Kind" value={form.kind} options={KIND_OPTIONS} onChange={(kind) => setForm({ ...form, kind })} />
+                  <Select label="Kind" value={form.kind} options={KIND_OPTIONS} onChange={(kind) => setForm({ ...form, kind })} />
                   {telegram ? (
                     <>
                       <TextInput
@@ -231,24 +229,34 @@ export function AlertsSettingsPage() {
         </Two>
       </Band>
 
-      <AlertDialog
-        isOpen={deleting !== null}
-        onOpenChange={(open) => (open ? undefined : setDeleting(null))}
+      <Dialog
+        open={deleting !== null}
+        onClose={() => setDeleting(null)}
         title={`Delete ${deleting?.name ?? ''}?`}
-        description="Rules using it will keep firing in-app."
-        actionLabel="Delete channel"
-        isActionLoading={remove.isPending}
-        onAction={async () => {
-          if (!deleting) return;
-          try {
-            await remove.mutateAsync(deleting.id);
-            setMessage({ kind: 'ok', text: `${deleting.name} deleted.` });
-          } catch (caught) {
-            setMessage({ kind: 'error', text: errorText(caught, 'The channel could not be deleted.') });
-          }
-          setDeleting(null);
-        }}
-      />
+        width={420}
+        footer={
+          <HStack gap={2} hAlign="end">
+            <Button label="Cancel" onClick={() => setDeleting(null)} />
+            <Button
+              label="Delete channel"
+              variant="danger"
+              isLoading={remove.isPending}
+              onClick={async () => {
+                if (!deleting) return;
+                try {
+                  await remove.mutateAsync(deleting.id);
+                  setMessage({ kind: 'ok', text: `${deleting.name} deleted.` });
+                } catch (caught) {
+                  setMessage({ kind: 'error', text: errorText(caught, 'The channel could not be deleted.') });
+                }
+                setDeleting(null);
+              }}
+            />
+          </HStack>
+        }
+      >
+        <Banner status="warning" title="Rules using it will keep firing in-app." />
+      </Dialog>
     </SettingsPage>
   );
 }
@@ -304,33 +312,33 @@ export function TokensSettingsPage() {
     }
   };
 
-  const columns: TableColumn<TokenRow>[] = [
+  const columns: Array<TableColumn<TokenRow>> = [
     {
       key: 'name',
       header: 'Name',
-      width: proportional(2, { minWidth: 160 }),
+      width: '180px',
       renderCell: ({ token }) => <Text weight="medium">{token.name}</Text>,
     },
-    { key: 'prefix', header: 'Prefix', width: pixel(140), renderCell: ({ token }) => <Text type="code">{token.prefix}…</Text> },
+    { key: 'prefix', header: 'Prefix', width: '140px', renderCell: ({ token }) => <Text type="code">{token.prefix}…</Text> },
     {
       key: 'scopes',
       header: 'Scopes',
-      width: pixel(150),
+      width: '150px',
       renderCell: ({ token }) => <Text type="code">{(token.scopes ?? []).join(', ') || '—'}</Text>,
     },
     {
       key: 'allowlist',
       header: 'Allowlist',
-      width: proportional(1, { minWidth: 140 }),
+      width: '100%',
       renderCell: ({ token }) => <Text type="supporting">{allowlist(token)}</Text>,
     },
     {
       key: 'used',
       header: 'Last used',
-      width: pixel(110),
+      width: '110px',
       align: 'end',
       renderCell: ({ token }) => (
-        <Text type="code" hasTabularNumbers color={token.last_used ? undefined : 'secondary'}>
+        <Text type="code" color={token.last_used ? undefined : 'secondary'}>
           {token.last_used ? relative(token.last_used, now) : 'never'}
         </Text>
       ),
@@ -338,7 +346,7 @@ export function TokensSettingsPage() {
     {
       key: 'actions',
       header: '',
-      width: pixel(96),
+      width: '96px',
       align: 'end',
       renderCell: ({ token }) => <Button label="Revoke" variant="ghost" size="sm" isDisabled={!admin} onClick={() => setRevoking(token)} />,
     },
@@ -354,7 +362,6 @@ export function TokensSettingsPage() {
           <ErrorPanel what="The tokens could not be loaded." onRetry={() => void tokens.refetch()} />
         ) : list.length === 0 ? (
           <EmptyState
-            isCompact
             title="No token yet"
             description="Tokens are needed for curl and for a static PWA that connects to a remote hub."
           />
@@ -381,32 +388,35 @@ export function TokensSettingsPage() {
                     units="days"
                     placeholder="never"
                     min={0}
-                    isIntegerOnly
-                    hasClear
                     value={form.days}
-                    onChange={(days: number | null) => setForm({ ...form, days })}
+                    onChange={(days) => setForm({ ...form, days })}
                     isOptional
                   />
-                  <CheckboxList label="Scopes" value={form.scopes} onChange={(scopes) => setForm({ ...form, scopes })} density="compact">
-                    <CheckboxListItem value="read" label="read" />
-                    <CheckboxListItem value="actions:run" label="actions:run" />
-                  </CheckboxList>
-                  <VStack gap={4}>
-                    <TextInput
-                      label="Node allowlist"
-                                            placeholder="Comma separated; empty = all"
-                      value={form.nodes}
-                      onChange={(nodes) => setForm({ ...form, nodes })}
-                      isOptional
-                    />
-                    <TextInput
-                      label="Action allowlist"
-                                            placeholder="Comma separated; empty = all"
-                      value={form.actions}
-                      onChange={(actions) => setForm({ ...form, actions })}
-                      isOptional
-                    />
-                  </VStack>
+                </Fields>
+                <CheckboxGroup
+                  label="Scopes"
+                  options={[
+                    { value: 'read', label: 'read' },
+                    { value: 'actions:run', label: 'actions:run' },
+                  ]}
+                  value={form.scopes}
+                  onChange={(scopes) => setForm({ ...form, scopes })}
+                />
+                <Fields>
+                  <TextInput
+                    label="Node allowlist"
+                    placeholder="Comma separated; empty = all"
+                    value={form.nodes}
+                    onChange={(nodes) => setForm({ ...form, nodes })}
+                    isOptional
+                  />
+                  <TextInput
+                    label="Action allowlist"
+                    placeholder="Comma separated; empty = all"
+                    value={form.actions}
+                    onChange={(actions) => setForm({ ...form, actions })}
+                    isOptional
+                  />
                 </Fields>
                 <Notice message={addMessage} />
                 <HStack>
@@ -416,8 +426,8 @@ export function TokensSettingsPage() {
             </form>
             {issued ? (
               <VStack gap={3} data-testid="token-reveal">
-                <Banner status="warning" collapsible={false} title="Copy the token now" description="It is shown once; the hub keeps only its hash." />
-                <CodeBlock code={issued} title="New token" width="100%" isWrapped />
+                <Banner status="warning" title="Copy the token now" description="It is shown once; the hub keeps only its hash." />
+                <CodeBlock code={issued} title="New token" />
               </VStack>
             ) : (
               <Aside
@@ -434,24 +444,34 @@ export function TokensSettingsPage() {
         )}
       </Band>
 
-      <AlertDialog
-        isOpen={revoking !== null}
-        onOpenChange={(open) => (open ? undefined : setRevoking(null))}
+      <Dialog
+        open={revoking !== null}
+        onClose={() => setRevoking(null)}
         title={`Revoke ${revoking?.name ?? ''}?`}
-        description="Scripts and browsers that use it stop working at once."
-        actionLabel="Revoke token"
-        isActionLoading={remove.isPending}
-        onAction={async () => {
-          if (!revoking) return;
-          try {
-            await remove.mutateAsync(revoking.id);
-            setMessage({ kind: 'ok', text: `${revoking.name} revoked.` });
-          } catch (caught) {
-            setMessage({ kind: 'error', text: errorText(caught, 'The token could not be revoked.') });
-          }
-          setRevoking(null);
-        }}
-      />
+        width={420}
+        footer={
+          <HStack gap={2} hAlign="end">
+            <Button label="Cancel" onClick={() => setRevoking(null)} />
+            <Button
+              label="Revoke token"
+              variant="danger"
+              isLoading={remove.isPending}
+              onClick={async () => {
+                if (!revoking) return;
+                try {
+                  await remove.mutateAsync(revoking.id);
+                  setMessage({ kind: 'ok', text: `${revoking.name} revoked.` });
+                } catch (caught) {
+                  setMessage({ kind: 'error', text: errorText(caught, 'The token could not be revoked.') });
+                }
+                setRevoking(null);
+              }}
+            />
+          </HStack>
+        }
+      >
+        <Banner status="warning" title="Scripts and browsers that use it stop working at once." />
+      </Dialog>
     </SettingsPage>
   );
 }

@@ -17,7 +17,7 @@ export type { ChartUnit };
 /** uPlot paints a flat translucent area under each line; no gradients. */
 // Ten percent: enough to read the shape, not enough to make a colour field
 // out of ten stacked charts.
-const FILL_ALPHA = '1a';
+const FILL_ALPHA = '2e';
 
 /** One thin line. The colour comes from a data hue, never from the chrome. */
 export interface ChartSeries {
@@ -26,7 +26,7 @@ export interface ChartSeries {
   color: string;
 }
 
-const AXIS_FONT = '11px "IBM Plex Sans", sans-serif';
+const AXIS_FONT = '11px "Figtree Variable", Figtree, system-ui, sans-serif';
 
 /** Monotone-ish curves, the way Beszel draws its metrics; uPlot keeps the knots on the samples. */
 const spline = uPlot.paths.spline?.();
@@ -34,11 +34,11 @@ const spline = uPlot.paths.spline?.();
 /** Chart chrome comes from the theme tokens; read once per chart build. */
 function inks() {
   return {
-    axis: cssColor('var(--color-text-secondary)'),
-    grid: cssColor('var(--color-border)'),
-    cursor: cssColor('var(--color-accent)'),
-    threshold: cssColor('var(--color-text-secondary)'),
-    surface: cssColor('var(--color-background-card)'),
+    axis: cssColor('var(--muted)'),
+    grid: cssColor('var(--border)'),
+    cursor: cssColor('var(--accent)'),
+    threshold: cssColor('var(--muted)'),
+    surface: cssColor('var(--card)'),
   };
 }
 
@@ -230,7 +230,7 @@ export function SeriesChart({
               ctx.setLineDash([]);
               ctx.globalAlpha = 1;
               ctx.fillStyle = ink.axis;
-              ctx.font = `${Math.round(11 * uPlot.pxRatio)}px "IBM Plex Sans", sans-serif`;
+              ctx.font = `${Math.round(11 * uPlot.pxRatio)}px ${AXIS_FONT.replace('11px ', '')}`;
               ctx.textAlign = 'left';
               ctx.textBaseline = 'bottom';
               ctx.fillText(tickValue(limit, unitRef.current, limit), left + 4, alertY - 4);
@@ -317,32 +317,13 @@ export function SeriesChart({
     <div style={{ position: 'relative' }}>
       <div ref={host} style={{ height }} role="img" aria-label={label} data-testid="series-chart" />
       {tip ? (
-        <div
-          style={{
-            position: 'absolute',
-            top: 4,
-            left: tip.left,
-            pointerEvents: 'none',
-            zIndex: 2,
-            display: 'grid',
-            gap: 2,
-            minWidth: 150,
-            padding: '6px 8px',
-            borderRadius: 'var(--radius-container, 6px)',
-            border: '1px solid var(--color-border)',
-            background: 'var(--color-background-popover, var(--color-background-card))',
-            boxShadow: 'var(--shadow-med)',
-            font: '12px/1.5 var(--font-family-code)',
-            color: 'var(--color-text-primary)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span style={{ color: 'var(--color-text-secondary)' }}>{clock(tip.at)}</span>
+        <div className="chart-readout" style={{ left: tip.left }}>
+          <span className="muted">{clock(tip.at)}</span>
           {tip.rows.map((row) => (
-            <span key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: 999, background: row.color, flex: 'none' }} />
-              <span style={{ color: 'var(--color-text-secondary)', fontFamily: 'var(--font-family-body)' }}>{row.label}</span>
-              <span style={{ marginLeft: 'auto' }}>{row.value}</span>
+            <span className="chart-readout-row" key={row.label}>
+              <span className="legend-dot" style={{ background: row.color }} aria-hidden="true" />
+              <span className="name">{row.label}</span>
+              <span className="value">{row.value}</span>
             </span>
           ))}
         </div>

@@ -1,15 +1,14 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Pagination } from '@astryxdesign/core/Pagination';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingPage } from '../../components/States';
+import { Pager } from '../../components/Pager';
 import { UnitState, UnitTable } from '../../components/UnitTable';
 import { useFleetServices } from '../../data/queries';
 import type { FleetService } from '../../data/types';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
 import { Band, PageHead, useIsPhone } from '../../ui/kit';
+import { HStack } from '../../ui/primitives';
+import { SearchInput } from '../../ui/SearchInput';
 
 /** Failed first, then by system, then by unit name. */
 export function sortUnits(list: FleetService[]): FleetService[] {
@@ -67,25 +66,19 @@ export function FleetServicesPage() {
   const nodes = new Set(units.map((unit) => unit.node_id)).size;
 
   const controls = (
-    <HStack gap={2} vAlign="center" wrap="wrap">
+    <HStack gap={2} vAlign="center" wrap>
       <UnitState
         units={units}
         value={state}
         onChange={(next) => update({ state: next === 'all' ? null : next, page: null })}
       />
-      <VStack width={phone ? '100%' : 240}>
-        <TextInput
-          label="Filter units"
-          isLabelHidden
-          type="search"
-          enterKeyHint="search"
-          size={phone ? 'md' : 'sm'}
-          value={query}
-          hasClear
-          onChange={(value) => update({ q: value || null, page: null })}
-          placeholder="Filter units…"
-        />
-      </VStack>
+      <SearchInput
+        label="Filter units"
+        placeholder="Filter units…"
+        value={query}
+        width={phone ? '100%' : 240}
+        onChange={(value) => update({ q: value || null, page: null })}
+      />
     </HStack>
   );
 
@@ -100,17 +93,14 @@ export function FleetServicesPage() {
         {phone ? controls : null}
         <UnitTable rows={rows} showSubState />
         {pg.pages > 1 ? (
-          <HStack hAlign="end">
-            <Pagination
-              label="Units pages"
-              page={pg.index + 1}
-              pageSize={pageSize}
-              totalItems={filtered.length}
-              variant={phone ? 'compact' : 'count'}
-              size={phone ? 'md' : 'sm'}
-              onChange={(next) => update({ page: next > 1 ? String(next) : null })}
-            />
-          </HStack>
+          <Pager
+            page={pg.index}
+            pages={pg.pages}
+            from={pg.from}
+            to={pg.to}
+            total={filtered.length}
+            onChange={(next) => update({ page: next > 0 ? String(next + 1) : null })}
+          />
         ) : null}
       </Band>
     </>

@@ -1,4 +1,4 @@
-import { Banner } from '@astryxdesign/core/Banner';
+import { Banner } from '../ui/primitives';
 import { clock, relative } from '../lib/format';
 import { useOnline } from '../lib/hooks';
 
@@ -7,13 +7,10 @@ export function OfflineBanner({ lastUpdated, stale }: { lastUpdated: number; sta
   const online = useOnline();
   if (online && !stale) return null;
   return (
-    <div role="status">
-      <Banner
-        status="warning"
-        collapsible={false}
-        title={online ? 'The hub stopped answering.' : 'Offline.'}
-        description={`Showing the snapshot from ${clock(lastUpdated)} UTC, ${relative(lastUpdated, Date.now())}.`}
-      />
-    </div>
+    <Banner
+      status="warning"
+      title={online ? 'The hub stopped answering.' : 'Offline.'}
+      description={`Showing the snapshot from ${clock(lastUpdated)} UTC, ${relative(lastUpdated, Date.now())}.`}
+    />
   );
 }

@@ -1,21 +1,6 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertDialog } from '@astryxdesign/core/AlertDialog';
-import { Button } from '@astryxdesign/core/Button';
-import { CodeBlock } from '@astryxdesign/core/CodeBlock';
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Layout, LayoutContent } from '@astryxdesign/core/Layout';
-import { Link } from '@astryxdesign/core/Link';
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { Selector } from '@astryxdesign/core/Selector';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingRows } from '../../components/States';
 import { StatusPill } from '../../components/StatusPill';
 import {
@@ -32,6 +17,19 @@ import {
 import type { NodeView, TailnetPeer } from '../../data/types';
 import { clock, relative } from '../../lib/format';
 import { Band } from '../../ui/kit';
+import {
+  Banner,
+  Button,
+  CodeBlock,
+  EmptyState,
+  HStack,
+  Link,
+  StatusDot,
+  Text,
+  VStack,
+  type TableColumn,
+} from '../../ui/primitives';
+import { Dialog, SegmentedControl, SegmentedControlItem, Select, TextInput } from '../../ui/controls';
 import {
   AdminOnly,
   errorText,
@@ -71,30 +69,38 @@ function slugifyPeer(name: string): string {
 
 type PeerRow = { id: string; peer: TailnetPeer };
 
-function PeerTable({ peers, selected, busy, onPick }: { peers: TailnetPeer[]; selected: string | null; busy: boolean; onPick: (peer: TailnetPeer) => void }) {
-  const columns: TableColumn<PeerRow>[] = [
+function PeerTable({
+  peers,
+  selected,
+  busy,
+  onPick,
+}: {
+  peers: TailnetPeer[];
+  selected: string | null;
+  busy: boolean;
+  onPick: (peer: TailnetPeer) => void;
+}) {
+  const columns: Array<TableColumn<PeerRow>> = [
     {
       key: 'name',
       header: 'Peer',
-      width: proportional(2, { minWidth: 160 }),
       renderCell: ({ peer }) => <Text weight="medium">{peer.name}</Text>,
     },
     {
       key: 'ipv4',
       header: 'Address',
-      width: proportional(1, { minWidth: 140 }),
       renderCell: ({ peer }) => <Text type="code">{peer.ipv4}</Text>,
     },
     {
       key: 'os',
       header: 'OS',
-      width: pixel(110),
+      width: '110px',
       renderCell: ({ peer }) => <Text type="supporting">{peer.os || '—'}</Text>,
     },
     {
       key: 'online',
       header: 'State',
-      width: pixel(110),
+      width: '110px',
       renderCell: ({ peer }) => (
         <HStack gap={1.5} vAlign="center">
           <StatusDot variant={peer.online ? 'success' : 'neutral'} label={peer.online ? 'online' : 'offline'} />
@@ -105,20 +111,16 @@ function PeerTable({ peers, selected, busy, onPick }: { peers: TailnetPeer[]; se
     {
       key: 'pick',
       header: '',
-      width: pixel(150),
+      width: '150px',
       align: 'end',
       renderCell: ({ peer }) => (
         <Button
-          label={`Add ${peer.name}`}
-          variant={selected === peer.ipv4 ? 'primary' : 'secondary'}
-          size="sm"
-          isDisabled={busy}
+          label={selected === peer.ipv4 ? 'Selected' : 'Get command'}
           aria-pressed={selected === peer.ipv4}
+          isDisabled={busy}
           data-testid={`tailnet-peer-${peer.name}`}
           onClick={() => onPick(peer)}
-        >
-          {selected === peer.ipv4 ? 'Selected' : 'Get command'}
-        </Button>
+        />
       ),
     },
   ];
@@ -211,19 +213,18 @@ function JoinBand() {
               onChange={(id) => setForm({ ...form, id })}
               placeholder="studio"
               autoCapitalize="none"
-              hasAutoCorrect={false}
               isRequired
               status={required(form.id, tried)}
             />
             <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="studio" isOptional />
             <TextInput
               label="Labels"
-                            value={form.labels}
+              value={form.labels}
               onChange={(labels) => setForm({ ...form, labels })}
               placeholder="homelab, gpu"
               isOptional
             />
-            <Selector label="Target OS" value={os} options={OS_OPTIONS} onChange={(value) => setOs(value as Os)} />
+            <Select label="Target OS" value={os} options={OS_OPTIONS} onChange={(value) => setOs(value as Os)} />
           </Fields>
           {error ? <Notice message={{ kind: 'error', text: error }} /> : null}
           <HStack>
@@ -234,23 +235,29 @@ function JoinBand() {
     ) : (
       <VStack gap={3} data-testid="tailnet-panel">
         <HStack gap={2} vAlign="end">
-          <VStack width="100%">
-            <TextInput label="Filter peers" isLabelHidden placeholder="Filter peers" type="search" value={filter} onChange={setFilter} hasClear />
-          </VStack>
-          <Button label="Refresh" variant="secondary" isLoading={peers.isFetching} onClick={() => void peers.refetch()} />
+          <span className="search" style={{ width: '100%' }}>
+            <input
+              className="input input-search"
+              type="search"
+              aria-label="Filter peers"
+              placeholder="Filter peers"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </span>
+          <Button label="Refresh" isLoading={peers.isFetching} onClick={() => void peers.refetch()} />
         </HStack>
         {peers.isLoading ? <LoadingRows rows={3} columns={4} /> : null}
         {peers.isError ? <ErrorPanel what={errorText(peers.error, 'The tailnet could not be read.')} onRetry={() => void peers.refetch()} /> : null}
         {peers.data && !peers.data.available ? (
           <EmptyState
-            isCompact
             title={peers.data.error || 'Tailscale is not available on the hub.'}
             description="Set CUPOLA_TAILSCALE_BIN if the binary lives elsewhere."
           />
         ) : null}
         {peers.data?.available ? (
           visible.length === 0 ? (
-            <EmptyState isCompact title={needle ? 'No peer matches that filter.' : 'No other machine is in this tailnet.'} />
+            <EmptyState title={needle ? 'No peer matches that filter.' : 'No other machine is in this tailnet.'} />
           ) : (
             <PeerTable peers={visible} selected={selected} busy={create.isPending} onPick={(peer) => void generateForPeer(peer)} />
           )
@@ -262,9 +269,15 @@ function JoinBand() {
   return (
     <Band
       title="Add a system"
-      desc={issued ? `Code expires ${clock(issued.expires)} UTC` : mode === 'tailnet' ? `${peers.data?.peers.length ?? 0} peers in the tailnet` : 'One command installs the agent and joins it to this hub'}
+      desc={
+        issued
+          ? `Code expires ${clock(issued.expires)} UTC`
+          : mode === 'tailnet'
+            ? `${peers.data?.peers.length ?? 0} peers in the tailnet`
+            : 'One command installs the agent and joins it to this hub'
+      }
       actions={
-        <SegmentedControl label="Add-system mode" size="sm" value={mode} onChange={setMode}>
+        <SegmentedControl label="Add-system mode" value={mode} onChange={setMode}>
           <SegmentedControlItem value="manual" label="Manual" />
           <SegmentedControlItem value="tailnet" label="Tailnet" />
         </SegmentedControl>
@@ -275,25 +288,25 @@ function JoinBand() {
         {issued ? (
           <VStack gap={3}>
             {mode === 'tailnet' ? (
-              <Selector label="Target OS" value={os} options={OS_OPTIONS.slice(0, 2)} onChange={(value) => setOs(value as Os)} />
+              <Select label="Target OS" value={os} options={OS_OPTIONS.slice(0, 2)} onChange={(value) => setOs(value as Os)} />
             ) : null}
-            <VStack data-testid="join-command">
-              <CodeBlock code={command} language="bash" title="Install command" width="100%" isWrapped />
-            </VStack>
+            <div data-testid="join-command">
+              <CodeBlock code={command} title="Install command" />
+            </div>
             {status.data?.joined ? (
               <HStack>
                 <Button label={`Open ${status.data.name}`} variant="primary" href={`/nodes/${issued.nodeId}`} />
               </HStack>
             ) : (
-              <HStack gap={2} vAlign="center" role="status" wrap="wrap">
+              <HStack gap={2} vAlign="center" role="status" wrap>
                 <StatusDot variant="neutral" label="Waiting" isPulsing />
-                <Text type="supporting">Waiting for the agent to join.</Text>
+                <span className="muted small">Waiting for the agent to join.</span>
                 <Link href={`/nodes/${issued.nodeId}`}>Pending node</Link>
               </HStack>
             )}
             {issued.tailnet ? (
               <Text type="supporting">
-                This machine must reach <Text type="code">{issued.hubUrl}</Text> over the tailnet or the internet.
+                This machine must reach <span className="code">{issued.hubUrl}</span> over the tailnet or the internet.
               </Text>
             ) : null}
           </VStack>
@@ -371,41 +384,37 @@ export function NodesSettingsPage() {
     }
   };
 
-  const columns: TableColumn<NodeRow>[] = [
+  const columns: Array<TableColumn<NodeRow>> = [
     {
       key: 'node',
       header: 'Node',
-      width: proportional(2, { minWidth: 200 }),
+      width: '100%',
       renderCell: ({ view }) => (
         <VStack gap={0}>
           <Link href={`/nodes/${view.node.id}`}>{view.node.name}</Link>
-          {view.node.id !== view.node.name ? (
-            <Text type="code" color="secondary">
-              {view.node.id}
-            </Text>
-          ) : null}
+          {view.node.id !== view.node.name ? <Text type="code" color="secondary">{view.node.id}</Text> : null}
         </VStack>
       ),
     },
     {
       key: 'mode',
       header: 'Mode',
-      width: proportional(1, { minWidth: 90 }),
+      width: '90px',
       renderCell: ({ view }) => <Text type="supporting">{view.node.mode}</Text>,
     },
     {
       key: 'status',
       header: 'Status',
-      width: proportional(1, { minWidth: 120 }),
+      width: '120px',
       renderCell: ({ view }) => <StatusPill status={view.health.status} />,
     },
     {
       key: 'seen',
       header: 'Last seen',
-      width: proportional(1, { minWidth: 120 }),
+      width: '120px',
       align: 'end',
       renderCell: ({ view }) => (
-        <Text type="code" hasTabularNumbers color={view.node.last_seen ? undefined : 'secondary'}>
+        <Text type="code" color={view.node.last_seen ? undefined : 'secondary'}>
           {view.node.last_seen ? relative(view.node.last_seen, now) : '—'}
         </Text>
       ),
@@ -413,7 +422,7 @@ export function NodesSettingsPage() {
     {
       key: 'actions',
       header: '',
-      width: pixel(220),
+      width: '220px',
       align: 'end',
       renderCell: ({ view }) => (
         <HStack gap={1} hAlign="end">
@@ -466,7 +475,7 @@ export function NodesSettingsPage() {
         ) : fleet.isError && !fleet.data ? (
           <ErrorPanel what="The node list could not be loaded." onRetry={() => void fleet.refetch()} />
         ) : nodes.length === 0 ? (
-          <EmptyState isCompact title="No node yet" description={admin ? 'Add the first agent below.' : undefined} />
+          <EmptyState title="No node yet" description={admin ? 'Add the first agent below.' : undefined} />
         ) : (
           <RowsTable label="Registered nodes" data={nodes.map((view) => ({ id: view.node.id, view }))} columns={columns} idKey={(row) => row.id} />
         )}
@@ -477,145 +486,152 @@ export function NodesSettingsPage() {
       {admin ? (
         <Band title="Add a node" desc="For an agent that is already installed and has its own token">
           <Two>
-          <form
-            noValidate
-            onSubmit={(event) => {
-              event.preventDefault();
-              void submit();
-            }}
-          >
-            <VStack gap={4}>
-              <Fields>
-                <TextInput
-                  label="ID (short slug)"
-                  value={form.id}
-                  onChange={(id) => setForm({ ...form, id })}
-                  autoCapitalize="none"
-                  hasAutoCorrect={false}
-                  isRequired
-                  status={required(form.id, tried)}
-                />
-                <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} isOptional />
-                <Selector label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
-                {form.mode === 'pull' ? (
+            <form
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <VStack gap={4}>
+                <Fields>
                   <TextInput
-                    label="Agent URL"
-                    type="url"
-                    value={form.url}
-                    onChange={(url) => setForm({ ...form, url })}
+                    label="ID (short slug)"
+                    value={form.id}
+                    onChange={(id) => setForm({ ...form, id })}
+                    autoCapitalize="none"
                     isRequired
-                    status={required(form.url, tried)}
+                    status={required(form.id, tried)}
                   />
-                ) : (
-                  <TextInput label="Agent URL" description="Unused in push mode" value={form.url} isDisabled />
-                )}
-                <TextInput
-                  label="Agent token"
-                  type="password"
-                  autoComplete="off"
-                  value={form.token}
-                  onChange={(token) => setForm({ ...form, token })}
-                  isRequired
-                  status={required(form.token, tried)}
-                />
-                <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" isOptional />
-              </Fields>
-              <Notice message={addMessage} />
-              <HStack>
-                <Button type="submit" label="Add node" variant="primary" isLoading={create.isPending} />
-              </HStack>
-            </VStack>
-          </form>
-            <VStack />
+                  <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} isOptional />
+                  <Select label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
+                  {form.mode === 'pull' ? (
+                    <TextInput
+                      label="Agent URL"
+                      type="url"
+                      value={form.url}
+                      onChange={(url) => setForm({ ...form, url })}
+                      isRequired
+                      status={required(form.url, tried)}
+                    />
+                  ) : (
+                    <TextInput label="Agent URL" description="Unused in push mode" value={form.url} onChange={() => undefined} isDisabled />
+                  )}
+                  <TextInput
+                    label="Agent token"
+                    type="password"
+                    autoComplete="off"
+                    value={form.token}
+                    onChange={(token) => setForm({ ...form, token })}
+                    isRequired
+                    status={required(form.token, tried)}
+                  />
+                  <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" isOptional />
+                </Fields>
+                <Notice message={addMessage} />
+                <HStack>
+                  <Button type="submit" label="Add node" variant="primary" isLoading={create.isPending} />
+                </HStack>
+              </VStack>
+            </form>
+            <div />
           </Two>
         </Band>
       ) : (
         <AdminOnly />
       )}
 
-      <Dialog isOpen={admin && editing !== null} onOpenChange={(open) => (open ? undefined : setEditing(null))} purpose="form" width={560}>
-        <Layout
-          header={<DialogHeader title={`Edit ${editing ?? ''}`} onOpenChange={() => setEditing(null)} />}
-          content={
-            <LayoutContent>
-              <form
-                id="edit-node-form"
-                noValidate
-                data-testid="edit-node-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void saveEdit();
-                }}
-              >
-                <VStack gap={4}>
-                  <Fields>
-                    <TextInput
-                      label="Display name"
-                      value={editForm.name}
-                      onChange={(name) => setEditForm({ ...editForm, name })}
-                      isRequired
-                      status={required(editForm.name, editTried)}
-                    />
-                    <TextInput
-                      label="Labels"
-                                            value={editForm.labels}
-                      onChange={(labels) => setEditForm({ ...editForm, labels })}
-                      placeholder="homelab, gpu"
-                      isOptional
-                    />
-                    <Selector label="Mode" value={editForm.mode} options={MODE_OPTIONS} onChange={(mode) => setEditForm({ ...editForm, mode: mode as Mode })} />
-                    {editForm.mode === 'pull' ? (
-                      <TextInput
-                        label="Agent URL"
-                        type="url"
-                        value={editForm.url}
-                        onChange={(url) => setEditForm({ ...editForm, url })}
-                        isRequired
-                        status={required(editForm.url, editTried)}
-                      />
-                    ) : (
-                      <TextInput label="Agent URL" description="Unused in push mode" value={editForm.url} isDisabled />
-                    )}
-                    <TextInput
-                      label="New agent token"
-                      description="Blank keeps the stored one"
-                      type="password"
-                      autoComplete="off"
-                      value={editForm.token}
-                      onChange={(token) => setEditForm({ ...editForm, token })}
-                      isOptional
-                    />
-                  </Fields>
-                  {editError ? <Notice message={{ kind: 'error', text: editError }} /> : null}
-                  <HStack gap={2} hAlign="end">
-                    <Button label="Cancel" variant="secondary" onClick={() => setEditing(null)} />
-                    <Button type="submit" label="Save node" variant="primary" isLoading={update.isPending} />
-                  </HStack>
-                </VStack>
-              </form>
-            </LayoutContent>
-          }
-        />
+      <Dialog
+        open={admin && editing !== null}
+        onClose={() => setEditing(null)}
+        title={`Edit ${editing ?? ''}`}
+        width={560}
+      >
+        <form
+          id="edit-node-form"
+          noValidate
+          data-testid="edit-node-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void saveEdit();
+          }}
+        >
+          <VStack gap={4}>
+            <Fields>
+              <TextInput
+                label="Display name"
+                value={editForm.name}
+                onChange={(name) => setEditForm({ ...editForm, name })}
+                isRequired
+                status={required(editForm.name, editTried)}
+              />
+              <TextInput
+                label="Labels"
+                value={editForm.labels}
+                onChange={(labels) => setEditForm({ ...editForm, labels })}
+                placeholder="homelab, gpu"
+                isOptional
+              />
+              <Select label="Mode" value={editForm.mode} options={MODE_OPTIONS} onChange={(mode) => setEditForm({ ...editForm, mode: mode as Mode })} />
+              {editForm.mode === 'pull' ? (
+                <TextInput
+                  label="Agent URL"
+                  type="url"
+                  value={editForm.url}
+                  onChange={(url) => setEditForm({ ...editForm, url })}
+                  isRequired
+                  status={required(editForm.url, editTried)}
+                />
+              ) : (
+                <TextInput label="Agent URL" description="Unused in push mode" value={editForm.url} onChange={() => undefined} isDisabled />
+              )}
+              <TextInput
+                label="New agent token"
+                description="Blank keeps the stored one"
+                type="password"
+                autoComplete="off"
+                value={editForm.token}
+                onChange={(token) => setEditForm({ ...editForm, token })}
+                isOptional
+              />
+            </Fields>
+            {editError ? <Notice message={{ kind: 'error', text: editError }} /> : null}
+            <HStack gap={2} hAlign="end">
+              <Button label="Cancel" onClick={() => setEditing(null)} />
+              <Button type="submit" label="Save node" variant="primary" isLoading={update.isPending} />
+            </HStack>
+          </VStack>
+        </form>
       </Dialog>
 
-      <AlertDialog
-        isOpen={removing !== null}
-        onOpenChange={(open) => (open ? undefined : setRemoving(null))}
+      <Dialog
+        open={removing !== null}
+        onClose={() => setRemoving(null)}
         title={`Remove ${removing?.node.name ?? ''}?`}
-        description="Its history is deleted."
-        actionLabel="Remove node"
-        isActionLoading={remove.isPending}
-        onAction={async () => {
-          if (!removing) return;
-          try {
-            await remove.mutateAsync(removing.node.id);
-            setMessage({ kind: 'ok', text: `${removing.node.name} removed.` });
-          } catch (caught) {
-            setMessage({ kind: 'error', text: errorText(caught, 'The node could not be removed.') });
-          }
-          setRemoving(null);
-        }}
-      />
+        width={420}
+        footer={
+          <HStack gap={2} hAlign="end">
+            <Button label="Cancel" onClick={() => setRemoving(null)} />
+            <Button
+              label="Remove node"
+              variant="danger"
+              isLoading={remove.isPending}
+              onClick={async () => {
+                if (!removing) return;
+                try {
+                  await remove.mutateAsync(removing.node.id);
+                  setMessage({ kind: 'ok', text: `${removing.node.name} removed.` });
+                } catch (caught) {
+                  setMessage({ kind: 'error', text: errorText(caught, 'The node could not be removed.') });
+                }
+                setRemoving(null);
+              }}
+            />
+          </HStack>
+        }
+      >
+        <Banner status="warning" title="Its history is deleted." />
+      </Dialog>
     </SettingsPage>
   );
 }

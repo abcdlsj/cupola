@@ -1,8 +1,5 @@
 import type { ReactNode } from 'react';
-import { Badge } from '@astryxdesign/core/Badge';
-import { HStack } from '@astryxdesign/core/HStack';
-import { StatusDot as Dot } from '@astryxdesign/core/StatusDot';
-import { Text } from '@astryxdesign/core/Text';
+import { Badge, HStack, StatusDot as Dot, Text } from '../ui/primitives';
 import type { NodeStatus, Severity } from '../data/types';
 
 type DotTone = 'success' | 'warning' | 'error' | 'neutral';
@@ -39,7 +36,7 @@ export function severityTone(severity: Severity): 'error' | 'warning' | 'neutral
   return SEVERITY_TONE[severity] ?? 'neutral';
 }
 
-/** A node's state as a coloured dot; the label is for screen readers and the tooltip. */
+/** A node's state as a coloured dot; the label is for screen readers and the tip. */
 export function StatusDot({ status }: { status: NodeStatus }) {
   const label = statusLabel(status);
   return <Dot variant={statusTone(status)} label={label} tooltip={label} />;

@@ -1,8 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Button } from '@astryxdesign/core/Button';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
+import { Banner, Button, Link } from '../ui/primitives';
 
 interface State {
   error: Error | null;
@@ -26,20 +23,17 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
   render() {
     if (this.state.error) {
       return (
-        <div role="alert">
-          <Banner
-            status="error"
-            collapsible={false}
-            title="This view failed to render"
-            description={this.state.error.message}
-            endContent={
-              <HStack gap={3} vAlign="center">
-                <Button label="Try again" variant="secondary" size="sm" onClick={() => this.setState({ error: null })} />
-                <Link href="/">Back to systems</Link>
-              </HStack>
-            }
-          />
-        </div>
+        <Banner
+          status="error"
+          title="This view failed to render"
+          description={this.state.error.message}
+          endContent={
+            <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Button label="Try again" size="sm" onClick={() => this.setState({ error: null })} />
+              <Link href="/">Back to systems</Link>
+            </span>
+          }
+        />
       );
     }
     return this.props.children;

@@ -1,23 +1,28 @@
-// taste-skill-ignore em-dash: the em dash here is the missing-value mark the app
-// rules ask for ("a missing value is a grey dash"), not prose punctuation.
 /**
- * Cupola's page vocabulary on Astryx. Pages compose these with Astryx's own
- * stacks, cards and tables; nothing here sets a colour, only token variants.
+ * Cupola's page vocabulary. Pages compose these with the primitives and the
+ * controls; nothing here sets a colour, only a token or a level.
  */
-import { Children, type ReactNode } from 'react';
-import { Card } from '@astryxdesign/core/Card';
-import { Divider } from '@astryxdesign/core/Divider';
-import { Grid } from '@astryxdesign/core/Grid';
-import { Heading } from '@astryxdesign/core/Heading';
-import { HStack } from '@astryxdesign/core/HStack';
-import { useMediaQuery } from '@astryxdesign/core/hooks';
-import { ProgressBar } from '@astryxdesign/core/ProgressBar';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
+import { Children, useEffect, useState, type ReactNode } from 'react';
+import { Badge, HStack, Heading, StatusDot, Text, VStack } from './primitives';
 
 /** The shell, tables and tabs switch layouts at the same width. */
 export const PHONE_QUERY = '(max-width: 899px)';
+
+export function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    return window.matchMedia(query).matches;
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const list = window.matchMedia(query);
+    const onChange = () => setMatches(list.matches);
+    onChange();
+    list.addEventListener('change', onChange);
+    return () => list.removeEventListener('change', onChange);
+  }, [query]);
+  return matches;
+}
 
 export function useIsPhone(): boolean {
   return useMediaQuery(PHONE_QUERY);
@@ -51,16 +56,10 @@ export function Figure({
   const missing = value == null || (typeof value === 'number' && !Number.isFinite(value));
   const text = missing ? '—' : typeof value === 'number' ? value.toFixed(digits) : value;
   return (
-    <HStack gap={0.5} vAlign="center">
-      {size === 'heading' ? (
-        <Heading level={2}>{text}</Heading>
-      ) : (
-        <Text type="code" hasTabularNumbers textWrap="nowrap" color={missing ? 'secondary' : undefined}>
-          {text}
-        </Text>
-      )}
-      {unit && !missing ? <Text type="supporting">{unit}</Text> : null}
-    </HStack>
+    <span className={missing ? 'fig is-missing' : 'fig'} style={size === 'heading' ? { fontSize: 18 } : undefined}>
+      {text}
+      {unit && !missing ? <span className="unit">{unit}</span> : null}
+    </span>
   );
 }
 
@@ -88,21 +87,28 @@ export function Meter({
 }) {
   const missing = value == null || !Number.isFinite(value);
   const clamped = missing ? 0 : Math.max(0, Math.min(100, value));
-  const variant = missing ? 'neutral' : tone === 'neutral' ? 'accent' : levelOf(value);
+  const level = missing || tone === 'neutral' ? 'accent' : levelOf(value);
   return (
-    <HStack gap={2} vAlign="center">
-      <VStack width={width}>
-        <ProgressBar label={label} value={clamped} variant={variant} isLabelHidden isDisabled={missing} />
-      </VStack>
+    <span className="meter">
+      <span
+        className={missing ? 'meter-track is-empty' : 'meter-track'}
+        style={{ width }}
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={missing ? undefined : Math.round(clamped)}
+        aria-valuetext={missing ? 'no reading' : text ?? `${clamped.toFixed(digits)} percent`}
+      >
+        {missing ? null : <span className="meter-fill" data-level={level} style={{ width: `${clamped}%` }} />}
+      </span>
       {showValue ? (
-        <HStack gap={0.5} vAlign="center">
-          <Text type="code" hasTabularNumbers textWrap="nowrap" color={missing ? 'secondary' : undefined}>
-            {missing ? '—' : text ?? clamped.toFixed(digits)}
-          </Text>
-          {missing || text ? null : <Text type="supporting">%</Text>}
-        </HStack>
+        <span className={missing ? 'meter-value is-missing' : 'meter-value'}>
+          {missing ? '—' : (text ?? clamped.toFixed(digits))}
+          {missing || text ? null : <span className="unit">%</span>}
+        </span>
       ) : null}
-    </HStack>
+    </span>
   );
 }
 
@@ -125,53 +131,23 @@ export function KpiCell({
   const missing = value == null || (typeof value === 'number' && !Number.isFinite(value));
   const text = missing ? '—' : typeof value === 'number' ? value.toFixed(digits) : value;
   return (
-    <VStack gap={1}>
-      <HStack hAlign="between" gap={2} vAlign="center">
-        <Text type="supporting">{label}</Text>
-        {state ? <StatusDot variant={state} label={label} /> : null}
-      </HStack>
-      <HStack gap={1} vAlign="end">
-        <Text type="inherit" size="2xl" hasTabularNumbers color={missing ? 'secondary' : undefined}>
-          {text}
-        </Text>
-        {unit && !missing ? <Text type="supporting">{unit}</Text> : null}
-      </HStack>
-      {note ? <Text type="supporting">{note}</Text> : null}
-    </VStack>
+    <div className="kpi-cell">
+      <div className="kpi-label">
+        <span>{label}</span>
+        {state ? <StatusDot variant={state === 'accent' ? 'accent' : state} label={label} /> : null}
+      </div>
+      <div className={missing ? 'kpi-value is-missing' : 'kpi-value'}>
+        <span>{text}</span>
+        {unit && !missing ? <span className="unit">{unit}</span> : null}
+      </div>
+      {note ? <div className="kpi-note">{note}</div> : null}
+    </div>
   );
 }
 
 /** Equal KPI cells in one card, hairlines between; a 2-column grid on a phone. */
 export function KpiStrip({ children }: { children: ReactNode }) {
-  const narrow = useMediaQuery('(max-width: 699px)');
-  const cells = Children.toArray(children);
-  if (narrow) {
-    return (
-      <Card padding={3}>
-        <Grid columns={2} gap={3}>
-          {cells.map((cell, index) => (
-            <VStack key={index} gap={0}>
-              {cell}
-            </VStack>
-          ))}
-        </Grid>
-      </Card>
-    );
-  }
-  return (
-    <Card padding={0}>
-      <HStack gap={0} vAlign="stretch">
-        {cells.map((cell, index) => (
-          <HStack key={index} gap={0} width={`${100 / cells.length}%`} vAlign="center">
-            {index > 0 ? <Divider orientation="vertical" /> : null}
-            <VStack gap={0} padding={4} width="100%">
-              {cell}
-            </VStack>
-          </HStack>
-        ))}
-      </HStack>
-    </Card>
-  );
+  return <div className="kpi-strip">{Children.toArray(children)}</div>;
 }
 
 /** A band of the page: rule, title, one line of context, controls, content. */
@@ -179,35 +155,29 @@ export function Band({
   title,
   desc,
   actions,
-  first,
   children,
-  gap = 3,
+  first,
 }: {
   title?: string;
   desc?: ReactNode;
   actions?: ReactNode;
   first?: boolean;
   children: ReactNode;
-  gap?: 2 | 3 | 4;
+  gap?: number;
 }) {
   return (
-    <VStack gap={gap}>
-      {first ? null : <Divider />}
-      {title ? (
-        <HStack hAlign="between" vAlign="end" gap={3} wrap="wrap">
-          <VStack gap={0.5}>
-            <Heading level={2}>{title}</Heading>
-            {desc ? <Text type="supporting">{desc}</Text> : null}
-          </VStack>
-          {actions ? (
-            <HStack gap={2} vAlign="center" wrap="wrap">
-              {actions}
-            </HStack>
-          ) : null}
-        </HStack>
+    <section className={first ? 'band is-first' : 'band'} aria-label={title}>
+      {title || actions ? (
+        <header className="band-head">
+          <div className="band-heading">
+            {title ? <h2>{title}</h2> : null}
+            {desc ? <p className="band-desc">{desc}</p> : null}
+          </div>
+          {actions ? <div className="band-actions">{actions}</div> : null}
+        </header>
       ) : null}
       {children}
-    </VStack>
+    </section>
   );
 }
 
@@ -224,18 +194,14 @@ export function PageHead({
   leading?: ReactNode;
 }) {
   return (
-    <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap" paddingBlock={2}>
-      <VStack gap={1}>
+    <header className="page-head">
+      <div className="page-head-main">
         {leading}
-        <Heading level={1}>{title}</Heading>
-        {desc ? <Text type="supporting">{desc}</Text> : null}
-      </VStack>
-      {actions ? (
-        <HStack gap={2} vAlign="center" wrap="wrap">
-          {actions}
-        </HStack>
-      ) : null}
-    </HStack>
+        <h1 className="page-title">{title}</h1>
+        {desc ? <p className="page-desc">{desc}</p> : null}
+      </div>
+      {actions ? <div className="page-actions">{actions}</div> : null}
+    </header>
   );
 }
 
@@ -245,33 +211,28 @@ export function Section({
   desc,
   actions,
   children,
-  padding,
 }: {
   title?: ReactNode;
   desc?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
-  padding?: 0 | 3 | 4;
+  padding?: number;
 }) {
   return (
-    <Card padding={padding}>
-      <VStack gap={3}>
-        {title || actions ? (
-          <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
-            <VStack gap={0.5}>
-              {title ? <Heading level={3}>{title}</Heading> : null}
-              {desc ? <Text type="supporting">{desc}</Text> : null}
-            </VStack>
-            {actions ? (
-              <HStack gap={2} vAlign="center" wrap="wrap">
-                {actions}
-              </HStack>
-            ) : null}
-          </HStack>
-        ) : null}
+    <section className="panel">
+      {title || actions ? (
+        <header className="panel-head">
+          <div className="panel-heading">
+            {title ? <h3 className="panel-title">{title}</h3> : null}
+            {desc ? <p className="panel-desc">{desc}</p> : null}
+          </div>
+          {actions ? <div className="panel-meta">{actions}</div> : null}
+        </header>
+      ) : null}
+      <div className="panel-body" style={{ paddingTop: title ? 0 : 14 }}>
         {children}
-      </VStack>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -294,9 +255,9 @@ export function FindingRow({
   action?: ReactNode;
 }) {
   return (
-    <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2} wrap="wrap">
+    <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2} wrap>
       <HStack gap={2} vAlign="center">
-        <StatusDot variant={state} label={typeof what === 'string' ? what : state} />
+        <StatusDot variant={state === 'accent' ? 'accent' : state} label={typeof what === 'string' ? what : state} />
         <VStack gap={0}>
           <Text>{what}</Text>
           {where ? <Text type="supporting">{where}</Text> : null}
@@ -314,26 +275,39 @@ export function FindingRow({
 /** A label/value list, values in mono; a missing value is a dash. */
 export function Facts({ rows }: { rows: Array<{ label: string; value: ReactNode }> }) {
   return (
-    <VStack gap={0}>
-      {rows.map((row, index) => (
-        <VStack key={row.label} gap={0}>
-          {index > 0 ? <Divider /> : null}
-          <HStack hAlign="between" vAlign="center" gap={3} paddingBlock={2}>
-            <Text type="supporting">{row.label}</Text>
+    <dl className="facts">
+      {rows.map((row) => (
+        <div className="fact" key={row.label}>
+          <dt>{row.label}</dt>
+          <dd>
             {row.value == null || row.value === '' ? (
-              <Text type="code" color="secondary">
-                —
-              </Text>
+              <span className="code is-missing">—</span>
             ) : typeof row.value === 'string' || typeof row.value === 'number' ? (
-              <Text type="code" hasTabularNumbers justify="end">
-                {row.value}
-              </Text>
+              <span className="code">{row.value}</span>
             ) : (
               row.value
             )}
-          </HStack>
-        </VStack>
+          </dd>
+        </div>
       ))}
-    </VStack>
+    </dl>
   );
 }
+
+/** A small label and a mono figure on one line. */
+export function Stat({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <HStack gap={1.5} vAlign="center">
+      <Text type="supporting">{label}</Text>
+      {typeof children === 'string' || typeof children === 'number' ? (
+        <Text type="code" textWrap="nowrap">
+          {children}
+        </Text>
+      ) : (
+        children
+      )}
+    </HStack>
+  );
+}
+
+export { Badge, Heading };

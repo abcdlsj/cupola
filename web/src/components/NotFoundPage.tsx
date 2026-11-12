@@ -1,5 +1,4 @@
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Link } from '@astryxdesign/core/Link';
+import { EmptyState, Link } from '../ui/primitives';
 import { PageHead } from '../ui/kit';
 
 export function NotFoundPage() {
@@ -17,7 +16,9 @@ export function NotFoundPage() {
 
 /** An object route whose object is gone: say which, and link back. */
 export function MissingThing({ what, back, backLabel }: { what: string; back: string; backLabel: string }) {
-  return <EmptyState title={what} description="It was removed, renamed or never existed." actions={<Link href={back}>{backLabel}</Link>} />;
+  return (
+    <EmptyState title={what} description="It was removed, renamed or never existed." actions={<Link href={back}>{backLabel}</Link>} />
+  );
 }
 
 export function MissingNode({ nodeId }: { nodeId: string }) {

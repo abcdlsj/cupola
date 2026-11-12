@@ -1,34 +1,36 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useMemo, useState, type ReactNode } from 'react';
 import { useOutletContext, useParams, useSearchParams } from 'react-router-dom';
-import { Badge } from '@astryxdesign/core/Badge';
-import { Button } from '@astryxdesign/core/Button';
-import { Divider } from '@astryxdesign/core/Divider';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { Grid } from '@astryxdesign/core/Grid';
-import { Heading } from '@astryxdesign/core/Heading';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { List, ListItem } from '@astryxdesign/core/List';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
-import { ErrorPanel, Empty, LoadingRows } from '../../components/States';
+import { ChartCard } from '../../components/ChartCard';
+import type { ChartSeries } from '../../components/SeriesChart';
+import { Empty, ErrorPanel, LoadingRows } from '../../components/States';
 import { MissingThing } from '../../components/NotFoundPage';
 import { UnitPill, UnitState, UnitTable } from '../../components/UnitTable';
 import { RunActionDialog } from '../apps/RunActionDialog';
 import { ActionMark, ActionRows, LastRun, RunsTable, actionKind } from '../apps/AppsPage';
 import { useActions, useContainerHistory, useRuns } from '../../data/queries';
 import type { Action, Container, ContainerSeries, DockerImage, NodeView, ProcessInfo } from '../../data/types';
-import type { ChartSeries } from '../../components/SeriesChart';
 import { seriesColor } from '../../lib/chart';
 import { useRange } from './RangeControl';
-import { ChartCard } from '../../components/ChartCard';
 import { duration, eventTime, percent, relative, size } from '../../lib/format';
 import { EventsList } from '../events/EventsList';
 import { Band, Facts, Figure, Meter, Section, useIsPhone } from '../../ui/kit';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Grid,
+  HStack,
+  Link,
+  List,
+  ListItem,
+  StatusDot,
+  Table,
+  Text,
+  VStack,
+  type TableColumn,
+} from '../../ui/primitives';
+import { SearchInput } from '../../ui/SearchInput';
 
 function useSnap() {
   return useOutletContext<NodeView>();
@@ -43,17 +45,9 @@ function enc(value: string | number): string {
 /** A grey dash where a value is missing, mono text otherwise. */
 function Mono({ value, lines }: { value: ReactNode; lines?: number }) {
   if (value == null || value === '') {
-    return (
-      <Text type="code" color="secondary">
-        —
-      </Text>
-    );
+    return <span className="code is-missing">—</span>;
   }
-  return (
-    <Text type="code" hasTabularNumbers maxLines={lines} textWrap={lines ? undefined : 'nowrap'}>
-      {value}
-    </Text>
-  );
+  return <span className={lines ? 'code clamp-1' : 'code nowrap'}>{value}</span>;
 }
 
 /**
@@ -76,35 +70,29 @@ function DetailHead({
   leading?: ReactNode;
 }) {
   return (
-    <VStack gap={1}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <HStack gap={1}>
         <Link href={back}>{backLabel}</Link>
       </HStack>
-      <HStack hAlign="between" vAlign="center" gap={3} wrap="wrap">
+      <HStack hAlign="between" vAlign="center" gap={3} wrap>
         <HStack gap={2} vAlign="center">
           {leading}
           <VStack gap={0.5}>
-            <Heading level={2}>{title}</Heading>
-            {desc ? <Text type="supporting">{desc}</Text> : null}
+            <h2 style={{ fontSize: 'var(--fs-head)' }}>{title}</h2>
+            {desc ? <span className="muted small">{desc}</span> : null}
           </VStack>
         </HStack>
-        {actions ? (
-          <HStack gap={2} vAlign="center" wrap="wrap">
-            {actions}
-          </HStack>
-        ) : null}
+        {actions ? <div className="page-actions">{actions}</div> : null}
       </HStack>
-    </VStack>
+    </div>
   );
 }
 
 function Gone({ what, back, backLabel }: { what: string; back: string; backLabel: string }) {
   return (
-    <>
-      <Band first>
-        <MissingThing what={what} back={back} backLabel={backLabel} />
-      </Band>
-    </>
+    <Band first>
+      <MissingThing what={what} back={back} backLabel={backLabel} />
+    </Band>
   );
 }
 
@@ -145,32 +133,27 @@ export function ProcessesPage() {
   const memShare = (proc: ProcessInfo) => (total > 0 ? (proc.rss_bytes / total) * 100 : null);
 
   const filter = (
-    <TextInput
+    <SearchInput
       label="Filter processes"
-      isLabelHidden
-      type="search"
-      enterKeyHint="search"
-      size={phone ? 'md' : 'sm'}
-      width={phone ? '100%' : 240}
       value={query}
-      hasClear
+      placeholder="Filter by name, user or command…"
+      width={phone ? '100%' : 300}
       onChange={setQuery}
-      placeholder={phone ? 'Filter processes…' : 'Filter by name, user or command…'}
     />
   );
 
-  const columns: TableColumn<ProcRow>[] = [
+  const columns: Array<TableColumn<ProcRow>> = [
     {
       key: 'pid',
       header: 'PID',
-      width: pixel(80),
+      width: '80px',
       align: 'end',
       renderCell: ({ proc }) => <Mono value={proc.pid} />,
     },
     {
       key: 'name',
       header: 'Name',
-      width: pixel(180),
+      width: '180px',
       renderCell: ({ proc }) => (
         <VStack gap={0}>
           <Link href={href(proc)} maxLines={1}>
@@ -185,7 +168,7 @@ export function ProcessesPage() {
     {
       key: 'command',
       header: 'Command line',
-      width: proportional(1, { minWidth: 200 }),
+      width: '100%',
       renderCell: ({ proc }) => (
         <Text type="code" size="sm" color="secondary" maxLines={1}>
           {proc.command || proc.name}
@@ -195,7 +178,7 @@ export function ProcessesPage() {
     {
       key: 'cpu',
       header: 'CPU',
-      width: pixel(140),
+      width: '140px',
       renderCell: ({ proc }) => (
         <Meter
           value={cpuShare(proc)}
@@ -209,7 +192,7 @@ export function ProcessesPage() {
     {
       key: 'memory',
       header: 'Memory',
-      width: pixel(130),
+      width: '130px',
       renderCell: ({ proc }) => (
         <Meter
           value={memShare(proc)}
@@ -223,27 +206,23 @@ export function ProcessesPage() {
     {
       key: 'rss',
       header: 'RSS',
-      width: pixel(96),
+      width: '96px',
       align: 'end',
       renderCell: ({ proc }) => <Mono value={size(proc.rss_bytes)} />,
     },
     {
       key: 'threads',
       header: 'Threads',
-      width: pixel(84),
+      width: '84px',
       align: 'end',
       renderCell: ({ proc }) => <Mono value={proc.threads} />,
     },
     {
       key: 'started',
       header: 'Started',
-      width: pixel(104),
+      width: '104px',
       align: 'end',
-      renderCell: ({ proc }) => (
-        <Text type="code" hasTabularNumbers textWrap="nowrap">
-          {proc.started_at ? relative(proc.started_at, now) : '—'}
-        </Text>
-      ),
+      renderCell: ({ proc }) => <span className="code nowrap">{proc.started_at ? relative(proc.started_at, now) : '—'}</span>,
     },
   ];
 
@@ -257,47 +236,23 @@ export function ProcessesPage() {
       {procs.length === 0 ? (
         <EmptyState
           title={query ? `No process matches “${query}”` : 'No process sampled'}
-          description={
-            query ? 'Clear the filter to see every sampled process.' : 'The agent has not reported processes yet.'
-          }
-          actions={
-            query ? (
-              <Button label="Clear filter" variant="secondary" size="sm" onClick={() => setQuery('')} />
-            ) : undefined
-          }
-          isCompact
-          headingLevel={3}
+          description={query ? 'Clear the filter to see every sampled process.' : 'The agent has not reported processes yet.'}
+          actions={query ? <Button label="Clear filter" size="sm" onClick={() => setQuery('')} /> : undefined}
         />
       ) : phone ? (
-        <List hasDividers density="compact" edge="flush">
+        <List label="Processes">
           {procs.map((proc) => (
             <ListItem
               key={proc.pid}
               href={href(proc)}
               label={proc.name}
-              description={
-                <VStack gap={0.5}>
-                  <Text type="supporting" maxLines={1}>
-                    {`pid ${proc.pid} · ${proc.user} · ${size(proc.rss_bytes)} · ${proc.threads} threads`}
-                  </Text>
-                  <Text type="code" size="sm" color="secondary" maxLines={1}>
-                    {proc.command || proc.name}
-                  </Text>
-                </VStack>
-              }
+              description={`pid ${proc.pid} · ${proc.user} · ${size(proc.rss_bytes)} · ${proc.threads} threads · ${proc.command || proc.name}`}
               endContent={<Figure value={proc.cpu_percent} unit="%" />}
             />
           ))}
         </List>
       ) : (
-        <Table
-          data={procs.map((proc) => ({ pid: proc.pid, proc }))}
-          columns={columns}
-          idKey="pid"
-          density="compact"
-          dividers="rows"
-          hasHover
-        />
+        <Table data={procs.map((proc) => ({ pid: proc.pid, proc }))} columns={columns} idKey="pid" label="Processes" hasHover />
       )}
     </Band>
   );
@@ -323,7 +278,7 @@ export function ProcessDetailPage() {
         title={proc.name}
         desc={[`pid ${proc.pid}`, proc.user, proc.state].filter(Boolean).join(' · ')}
       />
-      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }}>
         <Section title="Process">
           <Facts
             rows={[
@@ -331,10 +286,8 @@ export function ProcessDetailPage() {
               {
                 label: 'Parent PID',
                 value: parent ? (
-                  <Link href={`${back}/${parent.pid}`}>
-                    <Text type="code" hasTabularNumbers>
-                      {`${proc.ppid} · ${parent.name}`}
-                    </Text>
+                  <Link href={`${back}/${parent.pid}`} type="code">
+                    {`${proc.ppid} · ${parent.name}`}
                   </Link>
                 ) : (
                   String(proc.ppid)
@@ -376,29 +329,15 @@ export function ProcessDetailPage() {
           <Section title="Context">
             <Facts
               rows={[
-                {
-                  label: 'TTY',
-                  value: proc.tty ? <Mono value={proc.tty} lines={1} /> : '',
-                },
-                {
-                  label: 'Working directory',
-                  value: proc.cwd ? <Mono value={proc.cwd} lines={1} /> : '',
-                },
-                {
-                  label: 'Cgroup',
-                  value: proc.cgroup ? <Mono value={proc.cgroup} lines={1} /> : '',
-                },
-                {
-                  label: 'Container',
-                  value: proc.container ? <Mono value={proc.container} lines={1} /> : '',
-                },
+                { label: 'TTY', value: proc.tty ? <Mono value={proc.tty} lines={1} /> : '' },
+                { label: 'Working directory', value: proc.cwd ? <Mono value={proc.cwd} lines={1} /> : '' },
+                { label: 'Cgroup', value: proc.cgroup ? <Mono value={proc.cgroup} lines={1} /> : '' },
+                { label: 'Container', value: proc.container ? <Mono value={proc.container} lines={1} /> : '' },
               ]}
             />
           </Section>
           <Section title="Command line" desc="Arguments are redacted by the agent">
-            <Text type="code" wordBreak="break-all">
-              {proc.command || proc.name}
-            </Text>
+            <span className="code break-all">{proc.command || proc.name}</span>
           </Section>
         </VStack>
       </Grid>
@@ -436,8 +375,6 @@ export function ServicesPage() {
         <EmptyState
           title="No systemd service reported"
           description="The agent found no systemd on this host, or the collector is off."
-          isCompact
-          headingLevel={3}
         />
       ) : (
         <UnitTable rows={services} nodeId={nodeId} showNode={false} showSubState />
@@ -457,22 +394,16 @@ export function ServiceDetailPage() {
   return (
     <>
       <DetailHead back={back} backLabel="Services" title={service.name} desc={service.description} />
-      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }}>
         <Section title="Unit">
           <Facts
             rows={[
-              {
-                label: 'Active state',
-                value: <UnitPill state={service.active_state} />,
-              },
+              { label: 'Active state', value: <UnitPill state={service.active_state} /> },
               { label: 'Sub state', value: service.sub_state },
               { label: 'Load state', value: service.load_state },
               { label: 'Enabled', value: service.enabled },
               { label: 'Restarts', value: String(service.restarts) },
-              {
-                label: 'Description',
-                value: service.description ? <Text maxLines={2}>{service.description}</Text> : '',
-              },
+              { label: 'Description', value: service.description ? <Text maxLines={2}>{service.description}</Text> : '' },
             ]}
           />
         </Section>
@@ -546,36 +477,25 @@ function Images({ images }: { images: DockerImage[] }) {
   const largest = top[0]?.size || 1;
   const onDisk = images.reduce((sum, image) => sum + Math.max(0, image.size - image.shared_size), 0);
   const restBytes = rest.reduce((sum, image) => sum + image.size, 0);
-  const row = (key: string, label: ReactNode, sub: string | null, bar: number | null, value: string, index: number) => (
-    <VStack key={key} gap={0}>
-      {index > 0 ? <Divider /> : null}
-      <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2}>
-        <VStack gap={0}>
-          {label}
-          {sub ? (
-            <Text type="supporting" maxLines={1}>
-              {sub}
-            </Text>
-          ) : null}
-        </VStack>
-        <HStack gap={3} vAlign="center">
-          {bar != null ? (
-            <Meter
-              value={bar}
-              label={`${key} size against the largest image`}
-              tone="neutral"
-              width={160}
-              showValue={false}
-            />
-          ) : null}
-          <VStack width={72}>
-            <Text type="code" hasTabularNumbers textWrap="nowrap" justify="end">
-              {value}
-            </Text>
-          </VStack>
-        </HStack>
+  const row = (key: string, label: ReactNode, sub: string | null, bar: number | null, value: string) => (
+    <HStack key={key} gap={3} vAlign="center" hAlign="between" paddingBlock={2}>
+      <VStack gap={0}>
+        {label}
+        {sub ? (
+          <Text type="supporting" maxLines={1}>
+            {sub}
+          </Text>
+        ) : null}
+      </VStack>
+      <HStack gap={3} vAlign="center">
+        {bar != null ? (
+          <Meter value={bar} label={`${key} size against the largest image`} tone="neutral" width={160} showValue={false} />
+        ) : null}
+        <span className="code nowrap" style={{ width: 72, textAlign: 'right' }}>
+          {value}
+        </span>
       </HStack>
-    </VStack>
+    </HStack>
   );
   return (
     <Band title="Images" desc={`${images.length} images · ${size(onDisk)} on disk · largest first`}>
@@ -583,27 +503,22 @@ function Images({ images }: { images: DockerImage[] }) {
         <EmptyState
           title="No image reported"
           description="The image list is empty or the Docker socket is not readable by the agent."
-          isCompact
-          headingLevel={3}
         />
       ) : (
-        <VStack gap={0}>
-          {top.map((image, index) =>
+        <div className="rows">
+          {top.map((image) =>
             row(
               image.id,
-              <Text type="code" maxLines={1}>
-                {image.repo_tag}
-              </Text>,
+              <span className="code clamp-1">{image.repo_tag}</span>,
               `${image.containers} ${image.containers === 1 ? 'container' : 'containers'} · ${image.id.replace(/^sha256:/, '').slice(0, 12)}${image.dangling ? ' · dangling' : ''}`,
               Math.max(2, (image.size / largest) * 100),
               size(image.size),
-              index,
             ),
           )}
           {rest.length > 0
-            ? row('rest', <Text type="supporting">{rest.length} more</Text>, null, null, size(restBytes), top.length)
+            ? row('rest', <span className="muted small">{rest.length} more</span>, null, null, size(restBytes))
             : null}
-        </VStack>
+        </div>
       )}
     </Band>
   );
@@ -620,7 +535,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
   const up = (box: Container) => (box.uptime_sec ? duration(box.uptime_sec) : '—');
   if (phone) {
     return (
-      <List hasDividers density="compact" edge="flush">
+      <List label="Containers">
         {containers.map((box) => (
           <ListItem
             key={box.id}
@@ -634,11 +549,11 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
       </List>
     );
   }
-  const columns: TableColumn<BoxRow>[] = [
+  const columns: Array<TableColumn<BoxRow>> = [
     {
       key: 'name',
       header: 'Container',
-      width: proportional(1, { minWidth: 180 }),
+      width: '100%',
       renderCell: ({ box }) => (
         <HStack gap={2} vAlign="center">
           <StatusDot variant={containerTone(box.state)} label={box.state} />
@@ -651,7 +566,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'image',
       header: 'Image',
-      width: proportional(1, { minWidth: 200 }),
+      width: '220px',
       renderCell: ({ box }) => (
         <Text type="code" size="sm" color="secondary" maxLines={1}>
           {box.image}
@@ -661,7 +576,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'state',
       header: 'State',
-      width: pixel(110),
+      width: '110px',
       renderCell: ({ box }) => (
         <Text type="supporting" textWrap="nowrap">
           {box.state}
@@ -671,7 +586,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'cpu',
       header: 'CPU',
-      width: pixel(140),
+      width: '140px',
       renderCell: ({ box }) => (
         <Meter
           value={Math.min(100, box.cpu_percent / cores)}
@@ -685,35 +600,26 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'memory',
       header: 'Memory',
-      width: pixel(100),
+      width: '100px',
       align: 'end',
       renderCell: ({ box }) => <Mono value={size(box.mem_bytes)} />,
     },
     {
       key: 'restarts',
       header: 'Restarts',
-      width: pixel(90),
+      width: '90px',
       align: 'end',
       renderCell: ({ box }) => <Mono value={box.restarts} />,
     },
     {
       key: 'up',
       header: 'Up',
-      width: pixel(90),
+      width: '90px',
       align: 'end',
       renderCell: ({ box }) => <Mono value={box.uptime_sec ? duration(box.uptime_sec) : ''} />,
     },
   ];
-  return (
-    <Table
-      data={containers.map((box) => ({ id: box.id, box }))}
-      columns={columns}
-      idKey="id"
-      density="compact"
-      dividers="rows"
-      hasHover
-    />
-  );
+  return <Table data={containers.map((box) => ({ id: box.id, box }))} columns={columns} idKey="id" label="Containers" hasHover />;
 }
 
 export function ContainersPage() {
@@ -748,14 +654,10 @@ export function ContainersPage() {
         desc={`${snap.containers.length} ${snap.containers.length === 1 ? 'container' : 'containers'} · ${running} running · Docker over the unix socket`}
         first
       >
-        <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
+        <Grid columns={{ minWidth: 320, max: 3, repeat: 'fit' }}>
           <ChartCard
             title="Container CPU"
-            desc={
-              cpu.length > 1
-                ? `The ${cpu.length} busiest containers in this window`
-                : 'The busiest container in this window'
-            }
+            desc={cpu.length > 1 ? `The ${cpu.length} busiest containers in this window` : 'The busiest container in this window'}
             now={percent(
               snap.containers.reduce((sum, container) => sum + container.cpu_percent, 0),
               1,
@@ -780,8 +682,6 @@ export function ContainersPage() {
           <EmptyState
             title="No container reported"
             description="No container runs here, or the Docker socket is not readable by the agent."
-            isCompact
-            headingLevel={3}
           />
         ) : (
           <ContainersTable nodeId={nodeId} containers={snap.containers} cores={Math.max(1, snap.node.cores)} />
@@ -811,11 +711,9 @@ export function ContainerDetailPage() {
         backLabel="Containers"
         title={container.name}
         desc={`${container.image} · ${container.status || container.state}`}
-        leading={
-          <StatusDot variant={containerTone(container.state)} label={container.state} tooltip={container.state} />
-        }
+        leading={<StatusDot variant={containerTone(container.state)} label={container.state} tooltip={container.state} />}
       />
-      <Grid columns={{ minWidth: 320, repeat: 'fit' }} gap={3}>
+      <Grid columns={{ minWidth: 320, repeat: 'fit' }}>
         <ChartCard
           title="CPU"
           desc={`${container.name} over the window`}
@@ -833,11 +731,7 @@ export function ContainerDetailPage() {
         />
         <ChartCard
           title="Memory"
-          desc={
-            container.mem_limit
-              ? `Resident memory against a ${size(container.mem_limit)} limit`
-              : 'Resident memory; no limit set'
-          }
+          desc={container.mem_limit ? `Resident memory against a ${size(container.mem_limit)} limit` : 'Resident memory; no limit set'}
           now={size(container.mem_bytes)}
           series={historyChart(series, 'mem')}
           unit="bytes"
@@ -849,14 +743,8 @@ export function ContainerDetailPage() {
         <Facts
           rows={[
             { label: 'ID', value: <Mono value={container.id} lines={1} /> },
-            {
-              label: 'Image',
-              value: <Mono value={container.image} lines={1} />,
-            },
-            {
-              label: 'State',
-              value: <ContainerState state={container.state} />,
-            },
+            { label: 'Image', value: <Mono value={container.image} lines={1} /> },
+            { label: 'State', value: <ContainerState state={container.state} /> },
             { label: 'Status', value: container.status },
             { label: 'CPU', value: percent(container.cpu_percent, 1) },
             {
@@ -873,14 +761,8 @@ export function ContainerDetailPage() {
                 ),
             },
             { label: 'Restarts', value: String(container.restarts) },
-            {
-              label: 'Uptime',
-              value: container.uptime_sec ? duration(container.uptime_sec) : '',
-            },
-            {
-              label: 'Ports',
-              value: container.ports.length ? <Mono value={container.ports.join(', ')} lines={2} /> : '',
-            },
+            { label: 'Uptime', value: container.uptime_sec ? duration(container.uptime_sec) : '' },
+            { label: 'Ports', value: container.ports.length ? <Mono value={container.ports.join(', ')} lines={2} /> : '' },
           ]}
         />
       </Section>
@@ -910,8 +792,6 @@ export function AppsTab() {
           <EmptyState
             title="No action is configured on this agent"
             description="Actions live in the agent config (0600) only; the hub cannot create them."
-            isCompact
-            headingLevel={3}
           />
         ) : (
           <ActionRows
@@ -957,29 +837,23 @@ export function AppDetailPage() {
         actions={
           <Button
             label={`Run ${action.name}`}
-            variant={action.danger ? 'destructive' : 'primary'}
+            variant={action.danger ? 'danger' : 'primary'}
             onClick={() => setOpen(true)}
           />
         }
       />
-      <Grid columns={{ minWidth: 340, repeat: 'fit' }} gap={3}>
+      <Grid columns={{ minWidth: 340, repeat: 'fit' }}>
         <Section title="Action">
           <Facts
             rows={[
               { label: 'Type', value: actionKind(action) },
-              {
-                label: 'API',
-                value: action.allow_api ? 'Token-callable' : 'Not callable through the API',
-              },
+              { label: 'API', value: action.allow_api ? 'Token-callable' : 'Not callable through the API' },
               {
                 label: 'Confirmation',
                 value: action.danger ? <Badge variant="error" label="Requires typing the name" /> : 'One click',
               },
               { label: 'Last result', value: <LastRun action={action} /> },
-              {
-                label: 'Last run',
-                value: action.last_run_at ? relative(action.last_run_at, Date.now()) : '',
-              },
+              { label: 'Last run', value: action.last_run_at ? relative(action.last_run_at, Date.now()) : '' },
             ]}
           />
         </Section>
@@ -989,9 +863,7 @@ export function AppDetailPage() {
               ? 'Wake-on-LAN packet sent by the agent.'
               : 'Fixed script from the agent config: no shell, no arguments, scrubbed environment.'}
           </Text>
-          <Text type="supporting">
-            One run at a time, 60 s timeout, output truncated to 8 KiB. Every result is an event.
-          </Text>
+          <Text type="supporting">One run at a time, 60 s timeout, output truncated to 8 KiB. Every result is an event.</Text>
         </Section>
       </Grid>
       <Band title="Runs" desc={`${own.length} recorded`}>

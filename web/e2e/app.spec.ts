@@ -216,24 +216,26 @@ test.describe('settings and tokens', () => {
     await expect(page.getByTestId('form-error')).toContainText('current password is wrong');
   });
 
-  test('appearance switches between system, light and dark and remembers it', async ({ page }) => {
+  test('appearance defaults to light and remembers the choice', async ({ page }) => {
     const ground = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
     const LIGHT = 'rgb(246, 247, 249)';
 
+    // Light is the default: a dark OS preference does not change it.
     await page.emulateMedia({ colorScheme: 'dark' });
     await page.goto('/settings/appearance');
     const group = page.getByRole('radiogroup', { name: 'Theme' });
-    await expect(group.getByRole('radio', { name: 'System', exact: true })).toHaveAttribute('aria-checked', 'true');
-    const dark = await ground();
-    expect(dark).not.toBe(LIGHT);
-
-    await group.getByRole('radio', { name: 'Light', exact: true }).click();
-    await expect.poll(ground).toBe(LIGHT);
-    await page.reload();
     await expect(group.getByRole('radio', { name: 'Light', exact: true })).toHaveAttribute('aria-checked', 'true');
-    expect(await ground()).toBe(LIGHT);
+    await expect.poll(ground).toBe(LIGHT);
 
+    await group.getByRole('radio', { name: 'Dark', exact: true }).click();
+    await expect.poll(ground).not.toBe(LIGHT);
+    await page.reload();
+    await expect(group.getByRole('radio', { name: 'Dark', exact: true })).toHaveAttribute('aria-checked', 'true');
+    expect(await ground()).not.toBe(LIGHT);
+
+    // "System" follows the OS again, in both directions.
     await group.getByRole('radio', { name: 'System', exact: true }).click();
+    await expect.poll(ground).not.toBe(LIGHT);
     await page.emulateMedia({ colorScheme: 'light' });
     await expect.poll(ground).toBe(LIGHT);
   });

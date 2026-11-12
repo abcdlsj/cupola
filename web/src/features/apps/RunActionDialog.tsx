@@ -1,17 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Badge } from '@astryxdesign/core/Badge';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Button } from '@astryxdesign/core/Button';
-import { CodeBlock } from '@astryxdesign/core/CodeBlock';
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
+import { useEffect, useRef, useState } from 'react';
 import { ApiError, useRunAction } from '../../data/queries';
 import type { Action, ActionResult } from '../../data/types';
 import { Facts } from '../../ui/kit';
+import { Badge, Banner, Button, CodeBlock, HStack, Text, VStack } from '../../ui/primitives';
+import { Dialog, TextInput } from '../../ui/controls';
 
 /**
  * Tile → confirmation naming the node and the action → run on the agent →
@@ -35,6 +27,7 @@ export function RunActionDialog({
   const [typed, setTyped] = useState('');
   const [result, setResult] = useState<ActionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const field = useRef<HTMLElement | null>(null);
   const run = useRunAction();
 
   useEffect(() => {
@@ -69,93 +62,73 @@ export function RunActionDialog({
   }`;
   const showResult = phase === 'result' && result != null;
 
-  const content = showResult ? (
-    <VStack gap={3}>
-      <HStack gap={2} vAlign="center" wrap="wrap">
-        <Badge
-          variant={result.exit_code === 0 ? 'success' : 'error'}
-          label={result.exit_code === 0 ? 'Exited 0' : `Exited ${result.exit_code}`}
-        />
-        <Text type="supporting">{(result.duration_ms / 1000).toFixed(1)} s</Text>
-        {result.truncated ? <Text type="supporting">output truncated to 8 KiB</Text> : null}
-      </HStack>
-      <Facts
-        rows={[
-          { label: 'Exit code', value: String(result.exit_code) },
-          {
-            label: 'Duration',
-            value: `${(result.duration_ms / 1000).toFixed(1)} s`,
-          },
-          { label: 'Run', value: result.run_id.slice(0, 8) },
-        ]}
-      />
-      {result.stdout ? (
-        <CodeBlock code={result.stdout} title="stdout" size="sm" width="100%" maxHeight={240} isWrapped />
-      ) : null}
-      {result.stderr ? (
-        <CodeBlock code={result.stderr} title="stderr" size="sm" width="100%" maxHeight={240} isWrapped />
-      ) : null}
-      {!result.stdout && !result.stderr ? <Text type="supporting">The action printed nothing.</Text> : null}
-    </VStack>
-  ) : (
-    <VStack gap={3}>
-      {action.description ? <Text>{action.description}</Text> : null}
-      {action.danger ? (
-        <TextInput
-          label={`Type ${action.name} to confirm this action`}
-          value={typed}
-          onChange={setTyped}
-          onEnter={() => void submit()}
-          placeholder={action.name}
-          autoComplete="off"
-          autoCapitalize="off"
-          hasAutoCorrect={false}
-          hasSpellCheck={false}
-          hasAutoFocus
-          width="100%"
-        />
-      ) : null}
-      {error ? <Banner status="error" title={error} collapsible={false} /> : null}
-    </VStack>
-  );
-
-  const footer = showResult ? (
-    <HStack gap={2} hAlign="end" wrap="wrap">
-      <Button label="Run again" variant="secondary" onClick={() => setPhase('confirm')} />
-      <Button label="Close" variant="primary" onClick={close} />
-    </HStack>
-  ) : (
-    <HStack gap={2} hAlign="end" wrap="wrap">
-      <Button label="Cancel" variant="secondary" onClick={close} />
-      <Button
-        label={run.isPending ? 'Running…' : `Run ${action.name}`}
-        variant={action.danger ? 'destructive' : 'primary'}
-        isLoading={run.isPending}
-        isDisabled={!canRun}
-        tooltip={canRun ? undefined : 'Type the action name to enable Run'}
-        onClick={() => void submit()}
-      />
-    </HStack>
-  );
-
   return (
     <Dialog
-      isOpen={open}
-      onOpenChange={onOpenChange}
-      purpose={run.isPending ? 'required' : action.danger ? 'form' : 'info'}
+      open={open}
+      onClose={close}
+      title={showResult ? action.name : `Run ${action.name}?`}
+      subtitle={subtitle}
       width={showResult ? 640 : 480}
+      initialFocus={field}
+      footer={
+        showResult ? (
+          <HStack gap={2} hAlign="end" wrap>
+            <Button label="Run again" onClick={() => setPhase('confirm')} />
+            <Button label="Close" variant="primary" onClick={close} />
+          </HStack>
+        ) : (
+          <HStack gap={2} hAlign="end" wrap>
+            <Button label="Cancel" onClick={close} />
+            <Button
+              label={run.isPending ? 'Running…' : `Run ${action.name}`}
+              variant={action.danger ? 'danger' : 'primary'}
+              isLoading={run.isPending}
+              isDisabled={!canRun}
+              tooltip={canRun ? undefined : 'Type the action name to enable Run'}
+              onClick={() => void submit()}
+            />
+          </HStack>
+        )
+      }
     >
-      <Layout
-        header={
-          <DialogHeader
-            title={showResult ? action.name : `Run ${action.name}?`}
-            subtitle={subtitle}
-            onOpenChange={onOpenChange}
+      {showResult ? (
+        <VStack gap={3}>
+          <HStack gap={2} vAlign="center" wrap>
+            <Badge variant={result.exit_code === 0 ? 'success' : 'error'} label={result.exit_code === 0 ? 'Exited 0' : `Exited ${result.exit_code}`} />
+            <Text type="supporting">{(result.duration_ms / 1000).toFixed(1)} s</Text>
+            {result.truncated ? <Text type="supporting">output truncated to 8 KiB</Text> : null}
+          </HStack>
+          <Facts
+            rows={[
+              { label: 'Exit code', value: String(result.exit_code) },
+              { label: 'Duration', value: `${(result.duration_ms / 1000).toFixed(1)} s` },
+              { label: 'Run', value: result.run_id.slice(0, 8) },
+            ]}
           />
-        }
-        content={<LayoutContent>{content}</LayoutContent>}
-        footer={<LayoutFooter>{footer}</LayoutFooter>}
-      />
+          {result.stdout ? <CodeBlock code={result.stdout} title="stdout" maxHeight={240} /> : null}
+          {result.stderr ? <CodeBlock code={result.stderr} title="stderr" maxHeight={240} /> : null}
+          {!result.stdout && !result.stderr ? <Text type="supporting">The action printed nothing.</Text> : null}
+        </VStack>
+      ) : (
+        <VStack gap={3}>
+          {action.description ? <Text>{action.description}</Text> : null}
+          {action.danger ? (
+            <div ref={field as React.RefObject<HTMLDivElement>}>
+              <TextInput
+                label={`Type ${action.name} to confirm this action`}
+                value={typed}
+                onChange={setTyped}
+                onEnter={() => void submit()}
+                placeholder={action.name}
+                autoComplete="off"
+                autoCapitalize="off"
+                hasAutoFocus
+              />
+            </div>
+          ) : null}
+          {error ? <Banner status="error" title={error} /> : null}
+        </VStack>
+      )}
     </Dialog>
   );
 }

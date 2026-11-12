@@ -1,9 +1,12 @@
-/* Astryx owns the reset, the components and the theme (built from
-   src/themes/cupola/cupolaTheme.ts by `npm run theme`). The two files below
-   only load Cupola's self-hosted fonts and paint the ground before React. */
-@import '@astryxdesign/core/reset.css';
-@import '@astryxdesign/core/astryx.css';
-@import '../themes/cupola/cupola.css';
+/* One cascade, four layers of authority:
+   1. water.css      — element defaults (vendored, not edited);
+   2. fonts          — Figtree for UI, IBM Plex Mono for figures, self-hosted;
+   3. tokens         — Cupola's values, including the variables water.css reads
+                       and the dark (grey) block;
+   4. cupola.css     — the app's own furniture. Nothing is injected at runtime
+                       and no asset is fetched from a third party. */
+@import './water.css';
 @import '@fontsource-variable/figtree';
 @import './fonts.css';
-@import './base.css';
+@import './tokens.css';
+@import './cupola.css';

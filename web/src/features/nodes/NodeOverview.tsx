@@ -1,11 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ChartCard } from '../../components/ChartCard';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
@@ -14,6 +8,7 @@ import type { NodeView, ProcessInfo, SeriesPoint } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, relative, size } from '../../lib/format';
 import { Band, KpiCell, KpiStrip, levelOf, Meter, Section, useIsPhone } from '../../ui/kit';
+import { Grid, HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
 import { emptyNote, peak, Rows, Stat, useMetric, useSnapshot, WaitingForSnapshot } from './MetricPages';
 import { historyChart, peakOf, percentCeiling } from './NodeLists';
 import { rangeLabel, useRange } from './RangeControl';
@@ -30,22 +25,12 @@ function MeterRow({ name, sub, meter, figure }: { name: string; sub?: string; me
   return (
     <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2}>
       <VStack gap={0}>
-        <Text type="code" maxLines={1}>
-          {name}
-        </Text>
-        {sub ? (
-          <Text type="supporting" maxLines={1}>
-            {sub}
-          </Text>
-        ) : null}
+        <span className="code clamp-1">{name}</span>
+        {sub ? <span className="muted small clamp-1">{sub}</span> : null}
       </VStack>
       <HStack gap={3} vAlign="center">
         {meter}
-        {figure ? (
-          <Text type="code" color="secondary" hasTabularNumbers textWrap="nowrap">
-            {figure}
-          </Text>
-        ) : null}
+        {figure ? <span className="code muted nowrap">{figure}</span> : null}
       </HStack>
     </HStack>
   );
@@ -73,35 +58,33 @@ function TopProcesses({ view, nodeId }: { view: NodeView; nodeId: string }) {
     />
   );
   const mono = (value: string | number) => (
-    <Text type="code" hasTabularNumbers textWrap="nowrap">
-      {value}
-    </Text>
+    <span className="code nowrap">{value}</span>
   );
-  const columns: TableColumn<ProcRow>[] = [
+  const columns: Array<TableColumn<ProcRow>> = [
     {
       key: 'name',
       header: 'Process',
-      width: proportional(1, { minWidth: 180 }),
+      width: '100%',
       renderCell: ({ proc }) => <Text maxLines={1}>{name(proc)}</Text>,
     },
-    { key: 'pid', header: 'PID', width: pixel(88), align: 'end', renderCell: ({ proc }) => mono(proc.pid) },
+    { key: 'pid', header: 'PID', width: '88px', align: 'end', renderCell: ({ proc }) => mono(proc.pid) },
     {
       key: 'user',
       header: 'User',
-      width: pixel(120),
+      width: '120px',
       renderCell: ({ proc }) => (
         <Text type="supporting" maxLines={1}>
           {proc.user}
         </Text>
       ),
     },
-    { key: 'cpu', header: 'CPU', width: pixel(180), renderCell: ({ proc }) => cpu(proc) },
-    { key: 'memory', header: 'Memory', width: pixel(104), align: 'end', renderCell: ({ proc }) => mono(size(proc.rss_bytes)) },
-    { key: 'threads', header: 'Threads', width: pixel(88), align: 'end', renderCell: ({ proc }) => mono(proc.threads) },
+    { key: 'cpu', header: 'CPU', width: '180px', renderCell: ({ proc }) => cpu(proc) },
+    { key: 'memory', header: 'Memory', width: '104px', align: 'end', renderCell: ({ proc }) => mono(size(proc.rss_bytes)) },
+    { key: 'threads', header: 'Threads', width: '88px', align: 'end', renderCell: ({ proc }) => mono(proc.threads) },
     {
       key: 'started',
       header: 'Started',
-      width: pixel(112),
+      width: '112px',
       align: 'end',
       renderCell: ({ proc }) => mono(relative(proc.started_at, now)),
     },
@@ -116,20 +99,18 @@ function TopProcesses({ view, nodeId }: { view: NodeView; nodeId: string }) {
       {rows.length === 0 ? (
         <Empty>No process sample in the last snapshot.</Empty>
       ) : phone ? (
-        <Rows>{
-          rows.map(({ proc }) => (
+        <Rows>
+          {rows.map(({ proc }) => (
             <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
               <HStack gap={2} vAlign="center" hAlign="between">
                 <HStack gap={1.5} vAlign="center">
                   {name(proc)}
-                  <Text type="supporting">{proc.user}</Text>
+                  <span className="muted small">{proc.user}</span>
                 </HStack>
-                <Text type="code" color="secondary" hasTabularNumbers>
-                  {proc.pid}
-                </Text>
+                <span className="code muted">{proc.pid}</span>
               </HStack>
               {cpu(proc, 140)}
-              <HStack gap={4} wrap="wrap">
+              <HStack gap={4} wrap>
                 <Stat label="Memory">{size(proc.rss_bytes)}</Stat>
                 <Stat label="Threads">{proc.threads}</Stat>
                 <Stat label="Started">{relative(proc.started_at, now)}</Stat>
@@ -138,7 +119,7 @@ function TopProcesses({ view, nodeId }: { view: NodeView; nodeId: string }) {
           ))}
         </Rows>
       ) : (
-        <Table data={rows} columns={columns} idKey="pid" density="compact" dividers="rows" hasHover />
+        <Table data={rows} columns={columns} idKey="pid" label="Top processes" hasHover />
       )}
     </Band>
   );
@@ -240,7 +221,7 @@ export function NodeOverview() {
       </KpiStrip>
 
       <Band title="Activity" desc={`${rangeLabel(range)} · CPU, memory, load, pressure, disk and network`}>
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <ChartCard
             title="CPU usage"
             desc={`Average across ${snap.node.cores} threads; the dashed line is the 80 % alert.`}
@@ -311,7 +292,7 @@ export function NodeOverview() {
           desc={`${snap.containers.length} running · ${rangeLabel(range)}`}
           actions={<Link href={`/nodes/${nodeId}/containers${range === '1h' ? '' : `?range=${range}`}`}>All containers</Link>}
         >
-          <Grid columns={CHART_GRID} gap={3}>
+          <Grid columns={CHART_GRID}>
             <ChartCard
               title="Docker CPU usage"
               desc={
@@ -340,7 +321,7 @@ export function NodeOverview() {
       ) : null}
 
       <Band title="Disks and sensors" desc="Current readings from the last snapshot">
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <Section
             title="Disk usage"
             desc={rootFull ? `Root fills in about ${days(rootFull)} at the current rate.` : 'Used space per mounted filesystem.'}
@@ -349,8 +330,8 @@ export function NodeOverview() {
             {snap.disks.length === 0 ? (
               <Empty>No filesystem reported.</Empty>
             ) : (
-              <Rows>{
-                snap.disks.slice(0, 6).map((disk) => (
+              <Rows>
+                {snap.disks.slice(0, 6).map((disk) => (
                   <MeterRow
                     key={disk.device + disk.mount}
                     name={disk.mount}
@@ -365,16 +346,16 @@ export function NodeOverview() {
             {temps.length === 0 && gpus.length === 0 ? (
               <Empty>This agent reports no temperature sensor.</Empty>
             ) : (
-              <Rows>{[
-                ...temps.slice(0, 5).map((sensor) => (
+              <Rows>
+                {temps.slice(0, 5).map((sensor) => (
                   <MeterRow
                     key={`${sensor.chip}-${sensor.label}`}
                     name={sensor.label || sensor.chip}
                     sub={sensor.label ? sensor.chip : undefined}
                     meter={<Meter value={sensor.value} text={`${Math.round(sensor.value)} °C`} label={`${sensor.label || sensor.chip} temperature`} />}
                   />
-                )),
-                ...gpus.map((gpu) => (
+                ))}
+                {gpus.map((gpu) => (
                   <MeterRow
                     key={`gpu-${gpu.index}`}
                     name={`GPU ${gpu.index}`}
@@ -382,8 +363,8 @@ export function NodeOverview() {
                     meter={<Meter value={gpu.util_percent} label={`GPU ${gpu.index} utilisation`} />}
                     figure={`${Math.round(gpu.temp_c)} °C`}
                   />
-                )),
-              ]}</Rows>
+                ))}
+              </Rows>
             )}
           </Section>
         </Grid>

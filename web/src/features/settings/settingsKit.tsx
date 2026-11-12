@@ -6,18 +6,10 @@
  */
 import { Fragment, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Divider } from '@astryxdesign/core/Divider';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { Selector } from '@astryxdesign/core/Selector';
-import { Tab, TabList } from '@astryxdesign/core/TabList';
-import { Table, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ApiError, useMe } from '../../data/queries';
 import { PageHead, useIsPhone } from '../../ui/kit';
+import { Banner, Grid, HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
+import { Select } from '../../ui/controls';
 
 const SECTIONS = [
   { slug: 'nodes', label: 'Nodes' },
@@ -36,10 +28,8 @@ function SettingsTabs() {
   const section = SECTIONS.find((entry) => pathname.startsWith(`/settings/${entry.slug}`))?.slug ?? 'nodes';
   if (phone) {
     return (
-      <Selector
+      <Select
         label="Settings section"
-        variant="secondary"
-        width="100%"
         value={section}
         options={SECTIONS.map((entry) => ({ value: entry.slug, label: entry.label }))}
         onChange={(value) => navigate(`/settings/${value}`)}
@@ -47,11 +37,18 @@ function SettingsTabs() {
     );
   }
   return (
-    <TabList value={section} onChange={() => undefined} hasDivider size="sm" aria-label="Settings sections">
+    <nav className="tabs" aria-label="Settings sections">
       {SECTIONS.map((entry) => (
-        <Tab key={entry.slug} value={entry.slug} label={entry.label} href={`/settings/${entry.slug}`} />
+        <Link
+          key={entry.slug}
+          href={`/settings/${entry.slug}`}
+          className="tab"
+          aria-current={entry.slug === section ? 'page' : undefined}
+        >
+          {entry.label}
+        </Link>
       ))}
-    </TabList>
+    </nav>
   );
 }
 
@@ -71,9 +68,15 @@ export function SettingsPage({ children }: { children: ReactNode }) {
 /** Two columns on a desktop, one on a phone. */
 export function Two({ children }: { children: ReactNode }) {
   const phone = useIsPhone();
-  if (phone) return <VStack gap={5}>{children}</VStack>;
+  if (phone) {
+    return (
+      <VStack gap={5} width="100%">
+        {children}
+      </VStack>
+    );
+  }
   return (
-    <Grid columns={2} gap={6}>
+    <Grid columns={2} gap={6} style={{ alignItems: 'start' }}>
       {children}
     </Grid>
   );
@@ -81,41 +84,30 @@ export function Two({ children }: { children: ReactNode }) {
 
 /** Form fields: two across where there is room, one on a phone. */
 export function Fields({ children }: { children: ReactNode }) {
-  return (
-    <Grid columns={{ minWidth: 220, max: 2 }} gap={4}>
-      {children}
-    </Grid>
-  );
+  return <Grid columns={{ minWidth: 220, max: 2 }}>{children}</Grid>;
 }
 
 /** The current values beside the controls they describe. */
 export function Aside({ title, rows }: { title: string; rows: Array<[string, ReactNode]> }) {
   return (
     <VStack gap={2}>
-      <Text type="label" color="secondary">
-        {title}
-      </Text>
-      <VStack gap={0}>
-        {rows.map(([label, value], index) => (
-          <VStack key={label} gap={0}>
-            {index > 0 ? <Divider /> : null}
-            <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={2}>
-              <Text type="supporting">{label}</Text>
+      <Text type="label">{title}</Text>
+      <dl className="facts">
+        {rows.map(([label, value]) => (
+          <div className="fact" key={label}>
+            <dt>{label}</dt>
+            <dd>
               {value == null || value === '' ? (
-                <Text type="code" color="secondary">
-                  —
-                </Text>
+                <span className="code is-missing">—</span>
               ) : typeof value === 'string' || typeof value === 'number' ? (
-                <Text type="code" hasTabularNumbers justify="end">
-                  {value}
-                </Text>
+                <span className="code">{value}</span>
               ) : (
                 value
               )}
-            </HStack>
-          </VStack>
+            </dd>
+          </div>
         ))}
-      </VStack>
+      </dl>
     </VStack>
   );
 }
@@ -130,9 +122,9 @@ export function errorText(caught: unknown, fallback: string): string {
 export function Notice({ message }: { message: Message }) {
   if (!message) return null;
   return (
-    <VStack role={message.kind === 'error' ? 'alert' : 'status'} data-testid={message.kind === 'error' ? 'form-error' : 'form-ok'}>
-      <Banner status={message.kind === 'error' ? 'error' : 'success'} title={message.text} collapsible={false} />
-    </VStack>
+    <div role={message.kind === 'error' ? 'alert' : 'status'} data-testid={message.kind === 'error' ? 'form-error' : 'form-ok'}>
+      <Banner status={message.kind === 'error' ? 'error' : 'success'} title={message.text} />
+    </div>
   );
 }
 
@@ -143,7 +135,6 @@ export function AdminOnly() {
   return (
     <Banner
       status="info"
-      collapsible={false}
       title={`This session is read-only (${me.data?.mode === 'token' ? `token ${me.data.token_name}` : 'no admin session'}).`}
       description={
         <>
@@ -179,37 +170,38 @@ export function RowsTable<T extends Record<string, unknown>>({
 }: {
   label: string;
   data: T[];
-  columns: TableColumn<T>[];
+  columns: Array<TableColumn<T>>;
   idKey: (row: T) => string;
   testId?: string;
 }) {
   const phone = useIsPhone();
   if (!phone) {
     return (
-      <VStack data-testid={testId}>
-        <Table aria-label={label} data={data} columns={columns} idKey={idKey} density="compact" dividers="rows" />
-      </VStack>
+      <div data-testid={testId}>
+        <Table label={label} data={data} columns={columns} idKey={(row) => idKey(row)} />
+      </div>
     );
   }
   const [head, ...rest] = columns;
   const cell = (column: TableColumn<T>, row: T): ReactNode =>
-    column.renderCell ? column.renderCell(row) : String(row[column.key as keyof T] ?? '—');
+    column.renderCell ? column.renderCell(row) : String(row[column.key] ?? '—');
   return (
-    <VStack gap={0} role="list" aria-label={label} data-testid={testId}>
-      {data.map((row, index) => (
-        <Fragment key={idKey(row)}>
-          {index > 0 ? <Divider /> : null}
-          <VStack gap={2} paddingBlock={3} role="listitem">
+    <div className="rows" role="list" aria-label={label} data-testid={testId}>
+      {data.map((row) => (
+        <div key={idKey(row)} role="listitem" style={{ padding: '10px 0' }}>
+          <VStack gap={2}>
             {cell(head, row)}
             {rest.map((column) => (
-              <HStack key={String(column.key)} gap={3} vAlign="center" hAlign="between" wrap="wrap">
-                {column.header ? <Text type="supporting">{column.header}</Text> : null}
+              <HStack key={column.key} gap={3} vAlign="center" hAlign="between" wrap>
+                {column.header ? <span className="muted small">{column.header}</span> : null}
                 {cell(column, row)}
               </HStack>
             ))}
           </VStack>
-        </Fragment>
+        </div>
       ))}
-    </VStack>
+    </div>
   );
 }
+
+export { Fragment };

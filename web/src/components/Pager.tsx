@@ -44,7 +44,7 @@ export function Pager({
       <span className="pager-pages">
         <button
           type="button"
-          className="pager-pg pager-nav"
+          className="pager-pg"
           onClick={() => onChange(page - 1)}
           disabled={page === 0}
           aria-label="Previous page"
@@ -70,7 +70,7 @@ export function Pager({
         )}
         <button
           type="button"
-          className="pager-pg pager-nav"
+          className="pager-pg"
           onClick={() => onChange(page + 1)}
           disabled={page >= pages - 1}
           aria-label="Next page"

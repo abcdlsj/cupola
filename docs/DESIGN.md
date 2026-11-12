@@ -8,56 +8,69 @@ ground, and a thin meter beside every percentage. It keeps its own type (IBM
 Plex), its data-terminal blue and the parts Beszel does not have: agent
 sessions, apps, findings and URL-addressable tabs.
 
-The UI is built on **Astryx** (`@astryxdesign/core`, Meta's React design
-system). Pages compose Astryx components (`AppShell`, `TopNav`, `Layout`,
-`Card`, `Table`, `TabList`, `SegmentedControl`, `StatusDot`, `ProgressBar`,
-`Dialog`, `CommandPalette`, `Banner`, `EmptyState`) through Cupola's small
-vocabulary in `web/src/ui/kit.tsx` (`PageHead`, `Band`, `Section`, `KpiStrip`,
-`KpiCell`, `Meter`, `Figure`, `Facts`). There is no app stylesheet: layout and
-spacing come from component props, and no component sets a colour.
+The UI is built on **water.css** (v2.1.1, classless, MIT). Elements get their
+defaults from water.css; Cupola adds only its own furniture in
+`web/src/styles/cupola.css` and its own components in `web/src/ui/`:
+
+- `primitives.tsx`: `HStack`, `VStack`, `Grid`, `Text`, `Heading`, `Link`,
+  `Card`, `Badge`, `StatusDot`, `Table`, `List`, `EmptyState`, `Banner`,
+  `CodeBlock`, `Button`.
+- `controls.tsx`: the form layer — `TextInput`, `NumberInput`, `Select` (a
+  listbox combobox, not a native popup), `Checkbox`, `CheckboxGroup`, `Switch`,
+  `SegmentedControl`, `TabList`, and a native `<dialog>` `Dialog`.
+- `kit.tsx`: the page vocabulary — `PageHead`, `Band`, `Section`, `KpiStrip`,
+  `KpiCell`, `Meter`, `Figure`, `Facts`, `Stat`, `useIsPhone`.
+
+There is no runtime CSS-in-JS and nothing is fetched from a third party: the
+water.css sheet is vendored (`web/src/styles/water.css`), the UI face
+(Figtree) comes from the fontsource package and the mono face (IBM Plex Mono)
+from `web/public/fonts/`.
 
 Two themes on one layout, chosen with the header's sun/moon button or in
 **Settings → Appearance** (system, light, dark; kept per browser in
-`localStorage` under `cupola.theme`; `web/public/theme-init.js` applies it
-before first paint and `<Theme mode>` follows it).
+`localStorage` under `cupola.theme`; `web/public/theme-init.js` resolves it
+before first paint). **Light is the default**, even when the OS prefers dark;
+only an explicit choice (or `System`) changes it.
 
-- **Dark:** ground `#0b0c0e`, cards `#111316` with a 1 px `#22252a` border,
-  text `#f3f4f5`, muted `#9a9ea6`, accent `#4a8ad6`.
-- **Light:** ground `#f6f7f9`, white cards with a 1 px `#e2e5e9` border, ink
-  text, accent `#1b6c80`.
+- **Light:** ground `#f6f7f9`, white cards with a 1 px `#e3e6ea` border, ink
+  `#1c1f24`, muted `#5f6874`, accent `#1b6c80`.
+- **Dark (grey):** ground `#1a1c1e`, cards `#212427` with a 1 px `#34383d`
+  border, text `#e7e9eb`, muted `#a4a9ae`, accent `#5ba7bd`.
 
-The theme is `web/src/themes/cupola/cupolaTheme.ts`, a `defineTheme` over
-Astryx neutral that re-points the ground, card, border, ink, accent and type
-tokens. `npm run theme` builds it to `cupola.css` + `cupola.js`, which the app
-imports, so nothing is injected at runtime and no font is fetched from a third
-party (the neutral theme's Google Fonts import is never loaded). Chart hues are
-Astryx data tokens (`--color-data-categorical-*`); uPlot resolves them through
-`cssColor()` in `web/src/lib/theme.ts` and is rebuilt when the theme changes.
+The values live in `web/src/styles/tokens.css`, which also re-points the
+variables water.css reads (`--background-body`, `--background`, `--border`,
+`--links`, `--focus`, `--select-arrow`, …), so water.css's own controls,
+dialogs, code and selection take Cupola's tone without a second stylesheet.
+Chart hues are `--data-1…4`; uPlot resolves them through `cssColor()` in
+`web/src/lib/theme.ts` and is rebuilt when the theme changes.
 
 The earlier data-terminal sheet (seed `956138436`, borderless cards, icon
-rail, fleet profile) is kept in `docs/design/direction.json` for history.
+rail, fleet profile) is kept in `docs/design/direction.json` for history, and
+`docs/design/astryx-migration.md` records the Astryx evaluation that preceded
+this sheet.
 
 ## Type
 
-- UI: **IBM Plex Sans**, 400/500/600.
+- UI: **Figtree**, 400/500/600 (water.css's system stack is overridden).
 - Figures, timestamps, IDs: **IBM Plex Mono**, tabular. Units next to a
-  figure step back into the UI face, muted and slightly smaller (`<Fig>`).
+  figure step back into the UI face, muted and slightly smaller (`<Figure>`).
 - Sizes: 22 page title, 18 the systems card title, 15 card title, 14 body,
   13 card description and table figures, 12 table headers and axis labels.
 - Sentence case everywhere; no tracked uppercase.
 
 ## Shell
 
-- **Top bar (≥ 900 px):** Astryx `TopNav`: the Cupola mark and `cupola`, then
-  **Systems**, **Services**, **Apps**, **Alerts** (with the firing count) and
-  **Events** as text items; the selected item is Astryx's selected state. On
+- **Top bar (≥ 900 px):** the Cupola mark and `cupola`, then **Systems**,
+  **Services**, **Apps**, **Alerts** (with the firing count) and **Events** as
+  text items; the selected item takes a 1 px accent underline and a well
+  ground. On
   the right: search (⌘K), the theme switch and settings, each with a tooltip.
   A horizontal bar spends no width on navigation, so the systems table gets
   the full 1440.
-- **Content:** an Astryx `Layout` with a 1440 content width, 16 px padding
-  (12 on phones), 24 px between bands. The footer (`Cupola · raw 48 h, 1 m
-  30 d, 1 h 13 mo`, with the about link) is the layout's footer region, pinned
-  to the viewport edge while the content scrolls.
+- **Content:** a 1440 px column, 24 px padding (12 on phones), 24 px between
+  bands, in the shell's own scroll region. The footer (`Cupola · raw 48 h, 1 m
+  30 d, 1 h 13 mo`, with the about link) is pinned to the viewport edge while
+  the content scrolls.
 - **Phone (≤ 899 px):** the top bar keeps the mark and the three utilities;
   the five destinations move to a bottom bar of icons with a word, which takes
   the footer region, so it sits above the home indicator inside the safe area.
@@ -88,8 +101,8 @@ rail, fleet profile) is kept in `docs/design/direction.json` for history.
   chips); a filter or select inside a card sits on the ground tone as a well.
   Segmented toggles use a 1 px accent underline under the active word, not a
   filled block.
-- **Tables** are Astryx `Table` with data-driven columns (`pixel()` for
-  figures and meters, `proportional()` for the identity and free text),
+- **Tables** are the `Table` primitive with data-driven columns (`pixel()`
+  for figures and meters, `proportional()` for the identity and free text),
   compact density, row dividers, no zebra. The identity column is the widest,
   figures are right-aligned and tabular. Below 900 px a table is not reflowed:
   the page renders the same rows as stacked blocks (identity line, then
@@ -99,8 +112,8 @@ rail, fleet profile) is kept in `docs/design/direction.json` for history.
 
 ## Meters
 
-Every percentage in a table or list is a figure plus a 6 px Astryx
-`ProgressBar` (`<Meter>` in `ui/kit.tsx`).
+Every percentage in a table or list is a figure plus a 6 px bar
+(`<Meter>` in `ui/kit.tsx`, a `role="progressbar"` track).
 A healthy meter is the **accent**, not green: fifteen green bars make a colour
 field that hides the three real problems. The bar turns amber from 75 % and
 red from 90 %, and the figure takes the same colour. A missing reading prints
@@ -110,7 +123,7 @@ bar.
 
 ## Status
 
-A node's state is an Astryx `StatusDot`: green up, amber degraded, red
+A node's state is a 7 px dot (`<StatusDot>`): green up, amber degraded, red
 down, grey waiting. Headers that must be read add the word (`<StatusPill>`:
 Up, Degraded, Down, Waiting). Pills stay for kinds and results (OK, Failed,
 Never run, severity).
@@ -151,11 +164,11 @@ Never run, severity).
   the row and the rest one click away. The first screen shows the shapes, not
   every port. Raw events stay in the database and in each occurrence's own
   route; only the list folds.
-- **The command palette** (⌘K) is Astryx `CommandPalette`: one field, two
-  groups (`Screens`, `Systems`), a system row carrying its status dot and its
-  CPU and memory figures, and the default keyboard footer.
-- **Pagers** are Astryx `Pagination`: the range (`1–12 of 18`) on desktop, a
-  compact page count on phones; the page lives in the URL.
+- **The command palette** (⌘K) is a native `<dialog>`: one field, two groups
+  (`Screens`, `Systems`), a system row carrying its status dot and its CPU and
+  memory figures, and a keyboard footer.
+- **Pagers** are `<Pager>`: the range (`1–12 of 18` on the left) and page
+  numbers on the right; the page lives in the URL.
 
 ## Charts
 

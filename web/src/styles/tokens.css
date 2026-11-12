@@ -1,193 +1,115 @@
-/* Cupola design tokens. Two themes share one layout and one type system:
-   dark (near-black ground, bordered cards, data-terminal blue) and light (a
-   cool grey ground around white cards). See docs/DESIGN.md. Do not add hues:
-   colour is for data, status, meters and one selection line. The theme follows the system unless <html data-theme> says
-   otherwise (Settings → Appearance). */
-
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-400.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-500.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-600.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Sans";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-sans-700.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
-}
-@font-face {
-  font-family: "IBM Plex Mono";
-  font-style: normal;
-  font-weight: 500;
-  font-display: swap;
-  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
-}
+/* Cupola tokens. Light is the default; dark is a neutral grey, not a blue
+   slate. water.css owns the element defaults — this file only supplies the
+   values it reads, plus the app's own scale. No hue is used for chrome:
+   colour belongs to status, meters and the four data series. */
 
 :root {
-  --radius-card: 6px;
-  --radius-control: 999px;
-  --radius-chip: 4px;
-  --radius-pill: 999px;
-  --row-height: 42px;
-  --gap: 16px;
-  --pad: 32px;
-  --control-height: 34px;
-  --header-height: 56px;
+  --font-ui: 'Figtree Variable', Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* theme-init.js writes the visual viewport height here on every resize, so
-     this is only the pre-script fallback. 100vh first, because iOS before 15.4
-     does not know 100dvh; the @supports block below upgrades it. */
-  --app-height: 100vh;
-  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
-
-  --fs-title: 28px;
-  --fs-section: 22px;
-  --fs-kpi: 20px;
-  --fs-body: 14px;
-  --fs-small: 13px;
-  --fs-meta: 12px;
-
-  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-data: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  color-scheme: dark;
-  --ground: #171719;
-  --surface: #131217;
-  --raised: #211f23;
-  --border: #222224;
-  --rule: #1b1a1f;
-  --control: #3a3a3e;
-  --text: #ffffff;
-  --muted: #8a8c92;
-  --faint: #74767c;
-  --accent: #4a8ad6;
-  --positive: #44a282;
-  --negative: #e5566f;
-  --warning: #d9a441;
-  --chart-1: #f2f2f3;
-  --chart-2: #e5566f;
-  --chart-3: #4a8ad6;
-  --series-1: #5b9ed6;
-  --series-2: #4fae94;
-  --series-3: #d9a441;
-  --series-4: #e5566f;
-  --pill-positive-bg: #1b2828;
-  --pill-positive-ink: #5fc39c;
-  --pill-negative-bg: #2c1a20;
-  --pill-negative-ink: #e5566f;
-  --pill-warning-bg: #2a2416;
-  --pill-warning-ink: #d9a441;
-  --pill-neutral-bg: #211f23;
-  --pill-neutral-ink: #bdbdc0;
-  --wash: rgba(255, 255, 255, 0.035);
-  --track: #222224;
-  --grid: #1b1a1f;
-  --scrim: rgba(0, 0, 0, 0.62);
-  --shadow: 0 12px 28px rgba(0, 0, 0, 0.36);
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    color-scheme: light;
-    --ground: #f6f7f9;
-    --surface: #ffffff;
-    --raised: #f3f5f7;
-    --border: #e2e5e9;
-    --rule: #eef0f2;
-    --control: #cdd1d6;
-    --text: #131416;
-    --muted: #5b5f66;
-    --faint: #6b6b6b;
-    --accent: #1b6c80;
-    --positive: #1b7a4d;
-    --negative: #c4242a;
-    --warning: #9a5a00;
-    --chart-1: #1b6c80;
-    --chart-2: #c4242a;
-    --chart-3: #2f70bb;
-    --series-1: #2f70bb;
-    --series-2: #1b8a7a;
-    --series-3: #b07410;
-    --series-4: #c4242a;
-    --pill-positive-bg: #e3f6ea;
-    --pill-positive-ink: #14532d;
-    --pill-negative-bg: #fdecea;
-    --pill-negative-ink: #8a1c1f;
-    --pill-warning-bg: #fdf4e3;
-    --pill-warning-ink: #7a4300;
-    --pill-neutral-bg: #eef0f2;
-    --pill-neutral-ink: #353736;
-    --wash: rgba(0, 0, 0, 0.03);
-    --track: #eceef1;
-    --grid: #eceef1;
-    --scrim: rgba(19, 20, 22, 0.32);
-    --shadow: 0 12px 28px rgba(19, 20, 22, 0.1);
-  }
-}
-
-@supports (height: 100dvh) {
-  :root {
-    --app-height: 100dvh;
-  }
-}
-
-:root[data-theme="light"] {
-  color-scheme: light;
+  /* light: a cool grey ground around white cards */
   --ground: #f6f7f9;
-  --surface: #ffffff;
-  --raised: #f3f5f7;
-  --border: #e2e5e9;
-  --rule: #eef0f2;
-  --control: #cdd1d6;
-  --text: #131416;
-  --muted: #5b5f66;
-  --faint: #6b6b6b;
+  --card: #ffffff;
+  --well: #eef0f3;
+  --border: #e3e6ea;
+  --border-strong: #d3d7dd;
+  --text: #1c1f24;
+  --muted: #5f6874;
+  --faint: #8b939d;
   --accent: #1b6c80;
-  --positive: #1b7a4d;
-  --negative: #c4242a;
-  --warning: #9a5a00;
-  --chart-1: #1b6c80;
-  --chart-2: #c4242a;
-  --chart-3: #2f70bb;
-  --series-1: #2f70bb;
-  --series-2: #1b8a7a;
-  --series-3: #b07410;
-  --series-4: #c4242a;
-  --pill-positive-bg: #e3f6ea;
-  --pill-positive-ink: #14532d;
-  --pill-negative-bg: #fdecea;
-  --pill-negative-ink: #8a1c1f;
-  --pill-warning-bg: #fdf4e3;
-  --pill-warning-ink: #7a4300;
-  --pill-neutral-bg: #eef0f2;
-  --pill-neutral-ink: #353736;
-  --wash: rgba(0, 0, 0, 0.03);
-  --track: #eceef1;
-  --grid: #eceef1;
-  --scrim: rgba(19, 20, 22, 0.32);
-  --shadow: 0 12px 28px rgba(19, 20, 22, 0.1);
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(27, 108, 128, 0.14);
+  --track: #e5e8ec;
+  --ok: #1e7a4b;
+  --warn: #96560a;
+  --bad: #b3261e;
+  --shadow: 0 12px 32px rgba(20, 24, 28, 0.18);
+  --data-1: #2a6fb0;
+  --data-2: #1f8a7a;
+  --data-3: #b26a1f;
+  --data-4: #b03b3b;
+
+  --fs-page: 22px;
+  --fs-head: 17px;
+  --fs-card: 15px;
+  --fs-body: 14px;
+  --fs-table: 13px;
+  --fs-small: 12px;
+  --fs-figure: 24px;
+
+  --radius-card: 6px;
+  --radius-control: 6px;
+  --radius-pill: 999px;
+
+  --row-height: 40px;
+  --control-height: 34px;
+  --header-height: 52px;
+  --pad: 16px;
+  --pad-wide: 24px;
+  --gap: 12px;
+  --content-width: 1440px;
+
+  /* what water.css reads */
+  --background-body: var(--ground);
+  --background: var(--well);
+  --background-alt: var(--card);
+  --selection: var(--accent-soft);
+  --text-main: var(--text);
+  --text-bright: var(--text);
+  --text-muted: var(--muted);
+  --links: var(--accent);
+  --focus: var(--accent-soft);
+  --code: var(--text);
+  --button-base: var(--well);
+  --button-hover: var(--border);
+  --form-text: var(--text);
+  --form-placeholder: var(--faint);
+  --scrollbar-thumb: #c4c9cf;
+  --scrollbar-thumb-hover: #aab0b7;
+  --variable: var(--text);
+  --highlight: var(--accent-soft);
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='%235f6874'%3E%3Cpath d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --ground: #1a1c1e;
+  --card: #212427;
+  --well: #2a2e32;
+  --border: #34383d;
+  --border-strong: #43484e;
+  --text: #e7e9eb;
+  --muted: #a4a9ae;
+  --faint: #7c8288;
+  --accent: #5ba7bd;
+  --accent-ink: #10171a;
+  --accent-soft: rgba(91, 167, 189, 0.2);
+  --track: #303438;
+  --ok: #5cb98a;
+  --warn: #d9a441;
+  --bad: #e0685f;
+  --shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --data-1: #6aa9e0;
+  --data-2: #4fc2ab;
+  --data-3: #d99a55;
+  --data-4: #e0786f;
+
+  --selection: var(--accent-soft);
+  --background-body: var(--ground);
+  --background: var(--well);
+  --background-alt: var(--card);
+  --text-main: var(--text);
+  --text-bright: var(--text);
+  --text-muted: var(--muted);
+  --links: var(--accent);
+  --focus: var(--accent-soft);
+  --code: var(--text);
+  --button-base: var(--well);
+  --button-hover: var(--border-strong);
+  --form-text: var(--text);
+  --form-placeholder: var(--faint);
+  --scrollbar-thumb: #3d4247;
+  --scrollbar-thumb-hover: #4c5258;
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='%23a4a9ae'%3E%3Cpath d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  color-scheme: dark;
 }

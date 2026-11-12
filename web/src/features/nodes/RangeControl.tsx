@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { SegmentedControl, SegmentedControlItem } from '../../ui/controls';
 
 /** `short` is the segment text (it has to fit a 390 px phone); `label` is prose. */
 export const RANGES = [
@@ -33,7 +33,7 @@ export function rangeLabel(id: string): string {
 export function RangeSelect() {
   const [value, setValue] = useRange();
   return (
-    <SegmentedControl label="Chart window" size="sm" value={value} onChange={setValue}>
+    <SegmentedControl label="Chart window" value={value} onChange={setValue}>
       {RANGES.map((range) => (
         <SegmentedControlItem key={range.id} value={range.id} label={range.short} />
       ))}

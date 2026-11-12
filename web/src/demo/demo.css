@@ -1,7 +1,0 @@
-/**
- * One decision for the whole demo: every figure is tabular, because the fleet is
- * read by comparing numbers down a column and across a row.
- */
-:root {
-  font-variant-numeric: tabular-nums;
-}

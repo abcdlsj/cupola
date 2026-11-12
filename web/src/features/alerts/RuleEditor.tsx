@@ -1,23 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Button } from '@astryxdesign/core/Button';
-import { CheckboxList, CheckboxListItem } from '@astryxdesign/core/CheckboxList';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { NumberInput } from '@astryxdesign/core/NumberInput';
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { Selector } from '@astryxdesign/core/Selector';
-import { Switch } from '@astryxdesign/core/Switch';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { MissingThing } from '../../components/NotFoundPage';
 import { LoadingPage } from '../../components/States';
 import { useChannels, useDeleteRule, useFleet, useMe, useRule, useSaveRule, ApiError } from '../../data/queries';
 import type { AlertRule, Severity } from '../../data/types';
 import { PageHead, Section, useIsPhone } from '../../ui/kit';
+import { Banner, Button, Grid, HStack, Link, Text, VStack } from '../../ui/primitives';
+import {
+  CheckboxGroup,
+  NumberInput,
+  SegmentedControl,
+  SegmentedControlItem,
+  Select,
+  Switch,
+  TextInput,
+} from '../../ui/controls';
 
 const METRICS = ['cpu', 'mem', 'load', 'disk', 'inode', 'temp', 'psi_cpu', 'psi_io'];
 const KINDS = ['node', 'service', 'container', 'system', 'network', 'action', 'disk', 'agent'];
@@ -88,9 +85,6 @@ export function RuleEditorPage() {
   }
   if ((editing && existing.isPending) || me.isPending) return <LoadingPage title="Rule" />;
 
-  const fieldGrid = { minWidth: 220, repeat: 'fit' as const };
-  const size = phone ? 'lg' : 'md';
-
   return (
     <>
       <PageHead
@@ -107,7 +101,6 @@ export function RuleEditorPage() {
           status="info"
           title="Read-only"
           description="This session uses an API token. Sign in as the hub admin to edit rules."
-          collapsible={false}
         />
       ) : (
         <VStack maxWidth={880}>
@@ -120,7 +113,7 @@ export function RuleEditorPage() {
               }}
             >
               <VStack gap={5}>
-                <Grid columns={fieldGrid} gap={4}>
+                <Grid columns={{ minWidth: 220, max: 2 }}>
                   <TextInput
                     label="Name"
                     isRequired
@@ -129,7 +122,7 @@ export function RuleEditorPage() {
                     onChange={(value) => update('name', value)}
                   />
                   <VStack gap={1}>
-                    <Text type="label">Type</Text>
+                    <span className="field-label">Type</span>
                     <SegmentedControl
                       label="Type"
                       value={form.type ?? 'metric'}
@@ -139,13 +132,13 @@ export function RuleEditorPage() {
                       <SegmentedControlItem value="event" label="Event" />
                     </SegmentedControl>
                   </VStack>
-                  <Selector
+                  <Select
                     label="Severity"
                     value={form.severity ?? 'warning'}
                     options={SEVERITIES}
                     onChange={(value) => update('severity', value as Severity)}
                   />
-                  <Selector
+                  <Select
                     label="Node"
                     value={form.node_id || ANY}
                     options={[
@@ -154,7 +147,7 @@ export function RuleEditorPage() {
                     ]}
                     onChange={(value) => update('node_id', value === ANY ? '' : value)}
                   />
-                  <Selector
+                  <Select
                     label="Channel"
                     value={form.channel_id || ANY}
                     options={[
@@ -167,22 +160,21 @@ export function RuleEditorPage() {
                     label="Cooldown"
                     units="s"
                     min={0}
-                    isIntegerOnly
                     value={form.cooldown_sec ?? 300}
-                    onChange={(value) => update('cooldown_sec', value)}
+                    onChange={(value) => update('cooldown_sec', value ?? 0)}
                   />
                 </Grid>
 
                 {form.type === 'metric' ? (
-                  <Grid columns={fieldGrid} gap={4}>
-                    <Selector
+                  <Grid columns={{ minWidth: 220, max: 2 }}>
+                    <Select
                       label="Metric"
                       value={form.metric ?? 'cpu'}
                       options={METRICS}
                       onChange={(value) => update('metric', value)}
                     />
                     <VStack gap={1}>
-                      <Text type="label">Comparator</Text>
+                      <span className="field-label">Comparator</span>
                       <SegmentedControl
                         label="Comparator"
                         value={form.comparator ?? 'gt'}
@@ -196,48 +188,38 @@ export function RuleEditorPage() {
                       label="Threshold"
                       step={0.1}
                       value={form.threshold ?? 0}
-                      onChange={(value) => update('threshold', value)}
+                      onChange={(value) => update('threshold', value ?? 0)}
                     />
                     <NumberInput
                       label="Duration"
                       units="s"
                       min={0}
-                      isIntegerOnly
                       value={form.duration_sec ?? 0}
-                      onChange={(value) => update('duration_sec', value)}
+                      onChange={(value) => update('duration_sec', value ?? 0)}
                     />
                   </Grid>
                 ) : (
-                  <CheckboxList
+                  <CheckboxGroup
                     label="Event kinds"
+                    options={KINDS}
                     value={form.kinds ?? []}
                     onChange={(values) => update('kinds', values)}
-                  >
-                    <Grid columns={{ minWidth: 160, repeat: 'fit' }} gap={0}>
-                      {KINDS.map((kind) => (
-                        <CheckboxListItem key={kind} value={kind} label={kind} />
-                      ))}
-                    </Grid>
-                  </CheckboxList>
+                  />
                 )}
 
-                <Switch label="Enabled" value={form.enabled ?? true} onChange={(checked) => update('enabled', checked)} />
+                <Switch label="Enabled" checked={form.enabled ?? true} onChange={(checked) => update('enabled', checked)} />
 
-                {error ? <Banner status="error" title={error} collapsible={false} /> : null}
+                {error ? <Banner status="error" title={error} /> : null}
                 {save.isError && !error ? (
-                  <Banner
-                    status="error"
-                    title={save.error instanceof Error ? save.error.message : 'Save failed'}
-                    collapsible={false}
-                  />
+                  <Banner status="error" title={save.error instanceof Error ? save.error.message : 'Save failed'} />
                 ) : null}
 
-                <HStack gap={2} vAlign="center" hAlign="end" wrap="wrap">
+                <HStack gap={2} vAlign="center" hAlign="end" wrap>
                   {editing ? (
                     <Button
                       label="Delete rule"
-                      variant="destructive"
-                      size={size}
+                      variant="danger"
+                      size={phone ? 'lg' : 'md'}
                       isLoading={remove.isPending}
                       onClick={async () => {
                         if (!ruleId) return;
@@ -247,8 +229,8 @@ export function RuleEditorPage() {
                       }}
                     />
                   ) : null}
-                  <Button label="Cancel" variant="ghost" size={size} href="/alerts" />
-                  <Button type="submit" label="Save rule" variant="primary" size={size} isLoading={save.isPending} />
+                  <Button label="Cancel" variant="ghost" size={phone ? 'lg' : 'md'} href="/alerts" />
+                  <Button type="submit" label="Save rule" variant="primary" size={phone ? 'lg' : 'md'} isLoading={save.isPending} />
                 </HStack>
               </VStack>
             </form>
@@ -257,8 +239,8 @@ export function RuleEditorPage() {
       )}
       <VStack maxWidth={880}>
         <Text type="supporting">
-          Metric rules evaluate on every poll and need the condition to hold for the duration. Event rules evaluate as events arrive. Webhook
-          URLs and channel secrets are encrypted at rest; delivery is signed with HMAC-SHA256 when a secret is set.
+          Metric rules evaluate on every poll and need the condition to hold for the duration. Event rules evaluate as events arrive.
+          Webhook URLs and channel secrets are encrypted at rest; delivery is signed with HMAC-SHA256 when a secret is set.
         </Text>
       </VStack>
     </>

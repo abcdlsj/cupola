@@ -1,15 +1,8 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState, type MouseEvent } from 'react';
-import { Divider } from '@astryxdesign/core/Divider';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { Selector } from '@astryxdesign/core/Selector';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
+import { EmptyState, HStack, Link, List, ListItem, StatusDot, Table, Text, VStack } from '../ui/primitives';
+import { SegmentedControl, SegmentedControlItem, Select } from '../ui/controls';
+import type { TableColumn } from '../ui/primitives';
 import type { FleetService, Service } from '../data/types';
 import { duration } from '../lib/format';
 import { useIsPhone } from '../ui/kit';
@@ -84,19 +77,18 @@ export function UnitState({
     .map(([key, label]) => ({ value: key, label: `${label} ${counts[key] ?? 0}` }));
   if (phone) {
     return (
-      <Selector
+      <Select
         label="Filter by state"
         isLabelHidden
-        size="md"
-        variant="secondary"
         value={active}
         options={options}
         onChange={(next) => set(next ?? 'all')}
+        width={180}
       />
     );
   }
   return (
-    <SegmentedControl label="Filter by state" size="sm" value={active} onChange={set}>
+    <SegmentedControl label="Filter by state" value={active} onChange={set}>
       {options.map((option) => (
         <SegmentedControlItem key={option.value} value={option.value} label={option.label} />
       ))}
@@ -148,8 +140,6 @@ export function UnitTable({
       <EmptyState
         title="No unit matches this filter"
         description="Clear the filter or pick another state to see more units."
-        isCompact
-        headingLevel={3}
       />
     );
   }
@@ -175,8 +165,8 @@ export function UnitTable({
 
   const name = (row: UnitRow) =>
     row.nodeId || open ? (
-      <Link href={row.nodeId ? unitHref(row.nodeId, row.unit.name) : '#'} onClick={open?.(row.unit)} maxLines={1}>
-        <Text type="code">{row.unit.name}</Text>
+      <Link href={row.nodeId ? unitHref(row.nodeId, row.unit.name) : '#'} onClick={open?.(row.unit)} maxLines={1} type="code">
+        {row.unit.name}
       </Link>
     ) : (
       <Text type="code" maxLines={1}>
@@ -184,52 +174,45 @@ export function UnitTable({
       </Text>
     );
 
+  const meta = (row: UnitRow) =>
+    [
+      showNode ? row.nodeName : null,
+      stateWord(row.unit.active_state),
+      showSubState && row.unit.sub_state !== stateWord(row.unit.active_state) && row.unit.sub_state !== row.unit.active_state
+        ? row.unit.sub_state
+        : null,
+      row.unit.enabled,
+      `${row.unit.restarts ?? 0} ${row.unit.restarts === 1 ? 'restart' : 'restarts'}`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
   if (phone) {
     return (
-      <VStack gap={0}>
-        {data.map((row, index) => (
-          <VStack key={row.key} gap={0}>
-            {index > 0 ? <Divider /> : null}
-            <VStack gap={1} paddingBlock={3}>
-              <HStack gap={2} vAlign="center" hAlign="between">
-                <HStack gap={1.5} vAlign="center">
-                  <StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />
-                  {name(row)}
-                </HStack>
-                <Text type="code" size="sm" hasTabularNumbers textWrap="nowrap" color="secondary">
-                  {row.changed}
-                </Text>
-              </HStack>
-              {row.unit.description ? (
-                <Text type="supporting" maxLines={1}>
-                  {row.unit.description}
-                </Text>
-              ) : null}
-              <Text type="supporting" maxLines={1}>
-                {[
-                  showNode ? row.nodeName : null,
-                  stateWord(row.unit.active_state),
-                  showSubState && row.unit.sub_state !== stateWord(row.unit.active_state) && row.unit.sub_state !== row.unit.active_state
-                    ? row.unit.sub_state
-                    : null,
-                  row.unit.enabled,
-                  `${row.unit.restarts ?? 0} ${row.unit.restarts === 1 ? 'restart' : 'restarts'}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
+      <List label="Units">
+        {data.map((row) => (
+          <ListItem
+            key={row.key}
+            href={row.nodeId ? unitHref(row.nodeId, row.unit.name) : undefined}
+            startContent={<StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />}
+            label={<span className="code">{row.unit.name}</span>}
+            description={`${row.unit.description ? `${row.unit.description} · ` : ''}${meta(row)} · ${row.changed}`}
+            endContent={
+              <Text type="code" size="sm" color="secondary" textWrap="nowrap">
+                {row.changed}
               </Text>
-            </VStack>
-          </VStack>
+            }
+          />
         ))}
-      </VStack>
+      </List>
     );
   }
 
-  const columns: TableColumn<UnitRow>[] = [
+  const columns: Array<TableColumn<UnitRow>> = [
     {
       key: 'unit',
       header: 'Unit',
-      width: pixel(380),
+      width: '100%',
       renderCell: (row) => (
         <HStack gap={2} vAlign="center">
           <StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />
@@ -249,7 +232,7 @@ export function UnitTable({
     columns.push({
       key: 'node',
       header: 'System',
-      width: proportional(1, { minWidth: 120 }),
+      width: '160px',
       renderCell: (row) =>
         row.nodeName && row.nodeId ? (
           <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} maxLines={1}>
@@ -265,7 +248,7 @@ export function UnitTable({
   columns.push({
     key: 'state',
     header: 'State',
-    width: pixel(120),
+    width: '120px',
     renderCell: (row) => (
       <Text type="supporting" textWrap="nowrap">
         {stateWord(row.unit.active_state)}
@@ -276,7 +259,7 @@ export function UnitTable({
     columns.push({
       key: 'sub',
       header: 'Sub state',
-      width: pixel(120),
+      width: '120px',
       renderCell: (row) => (
         <Text type="supporting" textWrap="nowrap">
           {row.unit.sub_state || '—'}
@@ -288,10 +271,10 @@ export function UnitTable({
     {
       key: 'restarts',
       header: 'Restarts',
-      width: pixel(96),
+      width: '96px',
       align: 'end',
       renderCell: (row) => (
-        <Text type="code" hasTabularNumbers color={row.unit.restarts ? undefined : 'secondary'}>
+        <Text type="code" color={row.unit.restarts ? undefined : 'secondary'}>
           {row.unit.restarts ? `${row.unit.restarts}×` : '0'}
         </Text>
       ),
@@ -299,15 +282,15 @@ export function UnitTable({
     {
       key: 'changed',
       header: 'Changed',
-      width: pixel(120),
+      width: '120px',
       align: 'end',
       renderCell: (row) => (
-        <Text type="code" hasTabularNumbers textWrap="nowrap" color={row.changed === '—' ? 'secondary' : undefined}>
+        <Text type="code" textWrap="nowrap" color={row.changed === '—' ? 'secondary' : undefined}>
           {row.changed}
         </Text>
       ),
     },
   );
 
-  return <Table data={data} columns={columns} idKey="key" density="compact" dividers="rows" hasHover />;
+  return <Table data={data} columns={columns} idKey="key" label="Units" hasHover />;
 }

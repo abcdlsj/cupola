@@ -1,24 +1,18 @@
-import { useMemo, type ReactNode } from 'react';
+import { Children, useMemo, type ReactNode } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
-import { Card } from '@astryxdesign/core/Card';
-import { Divider } from '@astryxdesign/core/Divider';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ChartCard } from '../../components/ChartCard';
 import type { ChartSeries } from '../../components/SeriesChart';
 import { Empty } from '../../components/States';
 import { useSeries } from '../../data/queries';
-import type { NodeView, ProcessInfo, SMARTDevice, SeriesPoint } from '../../data/types';
+import type { NodeView, ProcessInfo, SeriesPoint, SMARTDevice } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
 import { days, duration, netRate, percent, rate, size } from '../../lib/format';
-import { Band, Facts, Meter, Section, useIsPhone } from '../../ui/kit';
+import { Band, Facts, Meter, Section, Stat, useIsPhone } from '../../ui/kit';
+import { Grid, HStack, Link, StatusDot, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
 import { percentCeiling } from './NodeLists';
 import { rangeLabel, useRange } from './RangeControl';
+
+export { Stat };
 
 export function useSnapshot() {
   return useOutletContext<NodeView>();
@@ -57,34 +51,9 @@ export function WaitingForSnapshot({ view }: { view: NodeView }) {
   );
 }
 
-/** A small label and a mono figure on one line. */
-export function Stat({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <HStack gap={1.5} vAlign="center">
-      <Text type="supporting">{label}</Text>
-      {typeof children === 'string' || typeof children === 'number' ? (
-        <Text type="code" hasTabularNumbers textWrap="nowrap">
-          {children}
-        </Text>
-      ) : (
-        children
-      )}
-    </HStack>
-  );
-}
-
 /** Rows of a list, hairlines between. */
-export function Rows({ children }: { children: ReactNode[] }) {
-  return (
-    <VStack gap={0}>
-      {children.map((child, index) => (
-        <VStack key={index} gap={0}>
-          {index > 0 ? <Divider /> : null}
-          {child}
-        </VStack>
-      ))}
-    </VStack>
-  );
+export function Rows({ children }: { children: ReactNode }) {
+  return <div className="rows">{Children.toArray(children)}</div>;
 }
 
 const CHART_GRID = { minWidth: 320, max: 3, repeat: 'fit' } as const;
@@ -108,7 +77,7 @@ export function CpuPage() {
   return (
     <>
       <Band title="Utilisation" desc={`${rangeLabel(range)} · ${snap.node.cores} threads`} first>
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <ChartCard
             title="CPU utilisation and pressure"
             desc="Pressure is the share of time runnable tasks waited for a CPU; the dashed line is the 80 % alert."
@@ -146,11 +115,9 @@ export function CpuPage() {
           <Grid columns={{ minWidth: 240, repeat: 'fill' }} gap={0} columnGap={6}>
             {cores.map((value, index) => (
               <HStack key={index} gap={3} vAlign="center" paddingBlock={1.5}>
-                <VStack width={28}>
-                  <Text type="code" color="secondary" hasTabularNumbers>
-                    {index}
-                  </Text>
-                </VStack>
+                <span className="code muted" style={{ width: 28 }}>
+                  {index}
+                </span>
                 <Meter value={value} label={`Thread ${index}`} tone="neutral" width={140} />
               </HStack>
             ))}
@@ -179,14 +146,12 @@ export function MemoryPage() {
     .map((proc) => ({ pid: proc.pid, proc }));
   const swapPct = snap.memory.swap_total ? (snap.memory.swap_used / snap.memory.swap_total) * 100 : null;
   const share = (proc: ProcessInfo) => (total ? (proc.rss_bytes / total) * 100 : null);
-  const procLink = (proc: ProcessInfo) => (
-    <Link href={`/nodes/${nodeId}/processes/${proc.pid}`}>{proc.name}</Link>
-  );
-  const columns: TableColumn<ResidentRow>[] = [
+  const procLink = (proc: ProcessInfo) => <Link href={`/nodes/${nodeId}/processes/${proc.pid}`}>{proc.name}</Link>;
+  const columns: Array<TableColumn<ResidentRow>> = [
     {
       key: 'name',
       header: 'Process',
-      width: proportional(1, { minWidth: 200 }),
+      width: '100%',
       renderCell: ({ proc }) => (
         <VStack gap={0}>
           <Text maxLines={1}>{procLink(proc)}</Text>
@@ -199,18 +164,14 @@ export function MemoryPage() {
     {
       key: 'pid',
       header: 'PID',
-      width: pixel(96),
+      width: '96px',
       align: 'end',
-      renderCell: ({ proc }) => (
-        <Text type="code" hasTabularNumbers>
-          {proc.pid}
-        </Text>
-      ),
+      renderCell: ({ proc }) => <Text type="code">{proc.pid}</Text>,
     },
     {
       key: 'memory',
       header: 'Memory',
-      width: pixel(220),
+      width: '220px',
       renderCell: ({ proc }) => (
         <Meter
           value={share(proc)}
@@ -223,19 +184,15 @@ export function MemoryPage() {
     {
       key: 'cpu',
       header: 'CPU',
-      width: pixel(96),
+      width: '96px',
       align: 'end',
-      renderCell: ({ proc }) => (
-        <Text type="code" hasTabularNumbers>
-          {percent(proc.cpu_percent, 1)}
-        </Text>
-      ),
+      renderCell: ({ proc }) => <Text type="code">{percent(proc.cpu_percent, 1)}</Text>,
     },
   ];
   return (
     <>
       <Band title="Usage" desc={`${rangeLabel(range)} · ${size(total)} installed`} first>
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <ChartCard
             title="Memory usage"
             desc={`Used share of ${size(total)} over the window.`}
@@ -264,7 +221,7 @@ export function MemoryPage() {
               />
               {swapPct != null ? (
                 <HStack gap={3} vAlign="center" hAlign="between">
-                  <Text type="supporting">Swap used</Text>
+                  <span className="muted small">Swap used</span>
                   <Meter value={swapPct} label="Swap used" width={140} />
                 </HStack>
               ) : null}
@@ -284,11 +241,11 @@ export function MemoryPage() {
                     {procLink(proc)}
                     <Text type="supporting">{proc.user}</Text>
                   </HStack>
-                  <Text type="code" color="secondary" hasTabularNumbers>
+                  <Text type="code" color="secondary">
                     {proc.pid}
                   </Text>
                 </HStack>
-                <HStack gap={4} vAlign="center" wrap="wrap">
+                <HStack gap={4} vAlign="center" wrap>
                   <Meter value={share(proc)} text={size(proc.rss_bytes)} tone="neutral" label={`${proc.name} resident memory`} width={140} />
                   <Stat label="CPU">{percent(proc.cpu_percent, 1)}</Stat>
                 </HStack>
@@ -296,7 +253,7 @@ export function MemoryPage() {
             ))}
           </Rows>
         ) : (
-          <Table data={top} columns={columns} idKey="pid" density="compact" dividers="rows" hasHover />
+          <Table data={top} columns={columns} idKey="pid" label="Largest residents" hasHover />
         )}
       </Band>
     </>
@@ -332,7 +289,7 @@ export function StoragePage() {
   return (
     <>
       <Band title="Throughput" desc={`${rangeLabel(range)} · all sampled block devices`} first>
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <ChartCard
             title="Disk I/O"
             desc="Bytes per second across the sampled block devices."
@@ -364,15 +321,15 @@ export function StoragePage() {
               <VStack key={disk.device + disk.mount} gap={2} paddingBlock={3}>
                 <HStack gap={3} vAlign="center" hAlign="between">
                   <VStack gap={0.5}>
-                    <Text type="code">{disk.mount}</Text>
-                    <Text type="supporting">
+                    <span className="code">{disk.mount}</span>
+                    <span className="muted small">
                       {disk.device} · {disk.fstype}
                       {disk.read_only ? ' · read-only' : ''}
-                    </Text>
+                    </span>
                   </VStack>
                   <Meter value={disk.used_pct} label={`${disk.mount} used`} width={phone ? 120 : 220} />
                 </HStack>
-                <HStack gap={5} vAlign="center" wrap="wrap">
+                <HStack gap={5} vAlign="center" wrap>
                   <Stat label="Used">{`${size(disk.used)} of ${size(disk.total)}`}</Stat>
                   <Stat label="Inodes">
                     <Meter value={disk.inode_pct} label={`${disk.mount} inodes used`} width={64} />
@@ -390,20 +347,18 @@ export function StoragePage() {
       </Band>
       {snap.smart.length > 0 ? (
         <Band title="Drive health" desc="SMART and NVMe self-reports">
-          <Grid columns={{ minWidth: 300, repeat: 'fill' }} gap={3}>
+          <Grid columns={{ minWidth: 300, repeat: 'fill' }}>
             {snap.smart.map((drive) => (
-              <Card key={drive.device} padding={4}>
+              <section className="panel" key={drive.device} style={{ padding: 16 }}>
                 <VStack gap={3}>
                   <HStack gap={2} vAlign="center" hAlign="between">
                     <VStack gap={0.5}>
-                      <Text type="code">{drive.device}</Text>
-                      <Text type="supporting" maxLines={1}>
-                        {drive.model || drive.type}
-                      </Text>
+                      <span className="code">{drive.device}</span>
+                      <span className="muted small">{drive.model || drive.type}</span>
                     </VStack>
                     <HStack gap={1.5} vAlign="center">
                       <StatusDot variant={healthTone(drive)} label={drive.error ? 'unreadable' : drive.health || 'unknown'} />
-                      <Text type="supporting">{drive.error ? 'unreadable' : drive.health || '—'}</Text>
+                      <span className="muted small">{drive.error ? 'unreadable' : drive.health || '—'}</span>
                     </HStack>
                   </HStack>
                   <Facts
@@ -415,7 +370,7 @@ export function StoragePage() {
                     ]}
                   />
                 </VStack>
-              </Card>
+              </section>
             ))}
           </Grid>
         </Band>
@@ -444,7 +399,7 @@ export function NetworkPage() {
   return (
     <>
       <Band title="Traffic" desc={`${rangeLabel(range)} · loopback excluded`} first>
-        <Grid columns={CHART_GRID} gap={3}>
+        <Grid columns={CHART_GRID}>
           <ChartCard
             title="Bandwidth"
             desc={`Bits per second over ${ifaces.length} ${ifaces.length === 1 ? 'interface' : 'interfaces'}, loopback excluded.`}
@@ -476,40 +431,34 @@ export function NetworkPage() {
         {snap.network.length === 0 ? (
           <Empty>No interface reported.</Empty>
         ) : (
-          <Grid columns={{ minWidth: 260, repeat: 'fill' }} gap={3}>
+          <Grid columns={{ minWidth: 260, repeat: 'fill' }}>
             {snap.network.map((iface) => (
-              <Card key={iface.iface} padding={4}>
+              <section className="panel" key={iface.iface} style={{ padding: 16 }}>
                 <VStack gap={3}>
                   <HStack gap={2} vAlign="center" hAlign="between">
                     <HStack gap={1.5} vAlign="center">
                       <StatusDot variant={iface.up ? 'success' : 'neutral'} label={iface.up ? 'up' : 'down'} tooltip={iface.up ? 'up' : 'down'} />
-                      <Text type="code">{iface.iface}</Text>
+                      <span className="code">{iface.iface}</span>
                     </HStack>
-                    <Text type="code" color="secondary" hasTabularNumbers>
-                      {iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}
-                    </Text>
+                    <span className="code muted">{iface.speed_mbps ? `${iface.speed_mbps} Mbit/s` : '—'}</span>
                   </HStack>
-                  <HStack gap={5} wrap="wrap">
+                  <HStack gap={5} wrap>
                     <VStack gap={0.5}>
-                      <Text type="supporting">In</Text>
-                      <Text type="code" hasTabularNumbers>
-                        {netRate(iface.rx_bps)}
-                      </Text>
+                      <span className="muted small">In</span>
+                      <span className="code">{netRate(iface.rx_bps)}</span>
                     </VStack>
                     <VStack gap={0.5}>
-                      <Text type="supporting">Out</Text>
-                      <Text type="code" hasTabularNumbers>
-                        {netRate(iface.tx_bps)}
-                      </Text>
+                      <span className="muted small">Out</span>
+                      <span className="code">{netRate(iface.tx_bps)}</span>
                     </VStack>
                   </HStack>
-                  <HStack gap={4} wrap="wrap">
+                  <HStack gap={4} wrap>
                     <Stat label="Errors">{iface.rx_errors + iface.tx_errors}</Stat>
                     <Stat label="Drops">{iface.rx_drops + iface.tx_drops}</Stat>
                     <Stat label="Driver">{iface.driver || '—'}</Stat>
                   </HStack>
                 </VStack>
-              </Card>
+              </section>
             ))}
           </Grid>
         )}

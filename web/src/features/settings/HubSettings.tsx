@@ -1,19 +1,6 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@astryxdesign/core/Badge';
-import { Banner } from '@astryxdesign/core/Banner';
-import { Button } from '@astryxdesign/core/Button';
-import { CodeBlock } from '@astryxdesign/core/CodeBlock';
-import { Dialog, DialogHeader } from '@astryxdesign/core/Dialog';
-import { Divider } from '@astryxdesign/core/Divider';
-import { Grid } from '@astryxdesign/core/Grid';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Layout, LayoutContent, LayoutFooter } from '@astryxdesign/core/Layout';
-import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingRows } from '../../components/States';
 import {
   useApplyUpdate,
@@ -28,6 +15,8 @@ import {
 import { eventTime, relative } from '../../lib/format';
 import { setThemePreference, useResolvedTheme, useThemePreference, type ThemePreference } from '../../lib/theme';
 import { Band, Facts, Figure } from '../../ui/kit';
+import { Badge, Banner, Button, CodeBlock, Grid, HStack, Text, VStack } from '../../ui/primitives';
+import { Dialog, SegmentedControl, SegmentedControlItem, TextInput } from '../../ui/controls';
 import { Aside, errorText, Fields, Notice, SettingsPage, Two, type Message } from './settingsKit';
 
 export function RetentionSettingsPage() {
@@ -42,7 +31,7 @@ export function RetentionSettingsPage() {
           <ErrorPanel what="The hub settings could not be loaded." onRetry={() => void settings.refetch()} />
         ) : (
           <Two>
-            <Grid columns={{ minWidth: 140, max: 3 }} gap={4}>
+            <Grid columns={{ minWidth: 140, max: 3 }}>
               {(
                 [
                   ['Raw samples', `${data.poll_interval_sec} s`, `kept ${data.retention_raw_hours} h`],
@@ -51,11 +40,9 @@ export function RetentionSettingsPage() {
                 ] as const
               ).map(([label, step, kept]) => (
                 <VStack key={label} gap={1}>
-                  <Text type="supporting">{label}</Text>
+                  <span className="muted small">{label}</span>
                   <Figure value={step} size="heading" />
-                  <Text type="code" color="secondary">
-                    {kept}
-                  </Text>
+                  <span className="code muted">{kept}</span>
                 </VStack>
               ))}
             </Grid>
@@ -78,7 +65,7 @@ export function AppearanceSettingsPage() {
   const theme = useResolvedTheme();
   return (
     <SettingsPage>
-      <Band title="Appearance" desc="Saved in this browser only" first>
+      <Band title="Appearance" desc="Saved in this browser only; light is the default" first>
         <Two>
           <VStack gap={3}>
             <SegmentedControl label="Theme" value={preference} onChange={(value) => setThemePreference(value as ThemePreference)}>
@@ -116,7 +103,7 @@ export function AccountSettingsPage() {
     <SettingsPage>
       <Band title="Password" desc="The hub admin password" first>
         {me.data?.mode === 'token' ? (
-          <Banner status="info" collapsible={false} title="Sign in with the admin password to change it." />
+          <Banner status="info" title="Sign in with the admin password to change it." />
         ) : (
           <Two>
             <form
@@ -174,7 +161,7 @@ export function AccountSettingsPage() {
                 </HStack>
               </VStack>
             </form>
-            <VStack />
+            <div />
           </Two>
         )}
       </Band>
@@ -245,14 +232,14 @@ export function AboutSettingsPage() {
     updateRows.push({
       label: 'Last run',
       value: (
-        <HStack gap={2} vAlign="center" wrap="wrap" hAlign="end">
+        <HStack gap={2} vAlign="center" wrap hAlign="end">
           <Badge
             variant={last.status === 'ok' ? 'success' : last.status === 'rolled_back' ? 'warning' : 'error'}
             label={last.status === 'ok' ? 'installed' : last.status === 'rolled_back' ? 'rolled back' : 'failed'}
           />
-          <Text type="code">
+          <span className="code">
             {last.from} → {last.to}
-          </Text>
+          </span>
           <Text type="supporting">{relative(last.at, now)}</Text>
         </HStack>
       ),
@@ -277,7 +264,6 @@ export function AboutSettingsPage() {
           <HStack>
             <Button
               label="Sign out"
-              variant="secondary"
               isLoading={logout.isPending}
               onClick={async () => {
                 await logout.mutateAsync();
@@ -287,23 +273,26 @@ export function AboutSettingsPage() {
           </HStack>
         </Band>
 
-        <Band title="Updates" desc={updates.data?.repo ? <Text type="code" color="secondary">{updates.data.repo}</Text> : undefined} first>
-          <VStack data-testid="update-kv">
+        <Band
+          title="Updates"
+          desc={updates.data?.repo ? <span className="code muted">{updates.data.repo}</span> : undefined}
+          first
+        >
+          <VStack data-testid="update-kv" gap={2}>
             <Facts rows={updateRows} />
           </VStack>
-          {notes ? <CodeBlock code={notes} title={`${target} notes`} width="100%" isWrapped maxHeight={240} hasCopyButton={false} /> : null}
+          {notes ? <CodeBlock code={notes} title={`${target} notes`} maxHeight={240} /> : null}
           {updates.data?.error ? <Notice message={{ kind: 'error', text: updates.data.error }} /> : null}
           <Notice message={message} />
-          <HStack gap={2} wrap="wrap">
+          <HStack gap={2} wrap>
             <Button
               label="Check now"
-              variant="secondary"
               isLoading={refresh.isPending}
               isDisabled={!updates.data?.enabled}
               onClick={() => refresh.mutate()}
             />
             {queued ? (
-              <Button label={`Cancel ${queued.version}`} variant="secondary" isLoading={cancel.isPending} onClick={() => cancel.mutate()} />
+              <Button label={`Cancel ${queued.version}`} isLoading={cancel.isPending} onClick={() => cancel.mutate()} />
             ) : (
               <Button
                 label={target ? `Upgrade to ${target}` : 'Upgrade'}
@@ -318,58 +307,47 @@ export function AboutSettingsPage() {
               />
             )}
           </HStack>
-          <Divider />
+          <hr />
           <Text type="supporting">
-            The hub writes a request; the root <Text type="code">cupola-upgrade</Text> unit verifies the checksum, swaps the binary and web
+            The hub writes a request; the root <span className="code">cupola-upgrade</span> unit verifies the checksum, swaps the binary and web
             build, restarts the service and rolls back if the health check fails.
           </Text>
         </Band>
       </Two>
 
-      <Dialog isOpen={confirming} onOpenChange={setConfirming} purpose="form" width={440}>
-        <Layout
-          header={
-            <DialogHeader
-              title={`Upgrade to ${target}?`}
-              subtitle="The hub restarts once. Polling stops for under a second and this page reconnects on its own."
-              onOpenChange={setConfirming}
+      <Dialog
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        title={`Upgrade to ${target}?`}
+        subtitle="The hub restarts once. Polling stops for under a second and this page reconnects on its own."
+        width={440}
+        footer={
+          <HStack gap={2} hAlign="end">
+            <Button label="Cancel" onClick={() => setConfirming(false)} />
+            <Button
+              label={`Upgrade to ${target}`}
+              variant="danger"
+              isLoading={apply.isPending}
+              isDisabled={typed.trim() !== target}
+              onClick={() => void submit(!updates.data?.available || hold?.version === target)}
             />
-          }
-          content={
-            <LayoutContent>
-              <VStack gap={3}>
-                <TextInput
-                  label={`Type ${target} to confirm`}
-                  value={typed}
-                  onChange={setTyped}
-                  placeholder={target}
-                  autoComplete="off"
-                  autoCapitalize="none"
-                  hasAutoCorrect={false}
-                  hasSpellCheck={false}
-                  onEnter={() => {
-                    if (typed.trim() === target && !apply.isPending) void submit(!updates.data?.available || hold?.version === target);
-                  }}
-                />
-                {message?.kind === 'error' ? <Notice message={message} /> : null}
-              </VStack>
-            </LayoutContent>
-          }
-          footer={
-            <LayoutFooter>
-              <HStack gap={2} hAlign="end">
-                <Button label="Cancel" variant="secondary" onClick={() => setConfirming(false)} />
-                <Button
-                  label={`Upgrade to ${target}`}
-                  variant="destructive"
-                  isLoading={apply.isPending}
-                  isDisabled={typed.trim() !== target}
-                  onClick={() => void submit(!updates.data?.available || hold?.version === target)}
-                />
-              </HStack>
-            </LayoutFooter>
-          }
-        />
+          </HStack>
+        }
+      >
+        <VStack gap={3}>
+          <TextInput
+            label={`Type ${target} to confirm`}
+            value={typed}
+            onChange={setTyped}
+            placeholder={target}
+            autoComplete="off"
+            autoCapitalize="off"
+            onEnter={() => {
+              if (typed.trim() === target && !apply.isPending) void submit(!updates.data?.available || hold?.version === target);
+            }}
+          />
+          {message?.kind === 'error' ? <Notice message={message} /> : null}
+        </VStack>
       </Dialog>
     </SettingsPage>
   );

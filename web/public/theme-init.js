@@ -3,11 +3,17 @@
 // to --app-height so the shell never ends short of, or past, the screen.
 (function () {
   var root = document.documentElement;
+  // Light is the default: no saved choice, or a choice of "system", resolves
+  // here — before the stylesheet paints.
   try {
     var value = localStorage.getItem('cupola.theme');
-    if (value === 'light' || value === 'dark') root.dataset.theme = value;
+    var theme = value === 'dark' || value === 'light' ? value : null;
+    if (!theme && value === 'system' && window.matchMedia) {
+      theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    root.dataset.theme = theme || 'light';
   } catch {
-    // storage blocked: the system theme applies
+    root.dataset.theme = 'light';
   }
   // iOS reports the home-screen app through navigator.standalone, and the
   // display-mode media query does not match on every version. Set the flag from

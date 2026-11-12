@@ -1,8 +1,4 @@
 import { useParams } from 'react-router-dom';
-import { Button } from '@astryxdesign/core/Button';
-import { Link } from '@astryxdesign/core/Link';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { SeverityPill } from '../../components/StatusPill';
 import { MissingThing } from '../../components/NotFoundPage';
 import { ErrorPanel, LoadingPage } from '../../components/States';
@@ -10,6 +6,7 @@ import { ApiError } from '../../data/api';
 import { useEvent } from '../../data/queries';
 import { relative, stamp } from '../../lib/format';
 import { Facts, PageHead, Section } from '../../ui/kit';
+import { Button, Link, Text, VStack } from '../../ui/primitives';
 import { EventsList } from './EventsList';
 
 export function EventsPage() {
@@ -56,30 +53,17 @@ export function EventDetailPage() {
         leading={back}
         title={`Event ${event.id}`}
         desc={`${event.message} · ${stamp(event.ts)} UTC`}
-        actions={<Button label="Alert me about this" variant="secondary" href={`/alerts/rules/new?${params.toString()}`} />}
+        actions={<Button label="Alert me about this" href={`/alerts/rules/new?${params.toString()}`} />}
       />
       <VStack maxWidth={760}>
         <Section title="Event" actions={<SeverityPill severity={event.severity} />}>
           <Facts
             rows={[
-              {
-                label: 'Node',
-                value: (
-                  <Link href={`/nodes/${event.node_id}/events`} type="code">
-                    {event.node_id}
-                  </Link>
-                ),
-              },
+              { label: 'Node', value: <Link href={`/nodes/${event.node_id}/events`} type="code">{event.node_id}</Link> },
               { label: 'Kind', value: event.kind },
               { label: 'Severity', value: event.severity },
-              {
-                label: 'Time',
-                value: `${stamp(event.ts)} UTC · ${relative(event.ts, Date.now())}`,
-              },
-              {
-                label: 'Message',
-                value: <Text justify="end">{event.message}</Text>,
-              },
+              { label: 'Time', value: `${stamp(event.ts)} UTC · ${relative(event.ts, Date.now())}` },
+              { label: 'Message', value: <Text justify="end">{event.message}</Text> },
               { label: 'Metadata', value: event.meta ?? '' },
             ]}
           />

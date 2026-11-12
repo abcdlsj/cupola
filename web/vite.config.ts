@@ -1,5 +1,4 @@
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -7,7 +6,6 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/',
   plugins: [
     react(),
-    tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['fonts/*.woff2', 'icons/*.png', 'icons/*.svg'],
@@ -19,8 +17,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        theme_color: '#0b0c0e',
-        background_color: '#0b0c0e',
+        theme_color: '#f6f7f9',
+        background_color: '#f6f7f9',
         icons: [
           { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -30,15 +28,15 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,webmanifest}'],
-        // The design-system demo is a second entry, not part of the PWA: keeping
-        // it out of the precache stops every install from downloading Astryx.
-        globIgnores: ['demo.html', 'assets/demo-*.js', 'assets/demo-*.css'],
         navigateFallback: 'index.html',
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            // the hub API is network-first: last-known state is what the offline banner names
-            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
+            // The hub API is network-first: last-known state is what the offline
+            // banner names. The event stream is excluded — a never-ending body
+            // cannot be cached, and a cached attempt holds the connection until
+            // the 4 s network timeout, so every later request queues behind it.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/v1/stream'),
             handler: 'NetworkFirst',
             options: {
               cacheName: 'cupola-api',
@@ -52,15 +50,6 @@ export default defineConfig({
   ],
   build: {
     target: 'es2022',
-    rollupOptions: {
-      // The Astryx design-system demo is a local evaluation entry, never part of
-      // the shipped build: `npm run dev` serves it at /demo.html, and
-      // `VITE_DEMO=1 npm run build` builds it on purpose. A plain build ships
-      // only the app.
-      input: process.env.VITE_DEMO === '1' || process.env.VITE_DEMO_ONLY
-        ? { main: 'index.html', demo: 'demo.html' }
-        : { main: 'index.html' },
-    },
   },
   server: {
     port: 5173,

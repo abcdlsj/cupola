@@ -1,19 +1,9 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button } from '@astryxdesign/core/Button';
-import { Divider } from '@astryxdesign/core/Divider';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { Pagination } from '@astryxdesign/core/Pagination';
-import { StatusDot as Dot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { TextInput } from '@astryxdesign/core/TextInput';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingPage } from '../../components/States';
 import { StatusDot } from '../../components/StatusPill';
+import { Pager } from '../../components/Pager';
 import { UnitTable } from '../../components/UnitTable';
 import { useFleet, useFleetServices } from '../../data/queries';
 import type { NodeView } from '../../data/types';
@@ -21,6 +11,18 @@ import { nodeFigures, type NodeFigures } from '../../lib/fleet';
 import { relative, uptime } from '../../lib/format';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
 import { Band, Figure, Meter, PageHead, useIsPhone } from '../../ui/kit';
+import {
+  Button,
+  EmptyState,
+  HStack,
+  Link,
+  StatusDot as Dot,
+  Table,
+  Text,
+  VStack,
+  type TableColumn,
+} from '../../ui/primitives';
+import { SearchInput } from '../../ui/SearchInput';
 import { sortUnits } from '../services/ServicesPage';
 
 interface SystemRow extends Record<string, unknown> {
@@ -62,11 +64,11 @@ function SystemName({ view }: { view: NodeView }) {
   );
 }
 
-const columns: TableColumn<SystemRow>[] = [
+const columns: Array<TableColumn<SystemRow>> = [
   {
     key: 'name',
     header: 'System',
-    width: pixel(320),
+    width: '320px',
     renderCell: ({ view, fig }) => (
       <HStack gap={2} vAlign="center">
         <StatusDot status={view.health.status} />
@@ -82,27 +84,21 @@ const columns: TableColumn<SystemRow>[] = [
   {
     key: 'cpu',
     header: 'CPU',
-    width: proportional(1, { minWidth: 150 }),
     renderCell: ({ view, fig }) => <Meter value={fig.cpu} label={`${view.node.name} CPU`} width={64} />,
   },
   {
     key: 'memory',
     header: 'Memory',
-    width: proportional(1, { minWidth: 150 }),
     renderCell: ({ view, fig }) => <Meter value={fig.mem} label={`${view.node.name} memory`} width={64} />,
   },
   {
     key: 'disk',
     header: 'Disk',
-    width: proportional(1, { minWidth: 150 }),
-    renderCell: ({ view, fig }) => (
-      <Meter value={fig.disk} label={`${view.node.name} root filesystem`} width={64} />
-    ),
+    renderCell: ({ view, fig }) => <Meter value={fig.disk} label={`${view.node.name} root filesystem`} width={64} />,
   },
   {
     key: 'load',
     header: 'Load',
-    width: proportional(1, { minWidth: 150 }),
     renderCell: ({ view, fig }) => (
       <Meter
         value={loadPct(fig)}
@@ -115,23 +111,17 @@ const columns: TableColumn<SystemRow>[] = [
   {
     key: 'temp',
     header: 'Temp',
-    width: pixel(88),
+    width: '88px',
     align: 'end',
-    renderCell: ({ fig }) => (
-      <HStack hAlign="end">
-        <Figure value={fig.temp} digits={0} unit="°C" />
-      </HStack>
-    ),
+    renderCell: ({ fig }) => <Figure value={fig.temp} digits={0} unit="°C" />,
   },
   {
     key: 'uptime',
     header: 'Up',
-    width: pixel(104),
+    width: '104px',
     align: 'end',
     renderCell: ({ view, fig }) => (
-      <HStack hAlign="end">
-        <Figure value={fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null} />
-      </HStack>
+      <Figure value={fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null} />
     ),
   },
 ];
@@ -139,8 +129,8 @@ const columns: TableColumn<SystemRow>[] = [
 /** Below 900 px a table stops being readable: each system becomes one block. */
 function SystemBlocks({ rows }: { rows: SystemRow[] }) {
   return (
-    <VStack gap={0}>
-      {rows.map(({ id, view, fig }, index) => {
+    <div className="rows">
+      {rows.map(({ id, view, fig }) => {
         const meta = [
           metaOf(view, fig),
           fig.temp != null ? `${Math.round(fig.temp)} °C` : null,
@@ -155,31 +145,28 @@ function SystemBlocks({ rows }: { rows: SystemRow[] }) {
           ['Load', loadPct(fig), fig.load ? fig.load[0].toFixed(2) : undefined],
         ];
         return (
-          <VStack key={id} gap={0}>
-            {index > 0 ? <Divider /> : null}
-            <VStack gap={2} paddingBlock={3}>
-              <HStack gap={2} vAlign="center">
-                <StatusDot status={view.health.status} />
-                <VStack gap={0}>
-                  <SystemName view={view} />
-                  <Text type="supporting" maxLines={1}>
-                    {meta || 'no data yet'}
-                  </Text>
-                </VStack>
+          <div className="row" key={id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '12px 0' }}>
+            <HStack gap={2} vAlign="start">
+              <StatusDot status={view.health.status} />
+              <VStack gap={0}>
+                <SystemName view={view} />
+                <Text type="supporting" maxLines={1}>
+                  {meta || 'no data yet'}
+                </Text>
+              </VStack>
+            </HStack>
+            {meters.map(([label, value, text]) => (
+              <HStack key={label} gap={3} vAlign="center">
+                <span className="muted small" style={{ width: 64 }}>
+                  {label}
+                </span>
+                <Meter value={value} label={`${view.node.name} ${label.toLowerCase()}`} text={text} width={160} />
               </HStack>
-              {meters.map(([label, value, text]) => (
-                <HStack key={label} gap={3} vAlign="center">
-                  <VStack width={64}>
-                    <Text type="supporting">{label}</Text>
-                  </VStack>
-                  <Meter value={value} label={`${view.node.name} ${label.toLowerCase()}`} text={text} width={160} />
-                </HStack>
-              ))}
-            </VStack>
-          </VStack>
+            ))}
+          </div>
         );
       })}
-    </VStack>
+    </div>
   );
 }
 
@@ -239,19 +226,12 @@ export function OverviewPage() {
   const rows = units.slice(pg.index * pageSize, pg.index * pageSize + pageSize);
 
   const filter = (
-    <VStack width={phone ? '100%' : 220}>
-      <TextInput
-        label="Filter systems"
-        isLabelHidden
-        type="search"
-        enterKeyHint="search"
-        size={phone ? 'md' : 'sm'}
-        value={query}
-        hasClear
-        onChange={(value) => update('q', value || null)}
-        placeholder="Filter systems…"
-      />
-    </VStack>
+    <SearchInput
+      label="Filter systems"
+      value={query}
+      onChange={(value) => update('q', value || null)}
+      placeholder="Filter systems…"
+    />
   );
 
   return (
@@ -275,7 +255,7 @@ export function OverviewPage() {
               </HStack>
             ) : null}
             {phone ? null : filter}
-            <Button label="Settings" variant="secondary" size={phone ? 'md' : 'sm'} href="/settings/nodes" />
+            <Button label="Settings" href="/settings/nodes" />
           </>
         }
       />
@@ -284,25 +264,18 @@ export function OverviewPage() {
         {phone ? filter : null}
         {shown.length === 0 ? (
           q ? (
-            <EmptyState
-              title={`No system matches “${query}”`}
-              description="Clear the filter to see every system."
-              isCompact
-              headingLevel={3}
-            />
+            <EmptyState title={`No system matches “${query}”`} description="Clear the filter to see every system." />
           ) : (
             <EmptyState
               title="No systems yet"
               description="Add a node in Settings to start collecting."
-              isCompact
-              headingLevel={3}
               actions={<Button label="Add a node" variant="primary" href="/settings/nodes" />}
             />
           )
         ) : phone ? (
           <SystemBlocks rows={shown} />
         ) : (
-          <Table data={shown} columns={columns} idKey="id" density="compact" dividers="rows" hasHover />
+          <Table data={shown} columns={columns} idKey="id" label="Systems" hasHover />
         )}
       </Band>
 
@@ -313,7 +286,7 @@ export function OverviewPage() {
             ? 'Loading units…'
             : `${units.length} units across ${nodes.length} systems · ${failed} failed · failed first`
         }
-        actions={<Button label="View all" variant="secondary" size={phone ? 'md' : 'sm'} href="/services" />}
+        actions={<Button label="View all" href="/services" />}
       >
         {services.isError ? (
           <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />
@@ -321,17 +294,14 @@ export function OverviewPage() {
           <>
             <UnitTable rows={rows} />
             {pg.pages > 1 ? (
-              <HStack hAlign="end">
-                <Pagination
-                  label="Units pages"
-                  page={pg.index + 1}
-                  pageSize={pageSize}
-                  totalItems={units.length}
-                  variant={phone ? 'compact' : 'count'}
-                  size={phone ? 'md' : 'sm'}
-                  onChange={(next) => update('page', next > 1 ? String(next) : null)}
-                />
-              </HStack>
+              <Pager
+                page={pg.index}
+                pages={pg.pages}
+                from={pg.from}
+                to={pg.to}
+                total={units.length}
+                onChange={(next) => update('page', next > 0 ? String(next + 1) : null)}
+              />
             ) : null}
           </>
         )}

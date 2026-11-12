@@ -1,4 +1,10 @@
-# Astryx migration
+# Astryx migration (superseded)
+
+> **This evaluation was reversed.** The UI now runs on water.css with Cupola's
+> own primitives (`web/src/ui/`); the Astryx packages, the generated theme and
+> the demo entry are gone. This file is kept as the record of why the design
+> system was evaluated, not as the current plan. See `docs/DESIGN.md`.
+
 
 Evaluation branch: `feat/astryx-demo`. Astryx is Meta's open-source React 19 design
 system (`@astryxdesign/core`, MIT, v0.7.11, beta) built on StyleX. Published

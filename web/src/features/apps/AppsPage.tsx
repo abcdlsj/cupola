@@ -1,17 +1,5 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState } from 'react';
-import { Badge } from '@astryxdesign/core/Badge';
-import { Button } from '@astryxdesign/core/Button';
-import { Card } from '@astryxdesign/core/Card';
-import { Divider } from '@astryxdesign/core/Divider';
-import { EmptyState } from '@astryxdesign/core/EmptyState';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { List, ListItem } from '@astryxdesign/core/List';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Table, pixel, proportional, type TableColumn } from '@astryxdesign/core/Table';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { ErrorPanel, LoadingPage } from '../../components/States';
 import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
@@ -19,6 +7,20 @@ import type { Action, ActionRun, FleetAction } from '../../data/types';
 import { clock, relative } from '../../lib/format';
 import { actionMark } from '../../lib/actionIcon';
 import { Band, PageHead, useIsPhone } from '../../ui/kit';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  HStack,
+  Link,
+  List,
+  ListItem,
+  StatusDot,
+  Table,
+  Text,
+  VStack,
+  type TableColumn,
+} from '../../ui/primitives';
 
 export function actionKind(action: Pick<Action, 'type'>): string {
   return action.type === 'wol' ? 'Wake-on-LAN' : 'Script';
@@ -32,12 +34,16 @@ export function actionHref(nodeId: string, actionId: string): string {
 export function ActionMark({ action, size = 20 }: { action: Action; size?: number }) {
   const mark = actionMark(action);
   if (mark.kind === 'image') {
-    return <img src={mark.src} alt="" width={size} height={size} style={{ borderRadius: 4, flex: 'none' }} />;
+    return (
+      <span className="mark">
+        <img src={mark.src} alt="" width={size} height={size} style={{ borderRadius: 4, flex: 'none' }} />
+      </span>
+    );
   }
   return (
-    <Text type="inherit" color="secondary">
-      <mark.Icon size={size} aria-hidden="true" style={{ display: 'block', flex: 'none' }} />
-    </Text>
+    <span className="mark">
+      <mark.Icon size={size} aria-hidden="true" style={{ display: 'block' }} />
+    </span>
   );
 }
 
@@ -71,66 +77,45 @@ export function ActionRows({
   nodeName?: string;
   onRun: (action: Action | FleetAction) => void;
 }) {
-  const phone = useIsPhone();
   const now = Date.now();
   return (
-    <VStack gap={0}>
-      {actions.map((action, index) => {
+    <div>
+      {actions.map((action) => {
         const fleet = 'node_id' in action;
         const node = fleet ? action.node_id : (nodeId ?? '');
         const name = fleet ? action.node_name : nodeName;
         const last = action.last_run_at ? relative(action.last_run_at, now) : null;
         return (
-          <VStack key={`${node}-${action.id}`} gap={0} data-testid={`action-row-${node}-${action.id}`}>
-            {index > 0 ? <Divider /> : null}
-            <HStack gap={3} vAlign="center" hAlign="between" paddingBlock={3} wrap={phone ? 'wrap' : 'nowrap'}>
-              <HStack gap={3} vAlign="center">
-                <ActionMark action={action} />
-                <VStack gap={0.5}>
-                  <HStack gap={1.5} vAlign="center" wrap="wrap">
-                    <Link href={actionHref(node, action.id)} maxLines={1}>
-                      {action.name}
+          <div className="action-row" key={`${node}-${action.id}`} data-testid={`action-row-${node}-${action.id}`}>
+            <div className="action-main">
+              <ActionMark action={action} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                <span className="action-title">
+                  <Link href={actionHref(node, action.id)} maxLines={1}>
+                    {action.name}
+                  </Link>
+                  {action.danger ? <Badge variant="error" label="Dangerous" /> : null}
+                  {fleet && name ? (
+                    <Link href={`/nodes/${encodeURIComponent(node)}/apps`} color="secondary">
+                      {name}
                     </Link>
-                    {action.danger ? <Badge variant="red" label="Dangerous" /> : null}
-                    {fleet && name ? (
-                      <Link href={`/nodes/${encodeURIComponent(node)}/apps`} color="secondary">
-                        {name}
-                      </Link>
-                    ) : null}
-                  </HStack>
-                  {action.description ? (
-                    <Text type="supporting" maxLines={phone ? 2 : 1}>
-                      {action.description}
-                    </Text>
                   ) : null}
-                </VStack>
-              </HStack>
-              <HStack gap={4} vAlign="center" hAlign={phone ? 'start' : 'end'}>
-                <VStack width={phone ? undefined : 120}>
-                  <HStack hAlign="end">
-                    <LastRun action={action} />
-                  </HStack>
-                </VStack>
-                <VStack width={phone ? undefined : 150}>
-                  <Text type="supporting" textWrap="nowrap" justify={phone ? 'start' : 'end'}>
-                    {last ? `${last} · ${actionKind(action)}` : actionKind(action)}
-                  </Text>
-                </VStack>
-                <VStack width={phone ? undefined : 64}>
-                  <Button
-                    label={action.type === 'wol' ? 'Wake' : 'Run'}
-                    variant="secondary"
-                    size={phone ? 'md' : 'sm'}
-                    width={phone ? undefined : 64}
-                    onClick={() => onRun(action)}
-                  />
-                </VStack>
-              </HStack>
-            </HStack>
-          </VStack>
+                </span>
+                {action.description ? <span className="action-desc clamp-2">{action.description}</span> : null}
+              </div>
+            </div>
+            <div className="action-side">
+              <LastRun action={action} />
+              <span className="action-when">{last ? `${last} · ${actionKind(action)}` : actionKind(action)}</span>
+              <Button
+                label={action.type === 'wol' ? 'Wake' : 'Run'}
+                onClick={() => onRun(action)}
+              />
+            </div>
+          </div>
         );
       })}
-    </VStack>
+    </div>
   );
 }
 
@@ -163,30 +148,21 @@ export function RunsTable({
   const phone = useIsPhone();
   const now = Date.now();
   if (runs.length === 0) {
-    return (
-      <EmptyState
-        title="No run recorded yet"
-        description="A run appears here as soon as it finishes."
-        isCompact
-        headingLevel={3}
-      />
-    );
+    return <EmptyState title="No run recorded yet" description="A run appears here as soon as it finishes." />;
   }
   const who = (run: ActionRun) => [showNode ? run.node_id : null, run.actor, run.source].filter(Boolean).join(' · ');
   const title = (run: ActionRun) => run.action_name || run.action_id;
 
   if (phone) {
     return (
-      <List hasDividers density="compact" edge="flush">
+      <List label="Runs">
         {runs.map((run) => (
           <ListItem
             key={run.id}
             href={actionHref(run.node_id, run.action_id)}
             label={showAction ? title(run) : `${clock(run.ts)} · ${relative(run.ts, now)}`}
             description={
-              showAction
-                ? `${clock(run.ts)} · ${who(run)} · ${seconds(run.duration_ms)}`
-                : `${who(run)} · ${seconds(run.duration_ms)}`
+              showAction ? `${clock(run.ts)} · ${who(run)} · ${seconds(run.duration_ms)}` : `${who(run)} · ${seconds(run.duration_ms)}`
             }
             endContent={exited(run)}
           />
@@ -195,19 +171,15 @@ export function RunsTable({
     );
   }
 
-  const columns: TableColumn<RunRow>[] = [
+  const columns: Array<TableColumn<RunRow>> = [
     {
       key: 'started',
       header: 'Started',
-      width: pixel(150),
-      renderCell: ({ run }) => (
+      width: '150px',
+      renderCell: ({ run: entry }) => (
         <HStack gap={2} vAlign="center">
-          <Text type="code" hasTabularNumbers textWrap="nowrap">
-            {clock(run.ts)}
-          </Text>
-          <Text type="supporting" textWrap="nowrap">
-            {relative(run.ts, now)}
-          </Text>
+          <span className="code nowrap">{clock(entry.ts)}</span>
+          <span className="muted small nowrap">{relative(entry.ts, now)}</span>
         </HStack>
       ),
     },
@@ -216,10 +188,10 @@ export function RunsTable({
     columns.push({
       key: 'action',
       header: 'Action',
-      width: proportional(2, { minWidth: 200 }),
-      renderCell: ({ run }) => (
-        <Link href={actionHref(run.node_id, run.action_id)} maxLines={1}>
-          {title(run)}
+      width: '100%',
+      renderCell: ({ run: entry }) => (
+        <Link href={actionHref(entry.node_id, entry.action_id)} maxLines={1}>
+          {title(entry)}
         </Link>
       ),
     });
@@ -228,10 +200,9 @@ export function RunsTable({
     columns.push({
       key: 'node',
       header: 'System',
-      width: proportional(1, { minWidth: 120 }),
-      renderCell: ({ run }) => (
-        <Link href={`/nodes/${encodeURIComponent(run.node_id)}/apps`} maxLines={1}>
-          {run.node_id}
+      renderCell: ({ run: entry }) => (
+        <Link href={`/nodes/${encodeURIComponent(entry.node_id)}/apps`} maxLines={1}>
+          {entry.node_id}
         </Link>
       ),
     });
@@ -240,58 +211,43 @@ export function RunsTable({
     {
       key: 'actor',
       header: 'Actor',
-      width: proportional(1, { minWidth: 160 }),
-      renderCell: ({ run }) => (
+      width: '180px',
+      renderCell: ({ run: entry }) => (
         <Text type="supporting" maxLines={1}>
-          {run.actor} · {run.source}
+          {entry.actor} · {entry.source}
         </Text>
       ),
     },
     {
       key: 'duration',
       header: 'Duration',
-      width: pixel(110),
+      width: '110px',
       align: 'end',
-      renderCell: ({ run }) => (
-        <Text type="code" hasTabularNumbers textWrap="nowrap">
-          {seconds(run.duration_ms)}
-        </Text>
-      ),
+      renderCell: ({ run: entry }) => <span className="code nowrap">{seconds(entry.duration_ms)}</span>,
     },
     {
       key: 'result',
       header: 'Result',
-      width: pixel(120),
+      width: '120px',
       align: 'end',
-      renderCell: ({ run }) => exited(run),
+      renderCell: ({ run: entry }) => exited(entry),
     },
   );
-  return (
-    <Table
-      data={runs.map((run) => ({ id: run.id, run }))}
-      columns={columns}
-      idKey="id"
-      density="compact"
-      dividers="rows"
-      hasHover
-    />
-  );
+  return <Table data={runs.map((run) => ({ id: run.id, run }))} columns={columns} idKey="id" label="Runs" hasHover />;
 }
 
 /** The run limits every action shares; the hub enforces them, the agent too. */
 export function RunLimits() {
   return (
-    <Card>
+    <section className="panel" style={{ padding: 16 }}>
       <VStack gap={1}>
-        <Text type="label" color="secondary">
-          Run limits
-        </Text>
+        <Text type="label">Run limits</Text>
         <Text type="supporting">
           Actions run on the agent from its own config: a fixed script with no shell and no arguments, or a Wake-on-LAN
           packet. One run per action, 60 s timeout, output truncated to 8 KiB. The hub cannot create or edit them.
         </Text>
       </VStack>
-    </Card>
+    </section>
   );
 }
 
@@ -331,7 +287,6 @@ export function AppsPage() {
             title="No action is configured"
             description="Actions live in the agent config (0600) on each host; the hub cannot create them. A push-mode node reports samples only, so actions need a pull node."
             actions={<Link href="/settings/nodes">See the nodes</Link>}
-            headingLevel={3}
           />
         ) : (
           <ActionRows

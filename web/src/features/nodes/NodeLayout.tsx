@@ -1,15 +1,6 @@
 import { useEffect, type ReactNode, type SyntheticEvent } from 'react';
 import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Badge } from '@astryxdesign/core/Badge';
-import { HStack } from '@astryxdesign/core/HStack';
-import { Link } from '@astryxdesign/core/Link';
-import { Selector } from '@astryxdesign/core/Selector';
-import { Skeleton } from '@astryxdesign/core/Skeleton';
-import { StatusDot } from '@astryxdesign/core/StatusDot';
-import { Tab, TabList } from '@astryxdesign/core/TabList';
-import { Text } from '@astryxdesign/core/Text';
-import { VStack } from '@astryxdesign/core/VStack';
 import { StatusPill } from '../../components/StatusPill';
 import { ErrorPanel, LoadingCharts } from '../../components/States';
 import { MissingNode } from '../../components/NotFoundPage';
@@ -18,6 +9,8 @@ import { prefetchSeries, TAB_SERIES, useNode } from '../../data/queries';
 import type { NodeView } from '../../data/types';
 import { relative, size, uptime } from '../../lib/format';
 import { PageHead, useIsPhone } from '../../ui/kit';
+import { Badge, HStack, Link, StatusDot, Skeleton, VStack } from '../../ui/primitives';
+import { Select, Tab, TabList } from '../../ui/controls';
 import { RangeSelect, useRange } from './RangeControl';
 
 /** Tabs whose screens draw history; the window picker only shows on these. */
@@ -55,11 +48,7 @@ function tabs(view: NodeView): TabItem[] {
 function tabEnd(item: TabItem): ReactNode {
   if (item.failed) return <Badge variant="error" label={`${item.failed} failed`} />;
   if (item.count == null) return null;
-  return (
-    <Text type="code" color="secondary" hasTabularNumbers>
-      {item.count}
-    </Text>
-  );
+  return <span className="tab-count">{item.count}</span>;
 }
 
 function pickerLabel(item: TabItem): string {
@@ -69,14 +58,14 @@ function pickerLabel(item: TabItem): string {
 
 function LoadingHead() {
   return (
-    <VStack gap={3} aria-busy="true">
+    <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <VStack gap={1} paddingBlock={2}>
         <Skeleton height={12} width={140} />
         <Skeleton height={26} width={200} />
         <Skeleton height={12} width={320} />
       </VStack>
       <Skeleton height={32} />
-    </VStack>
+    </div>
   );
 }
 
@@ -116,14 +105,7 @@ export function NodeLayout() {
     }
     return (
       <>
-        <PageHead
-          title="System unavailable"
-          leading={
-            <Link href="/" isStandalone>
-              Systems
-            </Link>
-          }
-        />
+        <PageHead title="System unavailable" leading={<Link href="/">Systems</Link>} />
         <ErrorPanel what="The hub did not return this system." onRetry={() => void query.refetch()} />
       </>
     );
@@ -176,34 +158,31 @@ export function NodeLayout() {
           title={node.name}
           desc={meta}
           leading={
-            <HStack gap={2} vAlign="center" wrap="wrap">
+            <div className="crumbs">
               <Link href="/">Systems</Link>
-              <Text type="supporting">/</Text>
+              <span className="crumbs-sep">/</span>
               <StatusPill status={view.health.status} />
-              <Text type="supporting">
+              <span>
                 {snap ? `up ${uptime(snap.node.uptime_sec)}` : `last seen ${node.last_seen ? relative(node.last_seen, now) : 'never'}`}
-              </Text>
+              </span>
               {node.labels.map((label) => (
                 <Badge key={label} variant="neutral" label={label} />
               ))}
-            </HStack>
+            </div>
           }
           actions={CHART_TABS.has(tab) ? <RangeSelect /> : undefined}
         />
         {warning ? (
           <HStack gap={2} vAlign="center">
             <StatusDot variant="warning" label="Warning" />
-            <Text type="supporting">{warning}</Text>
+            <span className="muted small">{warning}</span>
           </HStack>
         ) : null}
         {phone ? (
-          <Selector
+          <Select
             label="View"
             isLabelHidden
-            size="md"
-            variant="secondary"
             width="100%"
-            presentation="adaptive"
             value={selected}
             options={items.map((item) => ({ value: item.to || OVERVIEW, label: pickerLabel(item) }))}
             onChange={(value) => {
@@ -214,9 +193,15 @@ export function NodeLayout() {
           />
         ) : (
           <div onPointerOver={warm} onFocus={warm}>
-            <TabList value={selected} onChange={() => undefined} hasDivider size="sm">
+            <TabList label="System views">
               {items.map((item) => (
-                <Tab key={item.label} value={item.to || OVERVIEW} label={item.label} href={href(item.to)} endContent={tabEnd(item)} />
+                <Tab
+                  key={item.label}
+                  href={href(item.to)}
+                  selected={(item.to || OVERVIEW) === selected}
+                  label={item.label}
+                  endContent={tabEnd(item)}
+                />
               ))}
             </TabList>
           </div>
