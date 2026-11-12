@@ -431,7 +431,7 @@ export function TokensSettingsPage() {
               </VStack>
             ) : (
               <Aside
-                title="Scopes"
+                title="What each scope allows"
                 rows={[
                   ['read', 'GET requests'],
                   ['actions:run', 'POST …/actions/{action}/run'],

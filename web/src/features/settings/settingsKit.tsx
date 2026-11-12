@@ -90,7 +90,7 @@ export function Fields({ children }: { children: ReactNode }) {
 /** The current values beside the controls they describe. */
 export function Aside({ title, rows }: { title: string; rows: Array<[string, ReactNode]> }) {
   return (
-    <VStack gap={2}>
+    <VStack gap={2} className="aside">
       <Text type="label">{title}</Text>
       <dl className="facts">
         {rows.map(([label, value]) => (

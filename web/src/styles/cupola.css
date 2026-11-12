@@ -5,6 +5,15 @@
 
 /* ---------------------------------------------------------------- ground -- */
 
+/* water.css only sets border-box on textarea. Without this every control that
+   asks for width: 100% is 2 px and two paddings wider than its cell, so two
+   fields in a grid overlap each other. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   background-color: var(--ground);
   color-scheme: light;
@@ -22,6 +31,9 @@ body {
   font-family: var(--font-ui);
   font-size: var(--fs-body);
   line-height: 1.45;
+  /* Figtree at 400 reads light at 13–14 px on a retina screen; 450 is the
+     regular the design was drawn with. */
+  font-weight: 450;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   background: var(--ground);
@@ -773,6 +785,10 @@ table.table td .cell-sub {
 
 /* ----------------------------------------------------------------- facts -- */
 
+.aside {
+  max-width: 380px;
+}
+
 .facts {
   display: flex;
   flex-direction: column;
@@ -1045,7 +1061,7 @@ table.table td .cell-sub {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -1885,11 +1901,11 @@ dialog.palette::backdrop {
 .event-kind-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
   width: 100%;
   min-height: 40px;
-  padding: 6px 0;
+  padding: 10px 0 6px;
   margin: 0;
   border: 0;
   background: transparent;
@@ -1912,19 +1928,41 @@ dialog.palette::backdrop {
   margin-left: auto;
   color: var(--muted);
   font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.event-chevron {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  color: var(--muted);
 }
 
 .event-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 28px 92px minmax(0, 1fr) 140px 180px;
   align-items: center;
   gap: 10px;
-  padding: 7px 0 7px 4px;
+  min-height: 38px;
+  padding: 4px 0;
   border-top: 1px solid var(--border);
   font-size: var(--fs-table);
 }
 
 .event-row.is-occurrence {
-  padding-left: 26px;
+  padding-left: 0;
+}
+
+.event-row.is-occurrence .event-when,
+.event-row.is-occurrence .event-kind-cell {
+  color: var(--muted);
+}
+
+.event-when {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .event-message {
@@ -1975,6 +2013,12 @@ dialog.palette::backdrop {
   gap: 4px;
   padding: 10px 0;
   border-top: 1px solid var(--border);
+}
+
+.event-block-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .event-block-meta {
@@ -2134,14 +2178,6 @@ pre.code-block .code-title {
   .action-side {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .event-row {
-    flex-wrap: wrap;
-  }
-
-  .event-message {
-    flex-basis: 100%;
   }
 
   .panel-head {

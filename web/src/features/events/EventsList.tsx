@@ -187,31 +187,31 @@ export function EventsList({
     });
   };
 
-  const message = (row: FeedRow) => {
+  const fold = (row: FeedRow) => {
     const { event, group } = row;
-    if (!group) {
-      return (
-        <Link href={`/events/${event.id}`} tooltip={event.message} className="event-message">
-          {event.message}
-        </Link>
-      );
-    }
+    if (!group) return <span className="event-fold" aria-hidden="true" />;
     const expanded = open.has(event.id);
     return (
-      <span className="event-message" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button
-          type="button"
-          className="event-fold"
-          aria-label={`${expanded ? 'Hide' : 'Show'} ${group.count} occurrences of ${event.message}`}
-          aria-expanded={expanded}
-          onClick={() => toggle(event.id)}
-        >
-          {expanded ? <CaretDown size={14} aria-hidden="true" /> : <CaretRight size={14} aria-hidden="true" />}
-        </button>
+      <button
+        type="button"
+        className="event-fold"
+        aria-label={`${expanded ? 'Hide' : 'Show'} ${group.count} occurrences of ${event.message}`}
+        aria-expanded={expanded}
+        onClick={() => toggle(event.id)}
+      >
+        {expanded ? <CaretDown size={14} aria-hidden="true" /> : <CaretRight size={14} aria-hidden="true" />}
+      </button>
+    );
+  };
+
+  const message = (row: FeedRow) => {
+    const { event, group } = row;
+    return (
+      <span className="event-message">
         <Link href={`/events/${event.id}`} tooltip={event.message}>
           {event.message}
         </Link>
-        <span className="code muted nowrap">{`×${group.count}`}</span>
+        {group ? <span className="code muted nowrap">{` ×${group.count}`}</span> : null}
       </span>
     );
   };
@@ -221,7 +221,10 @@ export function EventsList({
     <div className="event-blocks">
       {rows.map((row) => (
         <div className={row.occurrence ? 'event-block is-occurrence' : 'event-block'} key={row.id}>
-          {message(row)}
+          <div className="event-block-main">
+            {row.group ? fold(row) : null}
+            {message(row)}
+          </div>
           <div className="event-block-meta" style={row.occurrence ? { paddingLeft: 26 } : undefined}>
             {row.occurrence ? null : <SeverityPill severity={row.event.severity} />}
             {row.occurrence ? null : (
@@ -287,6 +290,9 @@ export function EventsList({
         return (
           <div className="event-kind" key={entry.kind}>
             <button type="button" className="event-kind-head" aria-expanded={!hidden} onClick={() => toggleKind(entry)}>
+              <span className="event-chevron" aria-hidden="true">
+                {hidden ? <CaretRight size={14} /> : <CaretDown size={14} />}
+              </span>
               <span className="event-kind-name">{kindLabel(entry.kind)}</span>
               <SeverityPill severity={entry.worst} />
               <span className="event-kind-count">
@@ -297,27 +303,24 @@ export function EventsList({
             {hidden ? null : phone ? (
               blocks(rows)
             ) : (
-              <table className="table" aria-label={`${kindLabel(entry.kind)} events`}>
-                <tbody>
-                  {rows.map((row) => (
-                    <tr key={row.id}>
-                      <td style={{ width: 96 }}>{row.occurrence ? null : <SeverityPill severity={row.event.severity} />}</td>
-                      <td style={{ width: '100%' }}>{message(row)}</td>
-                      <td style={{ width: 140 }}>
-                        <Link href={`/nodes/${row.event.node_id}/events`} type="code">
-                          {row.event.node_id}
-                        </Link>
-                      </td>
-                      <td style={{ width: 190, whiteSpace: 'nowrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                          <Mono>{eventTime(row.event.ts, now)}</Mono>
-                          <span className="muted small">{relative(row.event.ts, now)}</span>
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="event-rows" role="list" aria-label={`${kindLabel(entry.kind)} events`}>
+                {rows.map((row) => (
+                  <div className={row.occurrence ? 'event-row is-occurrence' : 'event-row'} key={row.id} role="listitem">
+                    {fold(row)}
+                    <span>{row.occurrence ? null : <SeverityPill severity={row.event.severity} />}</span>
+                    {message(row)}
+                    <span>
+                      <Link href={`/nodes/${row.event.node_id}/events`} type="code">
+                        {row.event.node_id}
+                      </Link>
+                    </span>
+                    <span className="event-when">
+                      <Mono>{eventTime(row.event.ts, now)}</Mono>
+                      <span className="muted small">{relative(row.event.ts, now)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         );
