@@ -761,7 +761,9 @@ table.table tbody tr.is-hover:hover {
   background: var(--well);
 }
 
-table.table td a {
+/* the node a systems row is read by: the one identity that carries weight */
+a.node-link {
+  font-size: 16px;
   font-weight: 500;
 }
 

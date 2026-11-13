@@ -18,7 +18,6 @@ import {
   StatusDot,
   Table,
   Text,
-  VStack,
   type TableColumn,
 } from '../../ui/primitives';
 
@@ -244,13 +243,11 @@ export function RunsTable({
 export function RunLimits() {
   return (
     <section className="section">
-      <VStack gap={1}>
-        <Text type="label">Run limits</Text>
-        <Text type="supporting">
-          Actions run on the agent from its own config: a fixed script with no shell and no arguments, or a Wake-on-LAN
-          packet. One run per action, 60 s timeout, output truncated to 8 KiB. The hub cannot create or edit them.
-        </Text>
-      </VStack>
+      <h3 className="section-title">Run limits</h3>
+      <p className="muted small">
+        Actions run on the agent from its own config: a fixed script with no shell and no arguments, or a Wake-on-LAN
+        packet. One run per action, 60 s timeout, output truncated to 8 KiB. The hub cannot create or edit them.
+      </p>
     </section>
   );
 }
@@ -285,7 +282,7 @@ export function AppsPage() {
   return (
     <>
       <PageHead title={`${all.length} ${all.length === 1 ? 'action' : 'actions'}`} desc={desc} />
-      <Band title="Actions" desc="Defined in each agent's config; the hub only runs them" first>
+      <Band first>
         {all.length === 0 ? (
           <EmptyState
             title="No action is configured"

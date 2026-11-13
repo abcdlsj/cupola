@@ -267,7 +267,7 @@ function JoinBand() {
 
   return (
     <Band
-      title="Add a system"
+      title="Install on a new machine"
       desc={
         issued
           ? `Code expires ${clock(issued.expires)} UTC`
@@ -467,7 +467,7 @@ export function NodesSettingsPage() {
 
   return (
     <SettingsPage>
-      <Band title="Nodes" desc={fleet.data ? `${nodes.length} registered` : undefined} first>
+      <Band title="Registered" desc={fleet.data ? `${nodes.length} ${nodes.length === 1 ? 'node' : 'nodes'}` : undefined} first>
         <Notice message={message} />
         {fleet.isLoading ? (
           <LoadingRows rows={3} columns={5} />
@@ -483,7 +483,7 @@ export function NodesSettingsPage() {
       {admin ? <JoinBand /> : null}
 
       {admin ? (
-        <Band title="Add a node" desc="For an agent that is already installed and has its own token">
+        <Band title="Register an existing agent" desc="The agent is installed and has its own token">
           <Two>
             <form
               noValidate

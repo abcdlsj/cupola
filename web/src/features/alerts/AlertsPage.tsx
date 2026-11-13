@@ -212,7 +212,6 @@ export function AlertsPage() {
       />
 
       <KpiStrip>
-        <KpiCell label="Firing" value={firingList.length} state={firingList.length > 0 ? 'error' : 'success'} note="unresolved now" />
         <KpiCell label="Rules" value={ruleList.length} note={`${enabled} enabled`} />
         <KpiCell label="Channels" value={channels.data?.length} note="delivery targets" />
         <KpiCell
@@ -224,17 +223,18 @@ export function AlertsPage() {
       </KpiStrip>
 
       <Band
-        title="Firing"
-        desc="Rules that are over their threshold right now"
-        actions={<Text type="supporting">{`${firingList.length} of ${ruleList.length} rules`}</Text>}
+        title={firingList.length > 0 ? 'Firing' : undefined}
+        desc={firingList.length > 0 ? 'Rules that are over their threshold right now' : undefined}
+        actions={
+          firingList.length > 0 ? (
+            <Text type="supporting">{`${firingList.length} of ${ruleList.length} rules`}</Text>
+          ) : undefined
+        }
       >
         {firing.isError ? (
           <ErrorPanel what="Couldn't load firing alerts." onRetry={() => void firing.refetch()} />
         ) : firingList.length === 0 ? (
-          <EmptyState
-            title="Nothing is firing"
-            description="Rules evaluate on every poll; an event rule fires as soon as its event arrives."
-          />
+          <p className="muted small">Rules evaluate on every poll; an event rule fires as soon as its event arrives.</p>
         ) : (
           <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
             {firingList.map((alert) => (

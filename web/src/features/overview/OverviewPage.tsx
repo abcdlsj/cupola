@@ -52,7 +52,7 @@ function SystemName({ view }: { view: NodeView }) {
   const role = roleOf(view);
   return (
     <HStack gap={1.5} vAlign="center">
-      <Link href={nodeHref(view.node.id)} maxLines={1}>
+      <Link href={nodeHref(view.node.id)} maxLines={1} className="node-link">
         {view.node.name}
       </Link>
       {role ? (
@@ -283,7 +283,7 @@ export function OverviewPage() {
         desc={
           services.isPending
             ? 'Loading units…'
-            : `${units.length} units across ${nodes.length} systems · ${failed} failed · failed first`
+            : `${units.length} units · failed first`
         }
         actions={<Button label="View all" href="/services" />}
       >
