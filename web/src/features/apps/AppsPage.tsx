@@ -280,11 +280,11 @@ export function AppsPage() {
       ? `${failed.length} of ${all.length} actions failed recently: ${failed
           .map((action) => `${action.name} (${action.node_name})`)
           .join('; ')}`
-      : `${all.length} ${all.length === 1 ? 'action' : 'actions'} on ${nodeCount} ${nodeCount === 1 ? 'system' : 'systems'} · ${recorded} runs recorded`;
+      : `on ${nodeCount} ${nodeCount === 1 ? 'system' : 'systems'} · ${recorded} runs recorded`;
 
   return (
     <>
-      <PageHead title="Apps" desc={desc} />
+      <PageHead title={`${all.length} ${all.length === 1 ? 'action' : 'actions'}`} desc={desc} />
       <Band title="Actions" desc="Defined in each agent's config; the hub only runs them" first>
         {all.length === 0 ? (
           <EmptyState

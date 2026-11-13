@@ -206,7 +206,10 @@ export function AlertsPage() {
 
   return (
     <>
-      <PageHead title="Alerts" actions={<Button label="New rule" variant="primary" href="/alerts/rules/new" />} />
+      <PageHead
+        title={firingList.length > 0 ? `${firingList.length} firing` : 'Nothing firing'}
+        actions={<Button label="New rule" variant="primary" href="/alerts/rules/new" />}
+      />
 
       <KpiStrip>
         <KpiCell label="Firing" value={firingList.length} state={firingList.length > 0 ? 'error' : 'success'} note="unresolved now" />

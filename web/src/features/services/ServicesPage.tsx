@@ -85,8 +85,8 @@ export function FleetServicesPage() {
   return (
     <>
       <PageHead
-        title="Services"
-        desc={`${units.length} ${units.length === 1 ? 'unit' : 'units'} on ${nodes} ${nodes === 1 ? 'system' : 'systems'} · ${failed} failed · failed first, then by system`}
+        title={`${units.length} ${units.length === 1 ? 'unit' : 'units'}`}
+        desc={`on ${nodes} ${nodes === 1 ? 'system' : 'systems'} · ${failed} failed · failed first, then by system`}
         actions={phone ? undefined : controls}
       />
       <Band first>

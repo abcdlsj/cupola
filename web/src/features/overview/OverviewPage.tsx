@@ -210,7 +210,6 @@ export function OverviewPage() {
     .sort((a, b) => b.health.root_disk_pct - a.health.root_disk_pct)[0];
 
   const finding = [
-    `${nodes.length} ${nodes.length === 1 ? 'system' : 'systems'}`,
     strained ? `${strained} need attention` : 'all healthy',
     worst && worst.health.root_disk_pct >= 75
       ? `${worst.node.name} is at ${Math.round(worst.health.root_disk_pct)} % disk`
@@ -237,7 +236,7 @@ export function OverviewPage() {
   return (
     <>
       <PageHead
-        title="Systems"
+        title={`${nodes.length} ${nodes.length === 1 ? 'system' : 'systems'}`}
         desc={finding}
         actions={
           <>

@@ -348,7 +348,11 @@ export function EventsList({
 
   return (
     <>
-      <PageHead title={title} desc={desc} actions={filters} />
+      <PageHead
+        title={level === 1 ? `${events.length} ${events.length === 1 ? 'event' : 'events'}` : title}
+        desc={desc}
+        actions={filters}
+      />
       {kinds.length > 0 ? (
         <Band title="By kind" desc="Occurrences per kind in the loaded window, worst first" first>
           <Grid columns={{ minWidth: 160, repeat: 'fit' }}>
