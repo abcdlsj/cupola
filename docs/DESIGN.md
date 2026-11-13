@@ -88,25 +88,34 @@ this sheet.
   a phone); label with the status dot on its trailing edge, the figure at
   24 px, the unit as a small grey suffix, one note line.
 
-## Cards
+## Surfaces and sections
 
-- 6 px radius, 1 px border, one tone **darker** than the ground. No shadow;
-  the one shadow is for menus, tooltips and dialogs. Depth comes from the tone
-  step and the border, never from a blur.
-- Head: the screen's title at 28 px (600) with one muted description line
-  under it; a second-level card titles at 22 px in the muted colour. The
-  card's controls sit on the right of the head, vertically centred with the
-  title. A table or list inside runs to the card's edges under a 1 px rule.
-- Controls: 34 px high, `--radius-control` (a pill for inputs, 4 px for
-  chips); a filter or select inside a card sits on the ground tone as a well.
-  Segmented toggles use a 1 px accent underline under the active word, not a
-  filled block.
+The page is a sheet of ground. **A hairline rule and the space around it group
+read-only content; a box is only for something that floats.** So:
+
+- **Sections** (charts, breakdowns, disks, sensors, processes, facts) are a
+  heading, one muted line, a 1 px top rule and space. No card, no shadow.
+- **Boxes** are for transient or standalone surfaces: dialogs, the command
+  palette, menus and the login plate. One shadow, used only there.
+- A **band** is a titled group of sections: level-2 heading, one context line,
+  controls on the right, a rule above the next band.
+- Head: the screen's title at 24 px (600) with one muted line under it; a
+  section titles at 16 px (600). Controls sit on the right of the head, aligned
+  with the baseline.
+- **Controls** share one system: 36 px high, 6 px radius, one focus ring, the
+  segmented control drawn as a track with the chosen segment raised. Nothing
+  overrides the scale per page.
+- **Colour belongs to data.** Primary buttons are ink (`--text` on `--card`),
+  never the accent; the accent marks links, the active tab, meters and status.
+  Destructive confirmation is the one red surface.
 - **Tables** are the `Table` primitive with data-driven columns (`pixel()`
   for figures and meters, `proportional()` for the identity and free text),
   compact density, row dividers, no zebra. The identity column is the widest,
   figures are right-aligned and tabular. Below 900 px a table is not reflowed:
   the page renders the same rows as stacked blocks (identity line, then
   labelled meters or fields).
+- **Empty states** are quiet: a title in the text colour, one muted line and
+  at most one link. No dashed box.
 - Nothing is truncated without a tooltip: truncated `Text` (`maxLines`) shows
   the full value on hover and focus.
 

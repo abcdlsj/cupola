@@ -205,7 +205,7 @@ export function PageHead({
   );
 }
 
-/** A titled card: heading level 3, one supporting line, controls on the right. */
+/** A titled block of read-only content: a rule and space, never a box. */
 export function Section({
   title,
   desc,
@@ -219,19 +219,17 @@ export function Section({
   padding?: number;
 }) {
   return (
-    <section className="panel">
+    <section className="section">
       {title || actions ? (
-        <header className="panel-head">
-          <div className="panel-heading">
-            {title ? <h3 className="panel-title">{title}</h3> : null}
-            {desc ? <p className="panel-desc">{desc}</p> : null}
+        <header className="section-head">
+          <div className="section-heading">
+            {title ? <h3 className="section-title">{title}</h3> : null}
+            {desc ? <p className="section-desc">{desc}</p> : null}
           </div>
-          {actions ? <div className="panel-meta">{actions}</div> : null}
+          {actions ? <div className="section-actions">{actions}</div> : null}
         </header>
       ) : null}
-      <div className="panel-body" style={{ paddingTop: title ? 0 : 14 }}>
-        {children}
-      </div>
+      <div className="section-body">{children}</div>
     </section>
   );
 }

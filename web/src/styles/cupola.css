@@ -543,6 +543,54 @@ tbody tr:nth-child(even) button:hover {
 
 /* --------------------------------------------------------------- panels -- */
 
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.section-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.section-title {
+  font-size: var(--fs-card);
+  font-weight: 600;
+}
+
+.section-desc {
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .panel {
   display: flex;
   flex-direction: column;
@@ -617,29 +665,28 @@ tbody tr:nth-child(even) button:hover {
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--card);
-  overflow: hidden;
+  align-items: start;
 }
 
 .kpi-cell {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 4px;
   min-width: 0;
-  padding: 16px 18px;
+  padding: 2px 0 2px 20px;
+  border-left: 1px solid var(--border);
 }
 
-.kpi-cell + .kpi-cell {
-  border-left: 1px solid var(--border);
+.kpi-cell:first-child {
+  padding-left: 0;
+  border-left: 0;
 }
 
 .kpi-label {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
+  gap: 6px;
   color: var(--muted);
   font-size: var(--fs-small);
 }
@@ -1004,14 +1051,14 @@ table.table td .cell-sub {
 }
 
 .btn-primary {
-  border-color: var(--accent);
-  background: var(--accent);
-  color: var(--accent-ink);
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--card);
 }
 
 .btn-primary:hover {
-  background: color-mix(in srgb, var(--accent) 88%, var(--text));
-  border-color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  border-color: color-mix(in srgb, var(--text) 84%, var(--ground));
+  background: color-mix(in srgb, var(--text) 84%, var(--ground));
 }
 
 .btn-danger {
@@ -1280,17 +1327,17 @@ input[type='radio'] {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border-radius: 8px;
   background: var(--well);
   max-width: 100%;
 }
 
 .seg-option {
-  height: 26px;
-  padding: 0 9px;
+  height: 28px;
+  padding: 0 12px;
   margin: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   background: transparent;
   color: var(--muted);
   font-family: inherit;
@@ -1308,6 +1355,11 @@ input[type='radio'] {
   border-color: var(--border);
   background: var(--card);
   color: var(--text);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+}
+
+html[data-theme='dark'] .seg-option[aria-checked='true'] {
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
 }
 
 .seg.is-fill {
@@ -1378,10 +1430,8 @@ input[type='radio'] {
   flex-direction: column;
   gap: 10px;
   min-width: 0;
-  padding: 16px 18px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--card);
+  padding: 14px 0 0;
+  border-top: 1px solid var(--border);
 }
 
 .chart-card-head {
@@ -1689,10 +1739,8 @@ dialog.palette::backdrop {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  padding: 20px 16px;
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-card);
+  gap: 5px;
+  padding: 2px 0 4px;
   color: var(--muted);
 }
 
@@ -2033,44 +2081,109 @@ dialog.palette::backdrop {
 
 /* ---------------------------------------------------------------- login -- */
 
+/* Two columns once there is room: what this is on the left, the way in on the
+   right. On a phone the card follows the pitch under one rule. */
 .login {
   display: grid;
-  place-items: center;
+  align-content: center;
   min-height: 100dvh;
-  padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
-    max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  padding: max(40px, env(safe-area-inset-top)) 24px max(40px, env(safe-area-inset-bottom));
 }
 
-.login-column {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+.login-shell {
+  display: grid;
+  gap: 40px;
   width: 100%;
-  max-width: 400px;
+  max-width: 940px;
+  margin: 0 auto;
 }
 
-.login-brand {
+.login-intro {
   display: flex;
   flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.login-wordmark {
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  text-align: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.login-intro h1 {
+  max-width: 18ch;
+  font-size: clamp(1.9rem, 3.4vw, 2.6rem);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.login-intro p {
+  max-width: 42ch;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.login-points {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: var(--fs-table);
+}
+
+.login-points li::before {
+  content: '—';
+  margin-right: 10px;
+  color: var(--border-strong);
 }
 
 .login-card {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-card);
-  background: var(--card);
+  gap: 14px;
+  min-width: 0;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
 }
 
-.form-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+.login-card h2 {
+  font-size: var(--fs-head);
+}
+
+.login-lede {
+  margin-top: -6px;
+  color: var(--muted);
+  font-size: var(--fs-table);
+}
+
+.login-hint {
+  margin-top: -6px;
+  color: var(--muted);
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+
+@media (min-width: 860px) {
+  .login-shell {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: 72px;
+  }
+
+  .login-card {
+    padding: 26px 26px 22px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+  }
 }
 
 /* ----------------------------------------------------------------- code -- */
@@ -2136,18 +2249,16 @@ pre.code-block .code-title {
   .kpi-strip {
     grid-auto-flow: row;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 18px;
   }
 
-  .kpi-cell + .kpi-cell {
+  .kpi-cell {
+    padding: 0 0 0 14px;
+  }
+
+  .kpi-cell:nth-child(odd) {
+    padding-left: 0;
     border-left: 0;
-  }
-
-  .kpi-cell:nth-child(even) {
-    border-left: 1px solid var(--border);
-  }
-
-  .kpi-cell:nth-child(n + 3) {
-    border-top: 1px solid var(--border);
   }
 
   /* an odd number of cells ends on a full-width row instead of a half one */

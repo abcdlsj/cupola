@@ -243,7 +243,7 @@ export function RunsTable({
 /** The run limits every action shares; the hub enforces them, the agent too. */
 export function RunLimits() {
   return (
-    <section className="panel" style={{ padding: 16 }}>
+    <section className="section">
       <VStack gap={1}>
         <Text type="label">Run limits</Text>
         <Text type="supporting">

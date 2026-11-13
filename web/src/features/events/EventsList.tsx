@@ -355,7 +355,7 @@ export function EventsList({
       />
       {kinds.length > 0 ? (
         <Band title="By kind" desc="Occurrences per kind in the loaded window, worst first" first>
-          <Grid columns={{ minWidth: 160, repeat: 'fit' }}>
+          <Grid columns={{ minWidth: 200, max: 4, repeat: 'fill' }}>
             {kinds.map((entry) => (
               <HStack key={entry.kind} gap={2} vAlign="center">
                 <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />

@@ -27,13 +27,12 @@ interface FieldShellProps {
   error?: string;
   hidden?: boolean;
   required?: boolean;
-  optional?: boolean;
   children: ReactNode;
   className?: string;
   width?: number | string;
 }
 
-function FieldShell({ label, id, hint, error, hidden, required, optional, children, className, width }: FieldShellProps) {
+function FieldShell({ label, id, hint, error, hidden, required, children, className, width }: FieldShellProps) {
   return (
     <div className={['field', className ?? ''].filter(Boolean).join(' ')} style={width ? { width } : undefined}>
       <label className="field-label" htmlFor={id} hidden={hidden}>
@@ -43,8 +42,6 @@ function FieldShell({ label, id, hint, error, hidden, required, optional, childr
             {' '}
             *
           </span>
-        ) : optional ? (
-          <span className="req"> (optional)</span>
         ) : null}
       </label>
       {children}
@@ -68,7 +65,6 @@ export function TextInput({
   description,
   status,
   isRequired,
-  isOptional,
   isLabelHidden,
   isDisabled,
   hasClear,
@@ -91,7 +87,6 @@ export function TextInput({
   description?: ReactNode;
   status?: { type: 'error'; message?: string };
   isRequired?: boolean;
-  isOptional?: boolean;
   isLabelHidden?: boolean;
   isDisabled?: boolean;
   hasClear?: boolean;
@@ -141,7 +136,6 @@ export function TextInput({
       error={status?.message}
       hidden={isLabelHidden}
       required={isRequired}
-      optional={isOptional}
       width={width}
     >
       {isLabelHidden && hasClear ? (
@@ -169,7 +163,6 @@ export function NumberInput({
   step,
   units,
   placeholder,
-  isOptional,
   isRequired,
   isLabelHidden,
   isDisabled,
@@ -184,7 +177,6 @@ export function NumberInput({
   step?: number;
   units?: string;
   placeholder?: string;
-  isOptional?: boolean;
   isRequired?: boolean;
   isLabelHidden?: boolean;
   isDisabled?: boolean;
@@ -200,7 +192,6 @@ export function NumberInput({
       error={status?.message}
       hidden={isLabelHidden}
       required={isRequired}
-      optional={isOptional}
     >
       <input
         id={auto}
@@ -543,7 +534,11 @@ export function Dialog({
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      if (initialFocus?.current) initialFocus.current.focus();
+      // the first field is where the reader is going, not the close button
+      const field = dialog.querySelector<HTMLElement>(
+        '.dialog-body input:not([type="hidden"]), .dialog-body select, .dialog-body textarea',
+      );
+      (initialFocus?.current ?? field ?? dialog).focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }

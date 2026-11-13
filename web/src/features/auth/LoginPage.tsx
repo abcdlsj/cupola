@@ -60,22 +60,32 @@ export function LoginPage() {
 
   return (
     <div className="login">
-      <div className="login-column">
-        <div className="login-brand">
-          <CupolaMark size={28} />
-          <h1>Cupola</h1>
-          <p className="muted small">
-            {storedHub ? (
-              <>
-                Connected to <span className="code">{storedHub}</span>
-              </>
-            ) : (
-              'Self-hosted monitoring for the boxes you run.'
-            )}
+      <div className="login-shell">
+        <section className="login-intro">
+          <span className="login-wordmark">
+            <CupolaMark size={22} />
+            cupola
+          </span>
+          <h1>Know what the boxes you run are doing.</h1>
+          <p>
+            Metrics, units, containers, processes and apps for your own machines. One binary, no account, nothing sent
+            to a third party.
           </p>
-        </div>
+          <ul className="login-points">
+            <li>Every node pulls, or reports out from behind NAT</li>
+            <li>Alerts, events and webhooks that stay on your hub</li>
+            <li>Actions defined on the agent, run by the hub</li>
+          </ul>
+        </section>
 
-        <div className="login-card">
+        <section className="login-card">
+          <h2>{mode === 'password' ? 'Sign in' : 'Connect a hub'}</h2>
+          <p className="login-lede">
+            {mode === 'password'
+              ? 'Use the admin password of the hub that serves this page.'
+              : 'A static build talks to a hub URL with a read token.'}
+          </p>
+
           <SegmentedControl
             label="Sign-in method"
             layout="fill"
@@ -101,7 +111,7 @@ export function LoginPage() {
                 void signIn();
               }}
             >
-              <VStack gap={4}>
+              <VStack gap={5}>
                 <TextInput
                   label="Admin password"
                   type="password"
@@ -116,9 +126,9 @@ export function LoginPage() {
                   </div>
                 ) : null}
                 <Button type="submit" label="Sign in" variant="primary" size="lg" width="100%" isLoading={busy} />
-                <p className="muted small">
-                  This works when the hub serves the PWA (same origin). For a static build on GitHub Pages, use the hub URL and a
-                  read token.
+                <p className="login-hint">
+                  This works when the hub serves the PWA (same origin). For a static build on GitHub Pages, use the hub
+                  URL and a read token.
                 </p>
               </VStack>
             </form>
@@ -134,7 +144,7 @@ export function LoginPage() {
                 void connect();
               }}
             >
-              <VStack gap={4}>
+              <VStack gap={5}>
                 <TextInput
                   label="Hub URL"
                   type="url"
@@ -157,9 +167,9 @@ export function LoginPage() {
                   </div>
                 ) : null}
                 <Button type="submit" label="Connect" variant="primary" size="lg" width="100%" isLoading={busy} />
-                <p className="muted small">
-                  The token is stored in this browser's localStorage and sent as a bearer. Create one in Settings → Tokens with the
-                  read scope. The hub must allow this origin in <span className="code">CUPOLA_CORS_ORIGINS</span>.
+                <p className="login-hint">
+                  The token is stored in this browser's localStorage and sent as a bearer. Create one in Settings →
+                  Tokens with the read scope. The hub must allow this origin in <span className="code">CUPOLA_CORS_ORIGINS</span>.
                 </p>
                 {storedHub ? (
                   <Button
@@ -177,7 +187,7 @@ export function LoginPage() {
               </VStack>
             </form>
           )}
-        </div>
+        </section>
       </div>
     </div>
   );

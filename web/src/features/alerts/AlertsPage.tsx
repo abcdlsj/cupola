@@ -238,7 +238,7 @@ export function AlertsPage() {
         ) : (
           <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
             {firingList.map((alert) => (
-              <section className="panel" key={alert.id} style={{ padding: 16, gap: 12 }}>
+              <section className="section" key={alert.id}>
                 <HStack gap={2} vAlign="center" hAlign="between" wrap>
                   <HStack gap={2} vAlign="center">
                     <StatusDot variant="error" label="Firing" isPulsing />
@@ -246,7 +246,6 @@ export function AlertsPage() {
                   </HStack>
                   <Text type="supporting">{relative(alert.ts, now)}</Text>
                 </HStack>
-                <hr />
                 <VStack gap={1}>
                   <Text>{alert.message}</Text>
                   <HStack gap={2} vAlign="center" wrap>

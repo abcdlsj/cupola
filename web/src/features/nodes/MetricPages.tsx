@@ -349,7 +349,7 @@ export function StoragePage() {
         <Band title="Drive health" desc="SMART and NVMe self-reports">
           <Grid columns={{ minWidth: 300, repeat: 'fill' }}>
             {snap.smart.map((drive) => (
-              <section className="panel" key={drive.device} style={{ padding: 16 }}>
+              <section className="section" key={drive.device}>
                 <VStack gap={3}>
                   <HStack gap={2} vAlign="center" hAlign="between">
                     <VStack gap={0.5}>
@@ -433,7 +433,7 @@ export function NetworkPage() {
         ) : (
           <Grid columns={{ minWidth: 260, repeat: 'fill' }}>
             {snap.network.map((iface) => (
-              <section className="panel" key={iface.iface} style={{ padding: 16 }}>
+              <section className="section" key={iface.iface}>
                 <VStack gap={3}>
                   <HStack gap={2} vAlign="center" hAlign="between">
                     <HStack gap={1.5} vAlign="center">

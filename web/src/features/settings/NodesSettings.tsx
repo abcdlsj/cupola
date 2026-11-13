@@ -216,13 +216,12 @@ function JoinBand() {
               isRequired
               status={required(form.id, tried)}
             />
-            <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="studio" isOptional />
+            <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="studio" />
             <TextInput
               label="Labels"
               value={form.labels}
               onChange={(labels) => setForm({ ...form, labels })}
               placeholder="homelab, gpu"
-              isOptional
             />
             <Select label="Target OS" value={os} options={OS_OPTIONS} onChange={(value) => setOs(value as Os)} />
           </Fields>
@@ -503,7 +502,7 @@ export function NodesSettingsPage() {
                     isRequired
                     status={required(form.id, tried)}
                   />
-                  <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} isOptional />
+                  <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
                   <Select label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
                   {form.mode === 'pull' ? (
                     <TextInput
@@ -526,7 +525,7 @@ export function NodesSettingsPage() {
                     isRequired
                     status={required(form.token, tried)}
                   />
-                  <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" isOptional />
+                  <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" />
                 </Fields>
                 <Notice message={addMessage} />
                 <HStack>
@@ -570,7 +569,6 @@ export function NodesSettingsPage() {
                 value={editForm.labels}
                 onChange={(labels) => setEditForm({ ...editForm, labels })}
                 placeholder="homelab, gpu"
-                isOptional
               />
               <Select label="Mode" value={editForm.mode} options={MODE_OPTIONS} onChange={(mode) => setEditForm({ ...editForm, mode: mode as Mode })} />
               {editForm.mode === 'pull' ? (
@@ -592,7 +590,6 @@ export function NodesSettingsPage() {
                 autoComplete="off"
                 value={editForm.token}
                 onChange={(token) => setEditForm({ ...editForm, token })}
-                isOptional
               />
             </Fields>
             {editError ? <Notice message={{ kind: 'error', text: editError }} /> : null}

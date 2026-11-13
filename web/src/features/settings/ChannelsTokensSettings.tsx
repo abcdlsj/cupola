@@ -204,7 +204,6 @@ export function AlertsSettingsPage() {
                       autoComplete="off"
                       value={form.secret}
                       onChange={(secret) => setForm({ ...form, secret })}
-                      isOptional
                     />
                   ) : null}
                 </Fields>
@@ -390,7 +389,6 @@ export function TokensSettingsPage() {
                     min={0}
                     value={form.days}
                     onChange={(days) => setForm({ ...form, days })}
-                    isOptional
                   />
                 </Fields>
                 <CheckboxGroup
@@ -408,14 +406,12 @@ export function TokensSettingsPage() {
                     placeholder="Comma separated; empty = all"
                     value={form.nodes}
                     onChange={(nodes) => setForm({ ...form, nodes })}
-                    isOptional
                   />
                   <TextInput
                     label="Action allowlist"
                     placeholder="Comma separated; empty = all"
                     value={form.actions}
                     onChange={(actions) => setForm({ ...form, actions })}
-                    isOptional
                   />
                 </Fields>
                 <Notice message={addMessage} />
