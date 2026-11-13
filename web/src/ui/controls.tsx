@@ -194,7 +194,7 @@ export function NumberInput({
   const auto = useId();
   return (
     <FieldShell
-      label={label}
+      label={units ? `${label} (${units})` : label}
       id={auto}
       hint={description}
       error={status?.message}
@@ -202,23 +202,19 @@ export function NumberInput({
       required={isRequired}
       optional={isOptional}
     >
-      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <input
-          id={auto}
-          className="input"
-          style={{ flex: '1 1 auto', minWidth: 0 }}
-          type="number"
-          value={value ?? ''}
-          min={min}
-          max={max}
-          step={step ?? 1}
-          placeholder={placeholder}
-          disabled={isDisabled}
-          aria-invalid={status ? true : undefined}
-          onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
-        />
-        {units ? <span className="muted small">{units}</span> : null}
-      </span>
+      <input
+        id={auto}
+        className="input"
+        type="number"
+        value={value ?? ''}
+        min={min}
+        max={max}
+        step={step ?? 1}
+        placeholder={placeholder}
+        disabled={isDisabled}
+        aria-invalid={status ? true : undefined}
+        onChange={(event) => onChange(event.target.value === '' ? null : Number(event.target.value))}
+      />
     </FieldShell>
   );
 }

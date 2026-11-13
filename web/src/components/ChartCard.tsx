@@ -39,11 +39,11 @@ export function ChartCard({
   return (
     <section className="chart-card" aria-label={title}>
       <header className="chart-card-head">
-        <div className="chart-card-heading">
+        <div className="chart-card-title-row">
           <h3 className="chart-card-title">{title}</h3>
-          <p className="chart-card-desc">{desc}</p>
+          {now != null ? <span className="chart-card-now">{now}</span> : null}
         </div>
-        {now != null ? <span className="chart-card-now">{now}</span> : null}
+        <p className="chart-card-desc">{desc}</p>
       </header>
       {hasData ? (
         <SeriesChart

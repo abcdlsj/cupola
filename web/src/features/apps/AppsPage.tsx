@@ -101,7 +101,11 @@ export function ActionRows({
                     </Link>
                   ) : null}
                 </span>
-                {action.description ? <span className="action-desc clamp-2">{action.description}</span> : null}
+                {action.description ? (
+                  <span className="action-desc clamp-2" title={action.description}>
+                    {action.description}
+                  </span>
+                ) : null}
               </div>
             </div>
             <div className="action-side">

@@ -30,7 +30,7 @@ body {
   min-height: var(--app-height, 100dvh);
   font-family: var(--font-ui);
   font-size: var(--fs-body);
-  line-height: 1.45;
+  line-height: 1.5;
   /* Figtree at 400 reads light at 13–14 px on a retina screen; 450 is the
      regular the design was drawn with. */
   font-weight: 450;
@@ -335,10 +335,10 @@ tbody tr:nth-child(even) button:hover {
 .content-inner {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 28px;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: var(--pad-wide) var(--pad-wide) 32px;
+  padding: 28px var(--pad-wide) 36px;
 }
 
 .foot {
@@ -447,6 +447,7 @@ tbody tr:nth-child(even) button:hover {
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
+  padding-bottom: 2px;
 }
 
 .page-head-main {
@@ -494,7 +495,7 @@ tbody tr:nth-child(even) button:hover {
 .band {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .band + .band {
@@ -557,7 +558,7 @@ tbody tr:nth-child(even) button:hover {
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
 .panel-heading {
@@ -589,7 +590,7 @@ tbody tr:nth-child(even) button:hover {
 }
 
 .panel-body {
-  padding: 0 16px 16px;
+  padding: 0 18px 18px;
 }
 
 .panel-body.flush {
@@ -601,7 +602,7 @@ tbody tr:nth-child(even) button:hover {
 }
 
 .panel-foot {
-  padding: 10px 16px;
+  padding: 11px 18px;
   border-top: 1px solid var(--border);
 }
 
@@ -625,9 +626,9 @@ tbody tr:nth-child(even) button:hover {
 .kpi-cell {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
 .kpi-cell + .kpi-cell {
@@ -663,8 +664,8 @@ tbody tr:nth-child(even) button:hover {
 .table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  margin: 0 -16px;
-  padding: 0 16px;
+  margin: 0 -18px;
+  padding: 0 18px;
 }
 
 table.table {
@@ -675,7 +676,7 @@ table.table {
 }
 
 table.table th {
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
   color: var(--muted);
   font-size: var(--fs-small);
@@ -686,7 +687,7 @@ table.table th {
 
 table.table td {
   height: var(--row-height);
-  padding: 7px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
   word-break: normal;
@@ -1092,7 +1093,7 @@ select.select {
   display: block;
   width: 100%;
   height: var(--control-height);
-  padding: 0 10px;
+  padding: 0 12px;
   margin: 0;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
@@ -1375,9 +1376,9 @@ input[type='radio'] {
 .chart-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
-  padding: 14px 16px 12px;
+  padding: 16px 18px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
   background: var(--card);
@@ -1385,16 +1386,15 @@ input[type='radio'] {
 
 .chart-card-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.chart-card-heading {
+.chart-card-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .chart-card-title {
@@ -1405,6 +1405,7 @@ input[type='radio'] {
 .chart-card-desc {
   color: var(--muted);
   font-size: var(--fs-small);
+  line-height: 1.45;
 }
 
 .chart-card-now {

@@ -151,7 +151,7 @@ export interface GridColumns {
 
 export function Grid({
   columns,
-  gap = 3,
+  gap = 4,
   columnGap,
   children,
   className,

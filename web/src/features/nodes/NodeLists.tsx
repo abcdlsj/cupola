@@ -156,7 +156,7 @@ export function ProcessesPage() {
       width: '180px',
       renderCell: ({ proc }) => (
         <VStack gap={0}>
-          <Link href={href(proc)} maxLines={1}>
+          <Link href={href(proc)} maxLines={1} tooltip={proc.name}>
             {proc.name}
           </Link>
           <Text type="supporting" maxLines={1}>
@@ -170,7 +170,7 @@ export function ProcessesPage() {
       header: 'Command line',
       width: '100%',
       renderCell: ({ proc }) => (
-        <Text type="code" size="sm" color="secondary" maxLines={1}>
+        <Text type="code" size="sm" color="secondary" maxLines={1} title={proc.command || proc.name}>
           {proc.command || proc.name}
         </Text>
       ),
@@ -557,7 +557,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
       renderCell: ({ box }) => (
         <HStack gap={2} vAlign="center">
           <StatusDot variant={containerTone(box.state)} label={box.state} />
-          <Link href={href(box)} maxLines={1}>
+          <Link href={href(box)} maxLines={1} tooltip={box.name}>
             {box.name}
           </Link>
         </HStack>
@@ -568,7 +568,7 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
       header: 'Image',
       width: '220px',
       renderCell: ({ box }) => (
-        <Text type="code" size="sm" color="secondary" maxLines={1}>
+        <Text type="code" size="sm" color="secondary" maxLines={1} title={box.image}>
           {box.image}
         </Text>
       ),

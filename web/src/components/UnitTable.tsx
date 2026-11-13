@@ -219,7 +219,7 @@ export function UnitTable({
           <VStack gap={0}>
             {name(row)}
             {row.unit.description ? (
-              <Text type="supporting" maxLines={1}>
+              <Text type="supporting" maxLines={1} title={row.unit.description}>
                 {row.unit.description}
               </Text>
             ) : null}
