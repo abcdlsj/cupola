@@ -31,9 +31,7 @@ body {
   font-family: var(--font-ui);
   font-size: var(--fs-body);
   line-height: 1.5;
-  /* Figtree at 400 reads light at 13–14 px on a retina screen; 450 is the
-     regular the design was drawn with. */
-  font-weight: 450;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   background: var(--ground);

@@ -4,7 +4,7 @@
    colour belongs to status, meters and the four data series. */
 
 :root {
-  --font-ui: 'Figtree Variable', Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-ui: 'Avenir Next', Avenir, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
   /* light: a cool grey ground around white cards */

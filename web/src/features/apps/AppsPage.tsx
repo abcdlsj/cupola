@@ -265,7 +265,7 @@ export function AppsPage() {
   if (actions.isError) {
     return (
       <>
-        <PageHead title="Apps" />
+        <PageHead title="Actions unavailable" />
         <ErrorPanel what="Could not load actions." onRetry={() => void actions.refetch()} />
       </>
     );

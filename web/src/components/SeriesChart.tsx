@@ -26,7 +26,7 @@ export interface ChartSeries {
   color: string;
 }
 
-const AXIS_FONT = '11px "Figtree Variable", Figtree, system-ui, sans-serif';
+const AXIS_FONT = '11px "Avenir Next", Avenir, system-ui, sans-serif';
 
 /** Monotone-ish curves, the way Beszel draws its metrics; uPlot keeps the knots on the samples. */
 const spline = uPlot.paths.spline?.();

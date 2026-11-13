@@ -1,5 +1,6 @@
 /* IBM Plex Mono, self-hosted: figures, timestamps and IDs. The UI face is
-   Figtree, loaded from the fontsource package in index.css. */
+   Avenir Next from the operating system (iOS and macOS ship it); anything else
+   falls back to the platform UI font. */
 
 @font-face {
   font-family: "IBM Plex Mono";
