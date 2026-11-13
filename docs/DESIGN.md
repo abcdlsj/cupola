@@ -22,9 +22,10 @@ defaults from water.css; Cupola adds only its own furniture in
   `KpiCell`, `Meter`, `Figure`, `Facts`, `Stat`, `useIsPhone`.
 
 There is no runtime CSS-in-JS and nothing is fetched from a third party: the
-water.css sheet is vendored (`web/src/styles/water.css`), the UI face
-(Figtree) comes from the fontsource package and the mono face (IBM Plex Mono)
-from `web/public/fonts/`.
+water.css sheet is vendored (`web/src/styles/water.css`), the UI face is the
+system's **Avenir Next** (iOS and macOS ship it; elsewhere the platform UI font
+takes over) and the mono face (IBM Plex Mono) is self-hosted from
+`web/public/fonts/`.
 
 Two themes on one layout, chosen with the header's sun/moon button or in
 **Settings → Appearance** (system, light, dark; kept per browser in
@@ -51,7 +52,8 @@ this sheet.
 
 ## Type
 
-- UI: **Figtree**, 400/500/600 (water.css's system stack is overridden).
+- UI: **Avenir Next** (system), 400 body, 500 for the top bar, headline
+  figures and the identity a table row is read by, 600 for headings.
 - Figures, timestamps, IDs: **IBM Plex Mono**, tabular. Units next to a
   figure step back into the UI face, muted and slightly smaller (`<Figure>`).
 - Sizes: 22 page title, 18 the systems card title, 15 card title, 14 body,

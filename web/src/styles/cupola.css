@@ -260,6 +260,7 @@ tbody tr:nth-child(even) button:hover {
   border-radius: var(--radius-control);
   color: var(--muted);
   font-size: var(--fs-body);
+  font-weight: 500;
 }
 
 .topbar .navlink:hover {
@@ -695,6 +696,7 @@ tbody tr:nth-child(even) button:hover {
   gap: 4px;
   font-family: var(--font-mono);
   font-size: var(--fs-figure);
+  font-weight: 500;
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
@@ -757,6 +759,10 @@ table.table th.num {
 
 table.table tbody tr.is-hover:hover {
   background: var(--well);
+}
+
+table.table td a {
+  font-weight: 500;
 }
 
 table.table td .cell-sub {

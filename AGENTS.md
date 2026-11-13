@@ -74,8 +74,8 @@ colour only on data, status and meters).
 - Do not use cream-paper/ink, beige, terracotta, violet/indigo, gradients,
   glass, glow, emoji, icon chips, sparklines on KPIs, rainbow charts, zebra
   rows, uppercase tracked headers, fake charts or lorem.
-- Figtree for UI (from fontsource), IBM Plex Mono for every figure/timestamp/ID.
-  Tabular.
+- Avenir Next for UI (a system face: iOS/macOS ship it, other platforms fall
+  back), IBM Plex Mono for every figure/timestamp/ID. Tabular.
 - Two themes, light and dark, sharing one layout; light is the default and
   Settings → Appearance picks system, light or dark. Every colour comes from
   `web/src/styles/tokens.css` (dark is neutral grey); no hex in components
