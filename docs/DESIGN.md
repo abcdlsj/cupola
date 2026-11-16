@@ -219,11 +219,17 @@ meter widths, 120–160 ms ease-out. `prefers-reduced-motion` turns it off.
   IndexedDB; offline banner with the last-updated time.
 - iOS: `viewport-fit=cover`, `dvh`, safe-area padding, the shell pinned to
   the screen edges in the installed app, the bottom bar above the home
-  indicator. The installed layout viewport can stop one safe area short of the
-  screen; `theme-init.js` measures the shortfall into `--app-bottom-gap`, the
-  shell's bottom edge extends by it and the bar pads by `--app-safe-bottom`
-  (`max(env(safe-area-inset-bottom), gap)`), so no ground is left under the bar
-  and the inset is never counted twice.
+  indicator. The shell's height is `visualViewport.height` (`--app-height`,
+  written by `theme-init.js`), because `dvh` disagrees with it in both
+  directions: short at first paint, past the screen after a bounce. A cold
+  launch also reports a viewport one safe area off the screen and nothing
+  corrects it until the first scroll — the bar floats above the bottom edge
+  until you pull. The installed app has no browser chrome, so the screen is the
+  viewport: `theme-init.js` pins `--app-height` to the screen height whenever
+  the two disagree by no more than a safe area (`SLACK`, 80 px), and leaves a
+  larger difference to the real metrics (split view, keyboard). The keyboard is
+  ignored outright: a viewport that shrinks by more than 120 px is the keyboard,
+  and the shell keeps its height so the layout does not jump behind it.
 - Safe areas: the installed app paints behind a translucent status bar, so the
   top bar carries `env(safe-area-inset-top)` as padding — the nav row clears
   the clock and the bar's ground still fills the strip. A browser tab reports

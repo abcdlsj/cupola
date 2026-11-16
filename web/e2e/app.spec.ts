@@ -281,6 +281,42 @@ test.describe('keyboard and shell', () => {
     expect(appHeight).not.toBe('');
   });
 
+  test('a cold launch pins the shell to the screen, not the short viewport', async ({ page, viewport }) => {
+    if ((viewport?.width ?? 1440) > 640) test.skip(true, 'the standalone pin is a mobile layout');
+    // What iOS reports on the first frame of the installed app: no browser
+    // chrome, so the screen is the viewport, but visualViewport comes back one
+    // safe area short and stays short until something scrolls. The bottom bar
+    // then floats above the bottom edge — the reported gap.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'standalone', { configurable: true, get: () => true });
+      // Getters, not values: an init script runs before the viewport meta is
+      // applied, so innerWidth/innerHeight are still the wrong 980x1668 there.
+      Object.defineProperty(window, 'visualViewport', {
+        configurable: true,
+        value: {
+          get width() {
+            return window.innerWidth;
+          },
+          get height() {
+            return Math.max(1, Math.round(window.innerHeight) - 34);
+          },
+          offsetTop: 0,
+          offsetLeft: 0,
+          scale: 1,
+          addEventListener() {},
+          removeEventListener() {},
+        },
+      });
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Systems' })).toBeVisible();
+    const size = page.viewportSize();
+    const bar = page.locator('nav[aria-label="Primary"]').last();
+    const box = await bar.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.round(box!.y + box!.height)).toBe(size!.height);
+  });
+
   test('every snapshot section is an array, never null', async ({ request }) => {
     // A Go nil slice is JSON null, and every node screen reads .length on these
     // sections; one null section blanks the tab content. The hub fills them

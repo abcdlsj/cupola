@@ -27,13 +27,32 @@
   } catch {
     // no matchMedia: the media query in the stylesheet still applies
   }
-  // The shell is pinned to the *visual* viewport, and in the installed app
-  // `100dvh` disagrees with it: at first paint iOS hands out a layout viewport
-  // that ends short of the screen (a strip of ground under the bottom bar) or,
-  // after a bounce, one that runs past it (the bar sits below the screen).
-  // visualViewport.height is the height the page is actually seen at, so it is
-  // written to --app-height and the stylesheet uses it in place of 100dvh.
-  // Falls back to innerHeight where the API is missing.
+  // The shell is pinned to the *visual* viewport: `100dvh` disagrees with it in
+  // the installed app — at first paint it ends short (a strip of ground under
+  // the bottom bar) and after a bounce it runs past (the bar sits below the
+  // screen). visualViewport.height is the height the page is actually seen at,
+  // so it is written to --app-height; innerHeight stands in where the API is
+  // missing.
+  //
+  // A cold launch also hands out a viewport one safe area off the screen, and
+  // nothing corrects it until the first scroll — the reported "gap under the
+  // bar until you pull". The installed app has no browser chrome, so the screen
+  // *is* the viewport; a disagreement no larger than a safe area is that bug,
+  // not a real size, and the screen wins.
+  function screenHeight() {
+    try {
+      var portrait = window.matchMedia
+        ? window.matchMedia('(orientation: portrait)').matches
+        : window.innerHeight >= window.innerWidth;
+      var w = window.screen.width;
+      var h = window.screen.height;
+      return Math.round(portrait ? Math.max(w, h) : Math.min(w, h));
+    } catch {
+      return 0;
+    }
+  }
+
+  var SLACK = 80;
   var lastGood = 0;
   function measure() {
     try {
@@ -43,6 +62,7 @@
       // The keyboard shrinks the visual viewport; keep the layout the same size
       // or the whole shell jumps up behind it.
       if (lastGood && h < lastGood - 120) return;
+      if (standalone && Math.abs(screenHeight() - h) <= SLACK) h = screenHeight();
       lastGood = h;
       root.style.setProperty('--app-height', h + 'px');
     } catch {
