@@ -68,12 +68,15 @@ type Collector struct {
 	gpus         []model.GPU
 	gpusAt       time.Time
 
+	// ethtool ioctls are slow and chatty; the answers are hardware.
+	ethDetails map[string]linkDetail
+	ethAt      time.Time
+
 	prevCPU   []cpu.TimesStat
 	prevCPUAt time.Time
 	prevProcs map[int32]procDelta
 	prevNet   map[string]netDelta
 	prevDisk  map[string]diskDelta
-
 
 	containerPids map[int32]string
 	dockerWarnAt  time.Time

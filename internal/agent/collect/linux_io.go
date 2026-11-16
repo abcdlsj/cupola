@@ -63,43 +63,77 @@ func (c *Collector) diskIORates() map[string]ioRate {
 	return out
 }
 
-// linkInfo adds speed, duplex, driver and carrier state from ethtool and sysfs.
+// ethDetailTTL is how long the ioctl-only link facts stay cached.
+const ethDetailTTL = 5 * time.Minute
+
+// linkInfo adds speed, duplex, driver and carrier state: carrier from sysfs on
+// every poll, the rest from the ethtool cache.
 func (c *Collector) linkInfo() map[string]linkDetail {
 	out := make(map[string]linkDetail)
-	eth, err := ethtool.NewEthtool()
-	if err == nil {
-		defer eth.Close()
-	}
 	entries, err := os.ReadDir("/sys/class/net")
 	if err != nil {
 		return out
 	}
+	eth := c.ethtoolDetails()
 	for _, entry := range entries {
 		name := entry.Name()
 		if name == "lo" {
 			continue
 		}
-		detail := linkDetail{}
+		detail := eth[name]
 		if body, err := os.ReadFile(filepath.Join("/sys/class/net", name, "operstate")); err == nil {
 			detail.up = strings.TrimSpace(string(body)) == "up"
 		}
-		if eth != nil {
-			if settings, err := eth.GetLinkSettings(name); err == nil && settings != nil {
-				if settings.Speed != 4294967295 {
-					detail.speed = int(settings.Speed)
-				}
-				if settings.Duplex == 1 {
-					detail.duplex = "full"
-				} else if settings.Duplex == 0 {
-					detail.duplex = "half"
-				}
+		out[name] = detail
+	}
+	return out
+}
+
+// ethtoolDetails holds speed, duplex and driver per interface. They are
+// hardware facts, so they are read once every ethDetailTTL instead of on every
+// 5 s poll. That is also what keeps the journal readable: ethtool writes
+// "GLINKSETTINGS … invalid nwords, attempting fallback to GSET" to stderr, not
+// through slog, for a NIC whose driver only answers the legacy ioctl — at a
+// poll cadence that is hundreds of lines a minute and nothing can filter it
+// from inside the process.
+func (c *Collector) ethtoolDetails() map[string]linkDetail {
+	if c.ethDetails != nil && time.Since(c.ethAt) < ethDetailTTL {
+		return c.ethDetails
+	}
+	out := make(map[string]linkDetail)
+	eth, err := ethtool.NewEthtool()
+	if err != nil {
+		c.ethDetails, c.ethAt = out, time.Now()
+		return out
+	}
+	defer eth.Close()
+	entries, err := os.ReadDir("/sys/class/net")
+	if err != nil {
+		c.ethDetails, c.ethAt = out, time.Now()
+		return out
+	}
+	for _, entry := range entries {
+		name := entry.Name()
+		if ignoredInterface(name) {
+			continue
+		}
+		detail := linkDetail{}
+		if settings, err := eth.GetLinkSettings(name); err == nil && settings != nil {
+			if settings.Speed != 4294967295 {
+				detail.speed = int(settings.Speed)
 			}
-			if driver, err := eth.DriverName(name); err == nil {
-				detail.driver = driver
+			if settings.Duplex == 1 {
+				detail.duplex = "full"
+			} else if settings.Duplex == 0 {
+				detail.duplex = "half"
 			}
+		}
+		if driver, err := eth.DriverName(name); err == nil {
+			detail.driver = driver
 		}
 		out[name] = detail
 	}
+	c.ethDetails, c.ethAt = out, time.Now()
 	return out
 }
 
