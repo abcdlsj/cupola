@@ -216,6 +216,11 @@ tbody tr:nth-child(even) button:hover {
   position: sticky;
   top: 0;
   z-index: 30;
+  /* The installed app paints behind a translucent status bar, and there the
+     inset is the notch: the bar carries it so the nav row sits below the clock
+     while its ground still fills the strip. It is 0 in a browser tab, where
+     Safari insets the layout viewport itself. */
+  padding-top: env(safe-area-inset-top, 0px);
   background: var(--ground);
   border-bottom: 1px solid var(--border);
 }
@@ -227,7 +232,7 @@ tbody tr:nth-child(even) button:hover {
   height: var(--header-height);
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0 var(--pad-wide);
+  padding: 0 var(--pad-safe-right) 0 var(--pad-safe-left);
 }
 
 .brand {
@@ -337,7 +342,7 @@ tbody tr:nth-child(even) button:hover {
   gap: 28px;
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 28px var(--pad-wide) 36px;
+  padding: 28px var(--pad-safe-right) 36px var(--pad-safe-left);
 }
 
 .foot {
@@ -349,7 +354,7 @@ tbody tr:nth-child(even) button:hover {
   max-width: var(--content-width);
   width: 100%;
   margin: 0 auto;
-  padding: 10px var(--pad-wide) 12px;
+  padding: 10px var(--pad-safe-right) 12px var(--pad-safe-left);
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: var(--fs-small);
@@ -382,6 +387,7 @@ tbody tr:nth-child(even) button:hover {
   align-items: stretch;
   justify-content: space-around;
   gap: 2px;
+  padding: 0 env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px);
 }
 
 .tabbar-link {
@@ -2093,7 +2099,9 @@ dialog.palette::backdrop {
   display: grid;
   align-content: center;
   min-height: 100dvh;
-  padding: max(40px, env(safe-area-inset-top)) 24px max(40px, env(safe-area-inset-bottom));
+  padding: max(40px, env(safe-area-inset-top))
+    calc(24px + env(safe-area-inset-right, 0px)) max(40px, env(safe-area-inset-bottom))
+    calc(24px + env(safe-area-inset-left, 0px));
 }
 
 .login-shell {
@@ -2231,17 +2239,13 @@ pre.code-block .code-title {
     --pad-wide: 12px;
   }
 
-  .topbar-inner {
-    padding: 0 var(--pad);
-  }
-
   .topbar .navlinks {
     display: none;
   }
 
   .content-inner {
     gap: 20px;
-    padding: 16px var(--pad) 24px;
+    padding: 16px var(--pad-safe-right) 24px var(--pad-safe-left);
   }
 
   .foot {

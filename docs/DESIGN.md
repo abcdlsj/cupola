@@ -224,3 +224,10 @@ meter widths, 120–160 ms ease-out. `prefers-reduced-motion` turns it off.
   shell's bottom edge extends by it and the bar pads by `--app-safe-bottom`
   (`max(env(safe-area-inset-bottom), gap)`), so no ground is left under the bar
   and the inset is never counted twice.
+- Safe areas: the installed app paints behind a translucent status bar, so the
+  top bar carries `env(safe-area-inset-top)` as padding — the nav row clears
+  the clock and the bar's ground still fills the strip. A browser tab reports
+  that inset as 0 (Safari insets its own layout viewport), so nothing doubles
+  up there. Left and right go on the horizontal padding through
+  `--pad-safe-left` / `--pad-safe-right` (`--pad-wide` plus the inset), which
+  covers the landscape notch; the bottom goes on the tab bar.

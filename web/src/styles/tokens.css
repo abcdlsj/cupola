@@ -49,6 +49,14 @@
   --gap: 12px;
   --content-width: 1200px;
 
+  /* A notch or a rounded corner eats into the screen edges. The horizontal
+     padding is the design padding plus whatever the safe area takes, so no
+     text ever sits under one; both insets are 0 in a browser tab. They read
+     --pad-wide at use time, so the narrow breakpoint's smaller padding still
+     applies. */
+  --pad-safe-left: calc(var(--pad-wide) + env(safe-area-inset-left, 0px));
+  --pad-safe-right: calc(var(--pad-wide) + env(safe-area-inset-right, 0px));
+
   /* what water.css reads */
   --background-body: var(--ground);
   --background: var(--well);
