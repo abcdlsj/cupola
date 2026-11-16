@@ -19,6 +19,11 @@ services:
       # CUPOLA_CORS_ORIGINS: https://user.github.io
     volumes:
       - cupola-data:/data
+      # Container metrics for the hub's own node: opt in by uncommenting both
+      # lines. The socket is root-equivalent, and group_add must name the group
+      # that owns it on the host (usually docker, gid 999 or 998).
+      # - /var/run/docker.sock:/var/run/docker.sock
+    # group_add: ["999"]
 
   agent:
     build:

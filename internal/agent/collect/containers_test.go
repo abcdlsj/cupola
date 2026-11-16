@@ -1,6 +1,10 @@
 package collect
 
 import (
+	"errors"
+	"fmt"
+	"io/fs"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types/image"
@@ -75,5 +79,28 @@ func TestImagesFromKeepsAnEmptyTagAsDangling(t *testing.T) {
 	got := imagesFrom([]image.Summary{{ID: "sha256:abc", RepoTags: []string{""}, Size: 1}})
 	if len(got) != 1 || !got[0].Dangling || got[0].RepoTag != "<none>" {
 		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestDockerWarningNamesTheFixForAPermissionError(t *testing.T) {
+	// The hub runs as an unprivileged user; the raw Docker message ("permission
+	// denied while trying to connect") never says which group to join.
+	c := &Collector{}
+	var got error
+	c.dockerWarning(func(_ string, err error) { got = err }, fmt.Errorf("connect: %w", fs.ErrPermission))
+	if got == nil {
+		t.Fatal("no warning recorded")
+	}
+	for _, want := range []string{"Docker socket", "install-hub.sh --docker", "docs/DEPLOY.md"} {
+		if !strings.Contains(got.Error(), want) {
+			t.Fatalf("warning %q does not mention %q", got, want)
+		}
+	}
+	// A different failure keeps its own message.
+	c = &Collector{}
+	got = nil
+	c.dockerWarning(func(_ string, err error) { got = err }, errors.New("no such file"))
+	if got == nil || strings.Contains(got.Error(), "install-hub.sh") {
+		t.Fatalf("generic warning = %v, want the bare error", got)
 	}
 }

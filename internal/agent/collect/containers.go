@@ -3,7 +3,10 @@ package collect
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
 	"strings"
 	"time"
 
@@ -139,6 +142,13 @@ func (c *Collector) dockerWarning(warn func(string, error), err error) {
 		return
 	}
 	c.dockerWarnAt = time.Now()
+	// Permission denied is the one failure the operator can fix, and the raw
+	// Docker message does not say how: name the group and the docs.
+	if errors.Is(err, fs.ErrPermission) {
+		err = fmt.Errorf("%w (uid %d cannot open the Docker socket: add the service "+
+			"user to the socket's group with deploy/install-hub.sh --docker, or set "+
+			"collect.docker to false; see docs/DEPLOY.md)", err, os.Geteuid())
+	}
 	warn("containers", err)
 }
 

@@ -73,7 +73,9 @@ addresses never leave the host.
   `coreos/go-systemd`; containers use the Docker client over the socket; SMART
   uses `anatol/smart.go` with a `smartctl --json` fallback; NVIDIA GPUs use
   `NVIDIA/go-nvml` in a `linux && cgo` build, AMD GPUs are read from sysfs.
-- SMART and full port ownership need root. The Docker socket is root-equivalent.
+- SMART and full port ownership need root. The Docker socket is root-equivalent:
+  an agent that runs as root reads it, and a hub that runs as `cupola` needs the
+  opt-in in [Container metrics](#container-metrics-opt-in).
 - NVIDIA metrics need a cgo build with the NVML headers; the default
   `CGO_ENABLED=0` release reports no NVIDIA GPU and no SMART through NVML-only
   hosts.
@@ -151,6 +153,20 @@ actions, then restart.
 ### Hub systemd
 
 ```bash
+curl -fsSL https://raw.githubusercontent.com/abcdlsj/cupola/main/deploy/install-hub.sh \
+  | sudo sh -s -- --admin-password 'a long password' --public-url https://hub.example.com
+```
+
+The script installs the newest release (binary, `web/` and the systemd units
+from the same tarball), creates the `cupola` account, writes `/etc/cupola/hub.env`
+(0600, secrets preserved on a re-run), enables `cupola-hub` and
+`cupola-upgrade.path`, restarts and waits for `/healthz`. `--version` pins a
+release, `--from <dir>` installs an unpacked tarball on an offline host,
+`--help` lists the rest.
+
+To do it by hand instead:
+
+```bash
 useradd --system --home /var/lib/cupola --shell /usr/sbin/nologin cupola
 install -d -m 0750 -o root -g root /opt/cupola /etc/cupola
 install -d -m 0700 -o cupola -g cupola /var/lib/cupola
@@ -163,6 +179,35 @@ install -m 0644 deploy/systemd/cupola-upgrade.path /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable --now cupola-hub cupola-upgrade.path
 ```
+
+### Container metrics (opt-in)
+
+The hub's local agent reads `/var/run/docker.sock` for containers and images.
+The socket is root-equivalent, so the unit does **not** grant it; the hub runs
+as `cupola` and container collection fails with
+`permission denied while trying to connect` until you opt in:
+
+```bash
+sudo sh deploy/install-hub.sh --docker          # re-run the installer
+```
+
+That writes `/etc/systemd/system/cupola-hub.service.d/10-docker.conf`:
+
+```ini
+[Service]
+SupplementaryGroups=docker
+```
+
+The group defaults to the socket's owner (`stat -c %G /var/run/docker.sock`), so
+rootless Docker and Podman work too; `--docker-group <name>` overrides it. Then
+`systemctl daemon-reload && systemctl restart cupola-hub`. Without the flag the
+installer removes the drop-in. Postgres-style setups that keep Docker in a
+separate namespace cannot be reached this way — point `DOCKER_HOST` at the socket
+in `hub.env` instead.
+
+Turn collection off instead by setting `collect.docker` to `false` in
+`<data-dir>/local-agent.json` (the hub's own node config) or `agent.json` on
+another host.
 
 ### Self-upgrade
 

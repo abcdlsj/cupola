@@ -38,7 +38,8 @@ jobs:
         with:
           go-version: '1.26'
       # The tarball ships the built PWA too: a self-upgrade that replaced only
-      # the binary would leave the UI at the old version.
+      # the binary would leave the UI at the old version. deploy/ travels with
+      # it so install-hub.sh installs the systemd units from the same release.
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -61,7 +62,8 @@ jobs:
             -ldflags "-s -w -X github.com/abcdlsj/cupola/internal/version.Version=${TAG#v} -X github.com/abcdlsj/cupola/internal/version.Commit=${GITHUB_SHA} -X github.com/abcdlsj/cupola/internal/version.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             -o "dist/stage/cupola" ./cmd/cupola
           cp -R web/dist dist/stage/web
-          tar -C dist/stage -czf "dist/${out}.tar.gz" cupola web
+          cp -R deploy dist/stage/deploy
+          tar -C dist/stage -czf "dist/${out}.tar.gz" cupola web deploy
           cp "dist/${out}.tar.gz" "dist/cupola_${GOOS}_${GOARCH}.tar.gz"
           rm -rf dist/stage
           echo "ASSET=dist/${out}.tar.gz" >> "$GITHUB_ENV"

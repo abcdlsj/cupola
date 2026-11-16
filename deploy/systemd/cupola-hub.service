@@ -19,6 +19,10 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
+# Container metrics need /var/run/docker.sock, which is root-equivalent, so the
+# group is not granted here. Opt in with deploy/install-hub.sh --docker, which
+# drops SupplementaryGroups=<socket group> into
+# /etc/systemd/system/cupola-hub.service.d/10-docker.conf.
 
 [Install]
 WantedBy=multi-user.target
