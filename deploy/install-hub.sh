@@ -200,6 +200,8 @@ fi
 
 # --- the files -------------------------------------------------------------
 
+# The binary keeps its own rollback copy, the way the upgrader leaves one.
+if [ -f "$OPT_DIR/cupola" ]; then cp -a "$OPT_DIR/cupola" "$OPT_DIR/cupola.prev"; fi
 install -m 0755 "$STAGE/cupola" "$OPT_DIR/cupola"
 rm -rf "$OPT_DIR/web.prev"
 if [ -d "$OPT_DIR/web" ]; then mv "$OPT_DIR/web" "$OPT_DIR/web.prev"; fi
