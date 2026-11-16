@@ -22,6 +22,8 @@
 #                          metrics work: adds the socket's group to the service.
 #                          The socket is root-equivalent — this is opt-in.
 #   --docker-group <name>  group that owns the socket, default its owner group
+#   --serve                run `cupola serve`: the hub plus a local agent, so the
+#                          panel lists the machine it runs on as `local`
 set -eu
 
 ADMIN_PASSWORD=""
@@ -36,6 +38,7 @@ FROM_DIR=""
 UNITS_DIR=""
 DOCKER="no"
 DOCKER_GROUP=""
+SERVE="no"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -51,7 +54,8 @@ while [ $# -gt 0 ]; do
     --units) UNITS_DIR="$2"; shift 2 ;;
     --docker) DOCKER="yes"; shift ;;
     --docker-group) DOCKER="yes"; DOCKER_GROUP="$2"; shift 2 ;;
-    -h|--help) sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --serve) SERVE="yes"; shift ;;
+    -h|--help) sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -145,6 +149,9 @@ if [ "$DOCKER" = "yes" ]; then
   SOCKET="/var/run/docker.sock"
   if [ ! -S "$SOCKET" ]; then
     echo "warning: $SOCKET is missing; container metrics stay empty until Docker runs" >&2
+  elif ! curl -fsS --max-time 3 --unix-socket "$SOCKET" http://d/_ping >/dev/null 2>&1; then
+    # A stopped daemon leaves the socket file behind, so presence proves nothing.
+    echo "warning: nothing answers on $SOCKET; container metrics stay empty until Docker runs" >&2
   fi
   if [ -z "$DOCKER_GROUP" ] && [ -S "$SOCKET" ]; then
     DOCKER_GROUP="$(stat -c '%G' "$SOCKET")"
@@ -165,6 +172,29 @@ else
   if [ -f "$DOCKER_CONF" ]; then
     rm -f "$DOCKER_CONF"
     echo "container metrics: off (removed $DOCKER_CONF)"
+  fi
+fi
+
+# --- all-in-one ------------------------------------------------------------
+
+# `hub` serves other agents only. `serve` also runs an agent for this machine
+# and registers it as `local`, which is what a single-box install wants. A
+# drop-in rather than a second unit, because ExecStart has to be cleared first.
+SERVE_CONF="/etc/systemd/system/cupola-hub.service.d/20-serve.conf"
+if [ "$SERVE" = "yes" ]; then
+  install -d -m 0755 "$(dirname "$SERVE_CONF")"
+  cat > "$SERVE_CONF" <<CONFEOF
+# Installed by deploy/install-hub.sh --serve.
+[Service]
+ExecStart=
+ExecStart=$OPT_DIR/cupola serve --web-dir $OPT_DIR/web
+CONFEOF
+  chmod 0644 "$SERVE_CONF"
+  echo "mode: serve (hub plus a local agent for this machine)"
+else
+  if [ -f "$SERVE_CONF" ]; then
+    rm -f "$SERVE_CONF"
+    echo "mode: hub (no local agent; removed $SERVE_CONF)"
   fi
 fi
 

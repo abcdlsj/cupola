@@ -162,6 +162,7 @@ from the same tarball), creates the `cupola` account, writes `/etc/cupola/hub.en
 (0600, secrets preserved on a re-run), enables `cupola-hub` and
 `cupola-upgrade.path`, restarts and waits for `/healthz`. `--version` pins a
 release, `--from <dir>` installs an unpacked tarball on an offline host,
+`--serve` adds the local agent (the panel then lists this machine as `local`),
 `--help` lists the rest.
 
 To do it by hand instead:
