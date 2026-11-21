@@ -78,7 +78,7 @@ export function ActionRows({
 }) {
   const now = Date.now();
   return (
-    <div>
+    <div className="action-list">
       {actions.map((action) => {
         const fleet = 'node_id' in action;
         const node = fleet ? action.node_id : (nodeId ?? '');
@@ -95,7 +95,7 @@ export function ActionRows({
                   </Link>
                   {action.danger ? <Badge variant="error" label="Dangerous" /> : null}
                   {fleet && name ? (
-                    <Link href={`/nodes/${encodeURIComponent(node)}/apps`} color="secondary">
+                    <Link href={`/nodes/${encodeURIComponent(node)}/apps`} className="role-tag">
                       {name}
                     </Link>
                   ) : null}

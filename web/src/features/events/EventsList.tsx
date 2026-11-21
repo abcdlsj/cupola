@@ -8,7 +8,7 @@ import type { Event, Severity } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
 import { groupEvents, type EventGroup } from '../../lib/events';
 import { Band, PageHead, useIsPhone } from '../../ui/kit';
-import { EmptyState, Grid, HStack, Link, StatusDot, Text, VStack } from '../../ui/primitives';
+import { EmptyState, Link, StatusDot, Text, VStack } from '../../ui/primitives';
 import { Select } from '../../ui/controls';
 
 const ALL = 'all';
@@ -283,7 +283,7 @@ export function EventsList({
       description="Events appear when a unit fails, a container restarts, a port opens or a threshold fires."
     />
   ) : (
-    <div>
+    <div className="event-kinds">
       {kinds.map((entry) => {
         const hidden = isFolded(entry);
         const rows = rowsOf(entry.groups, open);
@@ -355,19 +355,19 @@ export function EventsList({
       />
       {kinds.length > 0 ? (
         <Band title="By kind" desc="Occurrences per kind in the loaded window, worst first" first>
-          <Grid columns={{ minWidth: 200, max: 4, repeat: 'fill' }}>
+          <div className="event-summary-grid">
             {kinds.map((entry) => (
-              <HStack key={entry.kind} gap={2} vAlign="center">
+              <div className="event-summary-card" key={entry.kind}>
                 <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
-                <VStack gap={0}>
-                  <Text>{kindLabel(entry.kind)}</Text>
+                <VStack gap={0} style={{ minWidth: 0 }}>
+                  <Text weight="medium">{kindLabel(entry.kind)}</Text>
                   <Text type="supporting">
-                    {entry.count} · newest {relative(entry.newest, now)}
+                    {entry.count} · {relative(entry.newest, now)}
                   </Text>
                 </VStack>
-              </HStack>
+              </div>
             ))}
-          </Grid>
+          </div>
         </Band>
       ) : null}
       <Band

@@ -15,6 +15,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 
 /* ----------------------------------------------------------------- fields -- */
 
@@ -492,11 +493,31 @@ export function Tab({
   endContent?: ReactNode;
   ariaLabel?: string;
 }) {
-  return (
-    <a className="tab" href={href} aria-current={selected ? 'page' : undefined} aria-label={ariaLabel}>
+  const ref = useRef<HTMLAnchorElement>(null);
+  useEffect(() => {
+    if (selected && ref.current && typeof ref.current.scrollIntoView === 'function') {
+      ref.current.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+  }, [selected]);
+
+  const content = (
+    <>
       {label}
       {value ? <span className="sr-only">{value}</span> : null}
       {endContent}
+    </>
+  );
+
+  if (href && href.startsWith('/') && !href.startsWith('//')) {
+    return (
+      <RouterLink ref={ref} className="tab" to={href} aria-current={selected ? 'page' : undefined} aria-label={ariaLabel}>
+        {content}
+      </RouterLink>
+    );
+  }
+  return (
+    <a ref={ref} className="tab" href={href} aria-current={selected ? 'page' : undefined} aria-label={ariaLabel}>
+      {content}
     </a>
   );
 }
@@ -535,10 +556,14 @@ export function Dialog({
     if (open && !dialog.open) {
       dialog.showModal();
       // the first field is where the reader is going, not the close button
+      const preferred = initialFocus?.current;
+      const preferredInput = preferred?.matches('input, select, textarea, button')
+        ? preferred
+        : preferred?.querySelector<HTMLElement>('input:not([type="hidden"]), select, textarea');
       const field = dialog.querySelector<HTMLElement>(
         '.dialog-body input:not([type="hidden"]), .dialog-body select, .dialog-body textarea',
       );
-      (initialFocus?.current ?? field ?? dialog).focus();
+      (preferredInput ?? field ?? dialog).focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }

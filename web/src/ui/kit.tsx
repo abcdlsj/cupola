@@ -103,7 +103,7 @@ export function Meter({
         {missing ? null : <span className="meter-fill" data-level={level} style={{ width: `${clamped}%` }} />}
       </span>
       {showValue ? (
-        <span className={missing ? 'meter-value is-missing' : 'meter-value'}>
+        <span className={missing ? 'meter-value is-missing' : 'meter-value'} data-level={missing ? undefined : level}>
           {missing ? '—' : (text ?? clamped.toFixed(digits))}
           {missing || text ? null : <span className="unit">%</span>}
         </span>

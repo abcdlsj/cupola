@@ -17,7 +17,7 @@ export type { ChartUnit };
 /** uPlot paints a flat translucent area under each line; no gradients. */
 // Ten percent: enough to read the shape, not enough to make a colour field
 // out of ten stacked charts.
-const FILL_ALPHA = '2e';
+const FILL_ALPHA = '1e';
 
 /** One thin line. The colour comes from a data hue, never from the chrome. */
 export interface ChartSeries {
@@ -198,7 +198,7 @@ export function SeriesChart({
         {},
         ...series.map((entry, index) => ({
           stroke: cssColor(entry.color),
-          width: index === 0 ? 1.5 : 1.25,
+          width: index === 0 ? 1.75 : 1.4,
           paths: spline,
           // Only the first series fills. Two translucent areas stack into a
           // third colour nobody chose, so a comparison chart reads as one

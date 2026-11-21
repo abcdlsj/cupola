@@ -1,5 +1,6 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useMemo } from 'react';
+import { CaretRight } from '@phosphor-icons/react';
 import { useSearchParams } from 'react-router-dom';
 import { ErrorPanel, LoadingPage } from '../../components/States';
 import { StatusDot } from '../../components/StatusPill';
@@ -10,7 +11,7 @@ import type { NodeView } from '../../data/types';
 import { nodeFigures, type NodeFigures } from '../../lib/fleet';
 import { relative, uptime } from '../../lib/format';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
-import { Band, Figure, Meter, PageHead, useIsPhone } from '../../ui/kit';
+import { Band, Figure, levelOf, Meter, PageHead, useIsPhone } from '../../ui/kit';
 import {
   Button,
   EmptyState,
@@ -35,7 +36,7 @@ function nodeHref(id: string): string {
   return `/nodes/${encodeURIComponent(id)}`;
 }
 
-/** The label a card used to carry: the first node label, else the push transport. */
+/** The first node label, else the push transport. */
 function roleOf(view: NodeView): string {
   return view.node.labels[0] ?? (view.node.mode === 'push' ? 'push' : '');
 }
@@ -51,15 +52,11 @@ function loadPct(fig: NodeFigures): number | null {
 function SystemName({ view }: { view: NodeView }) {
   const role = roleOf(view);
   return (
-    <HStack gap={1.5} vAlign="center">
+    <HStack gap={2} vAlign="center">
       <Link href={nodeHref(view.node.id)} maxLines={1} className="node-link">
         {view.node.name}
       </Link>
-      {role ? (
-        <Text type="supporting" maxLines={1}>
-          {role}
-        </Text>
-      ) : null}
+      {role ? <span className="role-tag">{role}</span> : null}
     </HStack>
   );
 }
@@ -68,11 +65,11 @@ const columns: Array<TableColumn<SystemRow>> = [
   {
     key: 'name',
     header: 'System',
-    width: '320px',
+    width: '28%',
     renderCell: ({ view, fig }) => (
-      <HStack gap={2} vAlign="center">
+      <HStack gap={2.5} vAlign="center">
         <StatusDot status={view.health.status} />
-        <VStack gap={0}>
+        <VStack gap={0.5} style={{ minWidth: 0 }}>
           <SystemName view={view} />
           <Text type="supporting" maxLines={1}>
             {metaOf(view, fig) || 'no data yet'}
@@ -84,21 +81,25 @@ const columns: Array<TableColumn<SystemRow>> = [
   {
     key: 'cpu',
     header: 'CPU',
+    width: '13%',
     renderCell: ({ view, fig }) => <Meter value={fig.cpu} label={`${view.node.name} CPU`} width={64} />,
   },
   {
     key: 'memory',
     header: 'Memory',
+    width: '13%',
     renderCell: ({ view, fig }) => <Meter value={fig.mem} label={`${view.node.name} memory`} width={64} />,
   },
   {
     key: 'disk',
     header: 'Disk',
+    width: '13%',
     renderCell: ({ view, fig }) => <Meter value={fig.disk} label={`${view.node.name} root filesystem`} width={64} />,
   },
   {
     key: 'load',
     header: 'Load',
+    width: '14%',
     renderCell: ({ view, fig }) => (
       <Meter
         value={loadPct(fig)}
@@ -111,14 +112,14 @@ const columns: Array<TableColumn<SystemRow>> = [
   {
     key: 'temp',
     header: 'Temp',
-    width: '88px',
+    width: '9%',
     align: 'end',
     renderCell: ({ fig }) => <Figure value={fig.temp} digits={0} unit="°C" />,
   },
   {
     key: 'uptime',
-    header: 'Up',
-    width: '104px',
+    header: 'Uptime',
+    width: '10%',
     align: 'end',
     renderCell: ({ view, fig }) => (
       <Figure value={fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null} />
@@ -126,44 +127,78 @@ const columns: Array<TableColumn<SystemRow>> = [
   },
 ];
 
-/** Below 900 px a table stops being readable: each system becomes one block. */
-function SystemBlocks({ rows }: { rows: SystemRow[] }) {
+/** Mobile system cards: tappable card with a clean 2×2 metric meter grid. */
+function SystemCards({ rows }: { rows: SystemRow[] }) {
   return (
-    <div className="rows">
+    <div className="sys-cards">
       {rows.map(({ id, view, fig }) => {
-        const meta = [
-          metaOf(view, fig),
-          fig.temp != null ? `${Math.round(fig.temp)} °C` : null,
-          fig.online && view.health.uptime_sec > 0 ? `up ${uptime(view.health.uptime_sec)}` : null,
-        ]
-          .filter(Boolean)
-          .join(' · ');
-        const meters: Array<[string, number | null, string | undefined]> = [
-          ['CPU', fig.cpu, undefined],
-          ['Memory', fig.mem, undefined],
-          ['Disk', fig.disk, undefined],
-          ['Load', loadPct(fig), fig.load ? fig.load[0].toFixed(2) : undefined],
+        const role = roleOf(view);
+        const meta = metaOf(view, fig) || 'no data yet';
+        const upText = fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null;
+        const tempText = fig.temp != null ? `${Math.round(fig.temp)} °C` : null;
+        const metrics: Array<{ label: string; value: number | null; text?: string }> = [
+          { label: 'CPU', value: fig.cpu },
+          { label: 'Memory', value: fig.mem },
+          { label: 'Disk', value: fig.disk },
+          { label: 'Load', value: loadPct(fig), text: fig.load ? fig.load[0].toFixed(2) : undefined },
         ];
         return (
-          <div className="row" key={id} style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, padding: '12px 0' }}>
-            <HStack gap={2} vAlign="start">
-              <StatusDot status={view.health.status} />
-              <VStack gap={0}>
-                <SystemName view={view} />
-                <Text type="supporting" maxLines={1}>
-                  {meta || 'no data yet'}
-                </Text>
-              </VStack>
-            </HStack>
-            {meters.map(([label, value, text]) => (
-              <HStack key={label} gap={3} vAlign="center">
-                <span className="muted small" style={{ width: 64 }}>
-                  {label}
-                </span>
-                <Meter value={value} label={`${view.node.name} ${label.toLowerCase()}`} text={text} width={160} />
-              </HStack>
-            ))}
-          </div>
+          <Link href={nodeHref(view.node.id)} key={id} className="sys-card">
+            <div className="sys-card-head">
+              <div className="sys-card-id">
+                <StatusDot status={view.health.status} />
+                <VStack gap={0.5} style={{ minWidth: 0 }}>
+                  <div className="sys-card-name-row">
+                    <span className="sys-card-name">{view.node.name}</span>
+                    {role ? <span className="role-tag">{role}</span> : null}
+                  </div>
+                  <Text type="supporting" maxLines={1}>
+                    {meta}
+                  </Text>
+                </VStack>
+              </div>
+              <div className="sys-card-right">
+                {tempText ? <span>{tempText}</span> : null}
+                {tempText && upText ? <span className="faint">·</span> : null}
+                {upText ? <span>{upText}</span> : null}
+                <CaretRight size={15} aria-hidden="true" />
+              </div>
+            </div>
+
+            <div className="sys-card-metrics">
+              {metrics.map((metric) => {
+                const missing = metric.value == null || !Number.isFinite(metric.value);
+                const level = missing ? undefined : levelOf(metric.value);
+                const display = missing ? '—' : (metric.text ?? `${Math.round(metric.value!)}%`);
+                return (
+                  <div className="sys-metric" key={metric.label}>
+                    <div className="sys-metric-head">
+                      <span className="sys-metric-label">{metric.label}</span>
+                      <span
+                        className={missing ? 'sys-metric-val is-missing' : 'sys-metric-val'}
+                        style={
+                          level === 'error'
+                            ? { color: 'var(--bad)' }
+                            : level === 'warning'
+                              ? { color: 'var(--warn)' }
+                              : undefined
+                        }
+                      >
+                        {display}
+                      </span>
+                    </div>
+                    <Meter
+                      value={metric.value}
+                      label={`${view.node.name} ${metric.label.toLowerCase()}`}
+                      text={metric.text}
+                      showValue={false}
+                      width="100%"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </Link>
         );
       })}
     </div>
@@ -233,6 +268,18 @@ export function OverviewPage() {
     />
   );
 
+  const pager =
+    pg.pages > 1 ? (
+      <Pager
+        page={pg.index}
+        pages={pg.pages}
+        from={pg.from}
+        to={pg.to}
+        total={units.length}
+        onChange={(next) => update('page', next > 0 ? String(next + 1) : null)}
+      />
+    ) : undefined;
+
   return (
     <>
       <PageHead
@@ -241,20 +288,20 @@ export function OverviewPage() {
         actions={
           <>
             {updated ? (
-              <HStack gap={2} vAlign="center" paddingInline={2}>
+              <span className="live-badge">
                 <Dot
                   variant={stale ? 'warning' : 'success'}
                   label={stale ? 'Stale' : 'Live'}
                   isPulsing={!stale}
                   tooltip={stale ? 'The hub stopped answering' : 'Refreshed every 10 s'}
                 />
-                <Text type="supporting" textWrap="nowrap">
+                <span>
                   {stale ? 'stale, ' : ''}updated {relative(updated, Date.now())}
-                </Text>
-              </HStack>
+                </span>
+              </span>
             ) : null}
             {phone ? null : filter}
-            <Button label="Settings" href="/settings/nodes" />
+            {phone ? null : <Button label="Settings" href="/settings/nodes" />}
           </>
         }
       />
@@ -272,7 +319,7 @@ export function OverviewPage() {
             />
           )
         ) : phone ? (
-          <SystemBlocks rows={shown} />
+          <SystemCards rows={shown} />
         ) : (
           <Table data={shown} columns={columns} idKey="id" label="Systems" hasHover />
         )}
@@ -280,29 +327,13 @@ export function OverviewPage() {
 
       <Band
         title="Services"
-        desc={
-          services.isPending
-            ? 'Loading units…'
-            : `${units.length} units · failed first`
-        }
-        actions={<Button label="View all" href="/services" />}
+        desc={services.isPending ? 'Loading units…' : `${units.length} units · failed first`}
+        actions={<Button label="View all" href="/services" size="sm" />}
       >
         {services.isError ? (
           <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />
         ) : services.isPending ? null : (
-          <>
-            <UnitTable rows={rows} />
-            {pg.pages > 1 ? (
-              <Pager
-                page={pg.index}
-                pages={pg.pages}
-                from={pg.from}
-                to={pg.to}
-                total={units.length}
-                onChange={(next) => update('page', next > 0 ? String(next + 1) : null)}
-              />
-            ) : null}
-          </>
+          <UnitTable rows={rows} footer={pager} />
         )}
       </Band>
     </>

@@ -91,17 +91,22 @@ export function FleetServicesPage() {
       />
       <Band first>
         {phone ? controls : null}
-        <UnitTable rows={rows} showSubState />
-        {pg.pages > 1 ? (
-          <Pager
-            page={pg.index}
-            pages={pg.pages}
-            from={pg.from}
-            to={pg.to}
-            total={filtered.length}
-            onChange={(next) => update({ page: next > 0 ? String(next + 1) : null })}
-          />
-        ) : null}
+        <UnitTable
+          rows={rows}
+          showSubState
+          footer={
+            pg.pages > 1 ? (
+              <Pager
+                page={pg.index}
+                pages={pg.pages}
+                from={pg.from}
+                to={pg.to}
+                total={filtered.length}
+                onChange={(next) => update({ page: next > 0 ? String(next + 1) : null })}
+              />
+            ) : undefined
+          }
+        />
       </Band>
     </>
   );

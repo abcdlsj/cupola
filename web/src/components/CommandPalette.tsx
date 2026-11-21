@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { useNavigate } from 'react-router-dom';
 import { useFleet } from '../data/queries';
 import type { NodeStatus } from '../data/types';
@@ -98,6 +99,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       }}
     >
       <div className="palette-field">
+        <MagnifyingGlass size={17} aria-hidden="true" />
         <input
           ref={field}
           type="text"
@@ -123,7 +125,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             }
           }}
         />
-        <span className="muted small">esc</span>
+        <kbd className="cmd-kbd">esc</kbd>
       </div>
 
       <div className="palette-list" role="listbox" id="palette-list" aria-label="Results">

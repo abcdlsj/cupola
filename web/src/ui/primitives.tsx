@@ -404,6 +404,7 @@ export function Table<T extends Record<string, unknown>>({
   idKey,
   label,
   hasHover = false,
+  footer,
 }: {
   data: T[];
   columns: Array<TableColumn<T>>;
@@ -412,49 +413,56 @@ export function Table<T extends Record<string, unknown>>({
   density?: 'compact' | 'regular';
   dividers?: 'rows' | 'none';
   hasHover?: boolean;
+  footer?: ReactNode;
 }) {
   const keyOf = (row: T, index: number): string =>
     typeof idKey === 'function' ? String(idKey(row)) : String(row[idKey] ?? index);
   return (
-    <div className="table-wrap">
-      <table className="table" aria-label={label}>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className={column.align === 'end' ? 'num' : undefined}
-                style={column.width ? { width: column.width } : undefined}
-              >
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, index) => (
-            <tr key={keyOf(row, index)} className={hasHover ? 'is-hover' : undefined}>
+    <div className="table-card">
+      <div className="table-wrap">
+        <table className="table" aria-label={label}>
+          <thead>
+            <tr>
               {columns.map((column) => (
-                <td key={column.key} className={column.align === 'end' ? 'num' : undefined}>
-                  {column.renderCell ? column.renderCell(row) : String(row[column.key] ?? '—')}
-                </td>
+                <th
+                  key={column.key}
+                  scope="col"
+                  className={column.align === 'end' ? 'num' : undefined}
+                  style={column.width ? { width: column.width } : undefined}
+                >
+                  {column.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {data.map((row, index) => (
+              <tr key={keyOf(row, index)} className={hasHover ? 'is-hover' : undefined}>
+                {columns.map((column) => (
+                  <td key={column.key} className={column.align === 'end' ? 'num' : undefined}>
+                    {column.renderCell ? column.renderCell(row) : String(row[column.key] ?? '—')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {footer ? <div className="panel-foot">{footer}</div> : null}
     </div>
   );
 }
 
 /* ------------------------------------------------------------------- lists */
 
-export function List({ children, label }: { children: ReactNode; label?: string }) {
+export function List({ children, label, footer }: { children: ReactNode; label?: string; footer?: ReactNode }) {
   return (
-    <ul className="rows" aria-label={label} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-      {children}
-    </ul>
+    <div className="rows-card">
+      <ul className="rows" aria-label={label} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+        {children}
+      </ul>
+      {footer ? <div className="panel-foot">{footer}</div> : null}
+    </div>
   );
 }
 
@@ -474,11 +482,11 @@ export function ListItem({
   const body = (
     <>
       <span className="row-main">
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
           {startContent}
-          <span>{label}</span>
+          <span className="row-label clamp-1">{label}</span>
         </span>
-        {description ? <span className="muted small">{description}</span> : null}
+        {description ? <span className="muted small clamp-2">{description}</span> : null}
       </span>
       {endContent ? <span style={{ flex: 'none' }}>{endContent}</span> : null}
     </>
@@ -486,7 +494,7 @@ export function ListItem({
   return (
     <li className="row">
       {href ? (
-        <Link href={href} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, width: '100%' }}>
+        <Link href={href} className="row-link">
           {body}
         </Link>
       ) : (

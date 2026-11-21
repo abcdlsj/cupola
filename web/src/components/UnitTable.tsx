@@ -1,5 +1,5 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
-import { useState, type MouseEvent } from 'react';
+import { useState, type MouseEvent, type ReactNode } from 'react';
 import { EmptyState, HStack, Link, List, ListItem, StatusDot, Table, Text, VStack } from '../ui/primitives';
 import { SegmentedControl, SegmentedControlItem, Select } from '../ui/controls';
 import type { TableColumn } from '../ui/primitives';
@@ -125,6 +125,7 @@ export function UnitTable({
   nodeId,
   showNode = true,
   showSubState = false,
+  footer,
 }: {
   rows: Row[];
   /** called instead of following the unit link */
@@ -133,6 +134,7 @@ export function UnitTable({
   nodeId?: string;
   showNode?: boolean;
   showSubState?: boolean;
+  footer?: ReactNode;
 }) {
   const phone = useIsPhone();
   if (rows.length === 0) {
@@ -189,14 +191,14 @@ export function UnitTable({
 
   if (phone) {
     return (
-      <List label="Units">
+      <List label="Units" footer={footer}>
         {data.map((row) => (
           <ListItem
             key={row.key}
             href={row.nodeId ? unitHref(row.nodeId, row.unit.name) : undefined}
             startContent={<StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />}
             label={<span className="code">{row.unit.name}</span>}
-            description={`${row.unit.description ? `${row.unit.description} · ` : ''}${meta(row)} · ${row.changed}`}
+            description={`${row.unit.description ? `${row.unit.description} · ` : ''}${meta(row)}`}
             endContent={
               <Text type="code" size="sm" color="secondary" textWrap="nowrap">
                 {row.changed}
@@ -292,5 +294,5 @@ export function UnitTable({
     },
   );
 
-  return <Table data={data} columns={columns} idKey="key" label="Units" hasHover />;
+  return <Table data={data} columns={columns} idKey="key" label="Units" hasHover footer={footer} />;
 }

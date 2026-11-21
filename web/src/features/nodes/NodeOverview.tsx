@@ -8,13 +8,12 @@ import type { NodeView, ProcessInfo, SeriesPoint } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, relative, size } from '../../lib/format';
 import { Band, KpiCell, KpiStrip, levelOf, Meter, Section, useIsPhone } from '../../ui/kit';
-import { Grid, HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
+import { HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
 import { emptyNote, peak, Rows, Stat, useMetric, useSnapshot, WaitingForSnapshot } from './MetricPages';
 import { historyChart, peakOf, percentCeiling } from './NodeLists';
 import { rangeLabel, useRange } from './RangeControl';
 
 const DOCKER_SERIES = 4;
-const CHART_GRID = { minWidth: 320, max: 3, repeat: 'fit' } as const;
 
 function last(points: SeriesPoint[] | undefined): number | null {
   return points && points.length ? points[points.length - 1].avg : null;
@@ -99,25 +98,27 @@ function TopProcesses({ view, nodeId }: { view: NodeView; nodeId: string }) {
       {rows.length === 0 ? (
         <Empty>No process sample in the last snapshot.</Empty>
       ) : phone ? (
-        <Rows>
-          {rows.map(({ proc }) => (
-            <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
-              <HStack gap={2} vAlign="center" hAlign="between">
-                <HStack gap={1.5} vAlign="center">
-                  {name(proc)}
-                  <span className="muted small">{proc.user}</span>
+        <div className="rows-card">
+          <Rows>
+            {rows.map(({ proc }) => (
+              <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
+                <HStack gap={2} vAlign="center" hAlign="between">
+                  <HStack gap={1.5} vAlign="center">
+                    {name(proc)}
+                    <span className="muted small">{proc.user}</span>
+                  </HStack>
+                  <span className="code muted">{proc.pid}</span>
                 </HStack>
-                <span className="code muted">{proc.pid}</span>
-              </HStack>
-              {cpu(proc, 140)}
-              <HStack gap={4} wrap>
-                <Stat label="Memory">{size(proc.rss_bytes)}</Stat>
-                <Stat label="Threads">{proc.threads}</Stat>
-                <Stat label="Started">{relative(proc.started_at, now)}</Stat>
-              </HStack>
-            </VStack>
-          ))}
-        </Rows>
+                {cpu(proc, 140)}
+                <HStack gap={4} wrap>
+                  <Stat label="Memory">{size(proc.rss_bytes)}</Stat>
+                  <Stat label="Threads">{proc.threads}</Stat>
+                  <Stat label="Started">{relative(proc.started_at, now)}</Stat>
+                </HStack>
+              </VStack>
+            ))}
+          </Rows>
+        </div>
       ) : (
         <Table data={rows} columns={columns} idKey="pid" label="Top processes" hasHover />
       )}
@@ -221,7 +222,7 @@ export function NodeOverview() {
       </KpiStrip>
 
       <Band title="Activity" desc={`${rangeLabel(range)} · CPU, memory, load, pressure, disk and network`}>
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <ChartCard
             title="CPU usage"
             desc={`Average across ${snap.node.cores} threads; the dashed line is the 80 % alert.`}
@@ -283,7 +284,7 @@ export function NodeOverview() {
             pending={netRx.pending || netTx.pending}
             empty={empty}
           />
-        </Grid>
+        </div>
       </Band>
 
       {hasContainers ? (
@@ -292,7 +293,7 @@ export function NodeOverview() {
           desc={`${snap.containers.length} running · ${rangeLabel(range)}`}
           actions={<Link href={`/nodes/${nodeId}/containers${range === '1h' ? '' : `?range=${range}`}`}>All containers</Link>}
         >
-          <Grid columns={CHART_GRID}>
+          <div className="chart-grid">
             <ChartCard
               title="Docker CPU usage"
               desc={
@@ -316,12 +317,12 @@ export function NodeOverview() {
               pending={history.isPending}
               empty={empty ?? 'No sample in this window yet. Container history is written once a minute.'}
             />
-          </Grid>
+          </div>
         </Band>
       ) : null}
 
       <Band title="Disks and sensors" desc="Current readings from the last snapshot">
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <Section
             title="Disk usage"
             desc={rootFull ? `Root fills in about ${days(rootFull)} at the current rate.` : 'Used space per mounted filesystem.'}
@@ -367,7 +368,7 @@ export function NodeOverview() {
               </Rows>
             )}
           </Section>
-        </Grid>
+        </div>
       </Band>
 
       <TopProcesses view={view} nodeId={nodeId} />

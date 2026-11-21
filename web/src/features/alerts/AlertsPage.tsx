@@ -33,12 +33,14 @@ function Mono({ children, secondary }: { children: ReactNode; secondary?: boolea
 /** Below 900 px a table becomes stacked blocks: a title line, then the facts. */
 function Blocks<T>({ items, id, render }: { items: T[]; id: (item: T) => string | number; render: (item: T) => ReactNode }) {
   return (
-    <div className="rows">
-      {items.map((item) => (
-        <VStack key={id(item)} gap={1} paddingBlock={3}>
-          {render(item)}
-        </VStack>
-      ))}
+    <div className="rows-card">
+      <div className="rows">
+        {items.map((item) => (
+          <VStack key={id(item)} gap={1} paddingBlock={3}>
+            {render(item)}
+          </VStack>
+        ))}
+      </div>
     </div>
   );
 }
@@ -238,7 +240,7 @@ export function AlertsPage() {
         ) : (
           <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
             {firingList.map((alert) => (
-              <section className="section" key={alert.id}>
+              <section className="section is-alert" key={alert.id}>
                 <HStack gap={2} vAlign="center" hAlign="between" wrap>
                   <HStack gap={2} vAlign="center">
                     <StatusDot variant="error" label="Firing" isPulsing />

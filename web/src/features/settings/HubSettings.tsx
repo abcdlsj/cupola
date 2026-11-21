@@ -31,21 +31,23 @@ export function RetentionSettingsPage() {
           <ErrorPanel what="The hub settings could not be loaded." onRetry={() => void settings.refetch()} />
         ) : (
           <Two>
-            <Grid columns={{ minWidth: 140, max: 3 }}>
-              {(
-                [
-                  ['Raw samples', `${data.poll_interval_sec} s`, `kept ${data.retention_raw_hours} h`],
-                  ['1-minute rollups', '1 m', `kept ${data.retention_minute_days} d`],
-                  ['1-hour rollups', '1 h', `kept ${data.retention_hour_months} mo`],
-                ] as const
-              ).map(([label, step, kept]) => (
-                <VStack key={label} gap={1}>
-                  <span className="muted small">{label}</span>
-                  <Figure value={step} size="heading" />
-                  <span className="code muted">{kept}</span>
-                </VStack>
-              ))}
-            </Grid>
+            <div className="section">
+              <Grid columns={{ minWidth: 140, max: 3 }}>
+                {(
+                  [
+                    ['Raw samples', `${data.poll_interval_sec} s`, `kept ${data.retention_raw_hours} h`],
+                    ['1-minute rollups', '1 m', `kept ${data.retention_minute_days} d`],
+                    ['1-hour rollups', '1 h', `kept ${data.retention_hour_months} mo`],
+                  ] as const
+                ).map(([label, step, kept]) => (
+                  <VStack key={label} gap={1}>
+                    <span className="muted small">{label}</span>
+                    <Figure value={step} size="heading" />
+                    <span className="code muted">{kept}</span>
+                  </VStack>
+                ))}
+              </Grid>
+            </div>
             <Aside
               title="Hub"
               rows={[
@@ -67,16 +69,18 @@ export function AppearanceSettingsPage() {
     <SettingsPage>
       <Band title="Appearance" desc="Saved in this browser only; light is the default" first>
         <Two>
-          <VStack gap={3}>
-            <SegmentedControl label="Theme" value={preference} onChange={(value) => setThemePreference(value as ThemePreference)}>
-              <SegmentedControlItem value="system" label="System" />
-              <SegmentedControlItem value="light" label="Light" />
-              <SegmentedControlItem value="dark" label="Dark" />
-            </SegmentedControl>
-            <Text type="supporting">
-              {preference === 'system' ? `Following the system, which is ${theme} now.` : `Always ${theme}, whatever the system says.`}
-            </Text>
-          </VStack>
+          <div className="section">
+            <VStack gap={3}>
+              <SegmentedControl label="Theme" value={preference} onChange={(value) => setThemePreference(value as ThemePreference)}>
+                <SegmentedControlItem value="system" label="System" />
+                <SegmentedControlItem value="light" label="Light" />
+                <SegmentedControlItem value="dark" label="Dark" />
+              </SegmentedControl>
+              <Text type="supporting">
+                {preference === 'system' ? `Following the system, which is ${theme} now.` : `Always ${theme}, whatever the system says.`}
+              </Text>
+            </VStack>
+          </div>
           <Aside
             title="Current values"
             rows={[
@@ -106,61 +110,63 @@ export function AccountSettingsPage() {
           <Banner status="info" title="Sign in with the admin password to change it." />
         ) : (
           <Two>
-            <form
-              noValidate
-              data-testid="password-form"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                setTried(true);
-                setMessage(null);
-                if (!form.current || form.next.length < 10) return;
-                if (form.next !== form.confirm) {
-                  setMessage({ kind: 'error', text: 'The new passwords do not match.' });
-                  return;
-                }
-                try {
-                  await change.mutateAsync({ current_password: form.current, new_password: form.next });
-                  setMessage({ kind: 'ok', text: 'Password changed.' });
-                  setForm({ current: '', next: '', confirm: '' });
-                  setTried(false);
-                } catch (caught) {
-                  setMessage({ kind: 'error', text: errorText(caught, 'The password could not be changed.') });
-                }
-              }}
-            >
-              <VStack gap={4}>
-                <TextInput
-                  label="Current password"
-                  type="password"
-                  autoComplete="current-password"
-                  value={form.current}
-                  onChange={(current) => setForm({ ...form, current })}
-                  status={tried && !form.current ? { type: 'error', message: 'Required' } : undefined}
-                />
-                <Fields>
+            <div className="section">
+              <form
+                noValidate
+                data-testid="password-form"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setTried(true);
+                  setMessage(null);
+                  if (!form.current || form.next.length < 10) return;
+                  if (form.next !== form.confirm) {
+                    setMessage({ kind: 'error', text: 'The new passwords do not match.' });
+                    return;
+                  }
+                  try {
+                    await change.mutateAsync({ current_password: form.current, new_password: form.next });
+                    setMessage({ kind: 'ok', text: 'Password changed.' });
+                    setForm({ current: '', next: '', confirm: '' });
+                    setTried(false);
+                  } catch (caught) {
+                    setMessage({ kind: 'error', text: errorText(caught, 'The password could not be changed.') });
+                  }
+                }}
+              >
+                <VStack gap={4}>
                   <TextInput
-                    label="New password (at least 10 characters)"
+                    label="Current password"
                     type="password"
-                    autoComplete="new-password"
-                    value={form.next}
-                    onChange={(next) => setForm({ ...form, next })}
-                    status={short ? { type: 'error', message: 'At least 10 characters' } : undefined}
+                    autoComplete="current-password"
+                    value={form.current}
+                    onChange={(current) => setForm({ ...form, current })}
+                    status={tried && !form.current ? { type: 'error', message: 'Required' } : undefined}
                   />
-                  <TextInput
-                    label="Repeat the new password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={form.confirm}
-                    onChange={(confirm) => setForm({ ...form, confirm })}
-                    status={mismatch && !short ? { type: 'error', message: 'Does not match' } : undefined}
-                  />
-                </Fields>
-                <Notice message={message} />
-                <HStack>
-                  <Button type="submit" label="Change password" variant="primary" isLoading={change.isPending} />
-                </HStack>
-              </VStack>
-            </form>
+                  <Fields>
+                    <TextInput
+                      label="New password (at least 10 characters)"
+                      type="password"
+                      autoComplete="new-password"
+                      value={form.next}
+                      onChange={(next) => setForm({ ...form, next })}
+                      status={short ? { type: 'error', message: 'At least 10 characters' } : undefined}
+                    />
+                    <TextInput
+                      label="Repeat the new password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={form.confirm}
+                      onChange={(confirm) => setForm({ ...form, confirm })}
+                      status={mismatch && !short ? { type: 'error', message: 'Does not match' } : undefined}
+                    />
+                  </Fields>
+                  <Notice message={message} />
+                  <HStack>
+                    <Button type="submit" label="Change password" variant="primary" isLoading={change.isPending} />
+                  </HStack>
+                </VStack>
+              </form>
+            </div>
             <div />
           </Two>
         )}
@@ -252,25 +258,27 @@ export function AboutSettingsPage() {
     <SettingsPage>
       <Two>
         <Band title="This hub" first>
-          <Facts
-            rows={[
-              { label: 'Version', value: current },
-              { label: 'Commit', value: commit },
-              { label: 'Nodes', value: settings.data ? String(settings.data.node_count) : null },
-              { label: 'Session', value: me.data ? (me.data.mode === 'token' ? `token ${me.data.token_name}` : 'admin') : null },
-              { label: 'Public URL', value: settings.data ? settings.data.public_url || 'not set' : null },
-            ]}
-          />
-          <HStack>
-            <Button
-              label="Sign out"
-              isLoading={logout.isPending}
-              onClick={async () => {
-                await logout.mutateAsync();
-                navigate('/login');
-              }}
+          <div className="section">
+            <Facts
+              rows={[
+                { label: 'Version', value: current },
+                { label: 'Commit', value: commit },
+                { label: 'Nodes', value: settings.data ? String(settings.data.node_count) : null },
+                { label: 'Session', value: me.data ? (me.data.mode === 'token' ? `token ${me.data.token_name}` : 'admin') : null },
+                { label: 'Public URL', value: settings.data ? settings.data.public_url || 'not set' : null },
+              ]}
             />
-          </HStack>
+            <HStack>
+              <Button
+                label="Sign out"
+                isLoading={logout.isPending}
+                onClick={async () => {
+                  await logout.mutateAsync();
+                  navigate('/login');
+                }}
+              />
+            </HStack>
+          </div>
         </Band>
 
         <Band
@@ -278,40 +286,42 @@ export function AboutSettingsPage() {
           desc={updates.data?.repo ? <span className="code muted">{updates.data.repo}</span> : undefined}
           first
         >
-          <VStack data-testid="update-kv" gap={2}>
-            <Facts rows={updateRows} />
-          </VStack>
-          {notes ? <CodeBlock code={notes} title={`${target} notes`} maxHeight={240} /> : null}
-          {updates.data?.error ? <Notice message={{ kind: 'error', text: updates.data.error }} /> : null}
-          <Notice message={message} />
-          <HStack gap={2} wrap>
-            <Button
-              label="Check now"
-              isLoading={refresh.isPending}
-              isDisabled={!updates.data?.enabled}
-              onClick={() => refresh.mutate()}
-            />
-            {queued ? (
-              <Button label={`Cancel ${queued.version}`} isLoading={cancel.isPending} onClick={() => cancel.mutate()} />
-            ) : (
+          <div className="section">
+            <VStack data-testid="update-kv" gap={2}>
+              <Facts rows={updateRows} />
+            </VStack>
+            {notes ? <CodeBlock code={notes} title={`${target} notes`} maxHeight={240} /> : null}
+            {updates.data?.error ? <Notice message={{ kind: 'error', text: updates.data.error }} /> : null}
+            <Notice message={message} />
+            <HStack gap={2} wrap>
               <Button
-                label={target ? `Upgrade to ${target}` : 'Upgrade'}
-                variant="primary"
-                isDisabled={!canUpgrade && !canForce}
-                tooltip={canUpgrade || canForce ? undefined : 'No newer release, or the hub cannot write its data directory'}
-                onClick={() => {
-                  setMessage(null);
-                  setTyped('');
-                  setConfirming(true);
-                }}
+                label="Check now"
+                isLoading={refresh.isPending}
+                isDisabled={!updates.data?.enabled}
+                onClick={() => refresh.mutate()}
               />
-            )}
-          </HStack>
-          <hr />
-          <Text type="supporting">
-            The hub writes a request; the root <span className="code">cupola-upgrade</span> unit verifies the checksum, swaps the binary and web
-            build, restarts the service and rolls back if the health check fails.
-          </Text>
+              {queued ? (
+                <Button label={`Cancel ${queued.version}`} isLoading={cancel.isPending} onClick={() => cancel.mutate()} />
+              ) : (
+                <Button
+                  label={target ? `Upgrade to ${target}` : 'Upgrade'}
+                  variant="primary"
+                  isDisabled={!canUpgrade && !canForce}
+                  tooltip={canUpgrade || canForce ? undefined : 'No newer release, or the hub cannot write its data directory'}
+                  onClick={() => {
+                    setMessage(null);
+                    setTyped('');
+                    setConfirming(true);
+                  }}
+                />
+              )}
+            </HStack>
+            <hr />
+            <Text type="supporting">
+              The hub writes a request; the root <span className="code">cupola-upgrade</span> unit verifies the checksum, swaps the binary and web
+              build, restarts the service and rolls back if the health check fails.
+            </Text>
+          </div>
         </Band>
       </Two>
 

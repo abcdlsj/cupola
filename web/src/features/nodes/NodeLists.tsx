@@ -505,19 +505,21 @@ function Images({ images }: { images: DockerImage[] }) {
           description="The image list is empty or the Docker socket is not readable by the agent."
         />
       ) : (
-        <div className="rows">
-          {top.map((image) =>
-            row(
-              image.id,
-              <span className="code clamp-1">{image.repo_tag}</span>,
-              `${image.containers} ${image.containers === 1 ? 'container' : 'containers'} · ${image.id.replace(/^sha256:/, '').slice(0, 12)}${image.dangling ? ' · dangling' : ''}`,
-              Math.max(2, (image.size / largest) * 100),
-              size(image.size),
-            ),
-          )}
-          {rest.length > 0
-            ? row('rest', <span className="muted small">{rest.length} more</span>, null, null, size(restBytes))
-            : null}
+        <div className="rows-card">
+          <div className="rows">
+            {top.map((image) =>
+              row(
+                image.id,
+                <span className="code clamp-1">{image.repo_tag}</span>,
+                `${image.containers} ${image.containers === 1 ? 'container' : 'containers'} · ${image.id.replace(/^sha256:/, '').slice(0, 12)}${image.dangling ? ' · dangling' : ''}`,
+                Math.max(2, (image.size / largest) * 100),
+                size(image.size),
+              ),
+            )}
+            {rest.length > 0
+              ? row('rest', <span className="muted small">{rest.length} more</span>, null, null, size(restBytes))
+              : null}
+          </div>
         </div>
       )}
     </Band>
@@ -654,7 +656,7 @@ export function ContainersPage() {
         desc={`${snap.containers.length} ${snap.containers.length === 1 ? 'container' : 'containers'} · ${running} running · Docker over the unix socket`}
         first
       >
-        <Grid columns={{ minWidth: 320, max: 3, repeat: 'fit' }}>
+        <div className="chart-grid">
           <ChartCard
             title="Container CPU"
             desc={cpu.length > 1 ? `The ${cpu.length} busiest containers in this window` : 'The busiest container in this window'}
@@ -677,7 +679,7 @@ export function ContainersPage() {
             pending={history.isPending}
             empty={HISTORY_EMPTY}
           />
-        </Grid>
+        </div>
         {snap.containers.length === 0 ? (
           <EmptyState
             title="No container reported"
@@ -713,7 +715,7 @@ export function ContainerDetailPage() {
         desc={`${container.image} · ${container.status || container.state}`}
         leading={<StatusDot variant={containerTone(container.state)} label={container.state} tooltip={container.state} />}
       />
-      <Grid columns={{ minWidth: 320, repeat: 'fit' }}>
+      <div className="chart-grid">
         <ChartCard
           title="CPU"
           desc={`${container.name} over the window`}
@@ -738,7 +740,7 @@ export function ContainerDetailPage() {
           pending={history.isPending}
           empty={HISTORY_EMPTY}
         />
-      </Grid>
+      </div>
       <Section title="Container">
         <Facts
           rows={[

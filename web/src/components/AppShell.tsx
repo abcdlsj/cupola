@@ -21,13 +21,15 @@ const NAV = [
   { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-function Utilities({ onSearch }: { onSearch: () => void }) {
+function Utilities({ onSearch, onSettings }: { onSearch: () => void; onSettings: boolean }) {
   const theme = useResolvedTheme();
   const navigate = useNavigate();
   return (
     <div className="utils">
-      <button type="button" className="icon-btn" aria-label="Search (⌘K)" title="Search (⌘K)" onClick={onSearch}>
-        <MagnifyingGlass size={18} aria-hidden="true" />
+      <button type="button" className="cmd-trigger" aria-label="Search (⌘K)" title="Search (⌘K)" onClick={onSearch}>
+        <MagnifyingGlass size={16} aria-hidden="true" />
+        <span className="cmd-trigger-label">Search</span>
+        <kbd className="cmd-kbd">⌘K</kbd>
       </button>
       <button
         type="button"
@@ -42,6 +44,7 @@ function Utilities({ onSearch }: { onSearch: () => void }) {
         type="button"
         className="icon-btn"
         aria-label="Settings"
+        aria-current={onSettings ? 'page' : undefined}
         title="Settings"
         onClick={() => navigate('/settings/nodes')}
       >
@@ -89,6 +92,8 @@ export function AppShell() {
   const phone = useIsPhone();
   const visible = useDocumentVisible();
   const main = useRef<HTMLElement>(null);
+  const onSettings = pathname.startsWith('/settings');
+
   // A background tab drops the stream; the reconnect when it comes back
   // invalidates every live key, so nothing is stale on return.
   useStream(visible && Boolean(me.data?.authenticated));
@@ -121,7 +126,7 @@ export function AppShell() {
             </nav>
           ) : (
             <nav aria-label="Primary" className="navlinks">
-              <RouterLink className="brand" to="/" style={{ marginRight: 10 }}>
+              <RouterLink className="brand" to="/" style={{ marginRight: 16 }}>
                 <CupolaMark size={20} />
                 cupola
               </RouterLink>
@@ -141,7 +146,7 @@ export function AppShell() {
               })}
             </nav>
           )}
-          <Utilities onSearch={() => setPaletteOpen(true)} />
+          <Utilities onSearch={() => setPaletteOpen(true)} onSettings={onSettings} />
         </div>
       </header>
 
@@ -156,9 +161,13 @@ export function AppShell() {
         </main>
         {phone ? null : (
           <footer className="foot">
-            <span>Cupola · raw 48 h, 1 m 30 d, 1 h 13 mo</span>
-            <span className="foot-sep">·</span>
-            <Link href="/settings/about">about</Link>
+            <div className="foot-inner">
+              <span>Cupola</span>
+              <span className="foot-sep">·</span>
+              <span>raw 48 h, 1 m 30 d, 1 h 13 mo</span>
+              <span className="foot-sep">·</span>
+              <Link href="/settings/about">About</Link>
+            </div>
           </footer>
         )}
       </div>

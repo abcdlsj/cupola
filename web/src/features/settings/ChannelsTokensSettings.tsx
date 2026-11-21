@@ -157,62 +157,64 @@ export function AlertsSettingsPage() {
       <Band title="Add a channel">
         <Two>
           {admin ? (
-            <form
-              noValidate
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit();
-              }}
-            >
-              <VStack gap={4}>
-                <Fields>
-                  <TextInput label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} isRequired status={required(form.name, tried)} />
-                  <Select label="Kind" value={form.kind} options={KIND_OPTIONS} onChange={(kind) => setForm({ ...form, kind })} />
-                  {telegram ? (
-                    <>
+            <div className="section">
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submit();
+                }}
+              >
+                <VStack gap={4}>
+                  <Fields>
+                    <TextInput label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} isRequired status={required(form.name, tried)} />
+                    <Select label="Kind" value={form.kind} options={KIND_OPTIONS} onChange={(kind) => setForm({ ...form, kind })} />
+                    {telegram ? (
+                      <>
+                        <TextInput
+                          label="Bot token"
+                          type="password"
+                          autoComplete="off"
+                          value={form.token}
+                          onChange={(token) => setForm({ ...form, token })}
+                          isRequired
+                          status={required(form.token, tried)}
+                        />
+                        <TextInput
+                          label="Chat ID"
+                          value={form.chat_id}
+                          onChange={(chat_id) => setForm({ ...form, chat_id })}
+                          isRequired
+                          status={required(form.chat_id, tried)}
+                        />
+                      </>
+                    ) : (
                       <TextInput
-                        label="Bot token"
+                        label="URL"
+                        type="url"
+                        value={form.url}
+                        onChange={(url) => setForm({ ...form, url })}
+                        isRequired
+                        status={required(form.url, tried)}
+                      />
+                    )}
+                    {form.kind === 'webhook' ? (
+                      <TextInput
+                        label="HMAC secret"
                         type="password"
                         autoComplete="off"
-                        value={form.token}
-                        onChange={(token) => setForm({ ...form, token })}
-                        isRequired
-                        status={required(form.token, tried)}
+                        value={form.secret}
+                        onChange={(secret) => setForm({ ...form, secret })}
                       />
-                      <TextInput
-                        label="Chat ID"
-                        value={form.chat_id}
-                        onChange={(chat_id) => setForm({ ...form, chat_id })}
-                        isRequired
-                        status={required(form.chat_id, tried)}
-                      />
-                    </>
-                  ) : (
-                    <TextInput
-                      label="URL"
-                      type="url"
-                      value={form.url}
-                      onChange={(url) => setForm({ ...form, url })}
-                      isRequired
-                      status={required(form.url, tried)}
-                    />
-                  )}
-                  {form.kind === 'webhook' ? (
-                    <TextInput
-                      label="HMAC secret"
-                      type="password"
-                      autoComplete="off"
-                      value={form.secret}
-                      onChange={(secret) => setForm({ ...form, secret })}
-                    />
-                  ) : null}
-                </Fields>
-                <Notice message={addMessage} />
-                <HStack>
-                  <Button type="submit" label="Add channel" variant="primary" isLoading={save.isPending} />
-                </HStack>
-              </VStack>
-            </form>
+                    ) : null}
+                  </Fields>
+                  <Notice message={addMessage} />
+                  <HStack>
+                    <Button type="submit" label="Add channel" variant="primary" isLoading={save.isPending} />
+                  </HStack>
+                </VStack>
+              </form>
+            </div>
           ) : (
             <AdminOnly />
           )}
@@ -372,54 +374,56 @@ export function TokensSettingsPage() {
       <Band title="Create a token">
         {admin ? (
           <Two>
-            <form
-              noValidate
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit();
-              }}
-            >
-              <VStack gap={4}>
-                <Fields>
-                  <TextInput label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} isRequired status={required(form.name, tried)} />
-                  <NumberInput
-                    label="Expires in"
-                    units="days"
-                    placeholder="never"
-                    min={0}
-                    value={form.days}
-                    onChange={(days) => setForm({ ...form, days })}
+            <div className="section">
+              <form
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void submit();
+                }}
+              >
+                <VStack gap={4}>
+                  <Fields>
+                    <TextInput label="Name" value={form.name} onChange={(name) => setForm({ ...form, name })} isRequired status={required(form.name, tried)} />
+                    <NumberInput
+                      label="Expires in"
+                      units="days"
+                      placeholder="never"
+                      min={0}
+                      value={form.days}
+                      onChange={(days) => setForm({ ...form, days })}
+                    />
+                  </Fields>
+                  <CheckboxGroup
+                    label="Scopes"
+                    options={[
+                      { value: 'read', label: 'read' },
+                      { value: 'actions:run', label: 'actions:run' },
+                    ]}
+                    value={form.scopes}
+                    onChange={(scopes) => setForm({ ...form, scopes })}
                   />
-                </Fields>
-                <CheckboxGroup
-                  label="Scopes"
-                  options={[
-                    { value: 'read', label: 'read' },
-                    { value: 'actions:run', label: 'actions:run' },
-                  ]}
-                  value={form.scopes}
-                  onChange={(scopes) => setForm({ ...form, scopes })}
-                />
-                <Fields>
-                  <TextInput
-                    label="Node allowlist"
-                    placeholder="Comma separated; empty = all"
-                    value={form.nodes}
-                    onChange={(nodes) => setForm({ ...form, nodes })}
-                  />
-                  <TextInput
-                    label="Action allowlist"
-                    placeholder="Comma separated; empty = all"
-                    value={form.actions}
-                    onChange={(actions) => setForm({ ...form, actions })}
-                  />
-                </Fields>
-                <Notice message={addMessage} />
-                <HStack>
-                  <Button type="submit" label="Create token" variant="primary" isLoading={create.isPending} />
-                </HStack>
-              </VStack>
-            </form>
+                  <Fields>
+                    <TextInput
+                      label="Node allowlist"
+                      placeholder="Comma separated; empty = all"
+                      value={form.nodes}
+                      onChange={(nodes) => setForm({ ...form, nodes })}
+                    />
+                    <TextInput
+                      label="Action allowlist"
+                      placeholder="Comma separated; empty = all"
+                      value={form.actions}
+                      onChange={(actions) => setForm({ ...form, actions })}
+                    />
+                  </Fields>
+                  <Notice message={addMessage} />
+                  <HStack>
+                    <Button type="submit" label="Create token" variant="primary" isLoading={create.isPending} />
+                  </HStack>
+                </VStack>
+              </form>
+            </div>
             {issued ? (
               <VStack gap={3} data-testid="token-reveal">
                 <Banner status="warning" title="Copy the token now" description="It is shown once; the hub keeps only its hash." />

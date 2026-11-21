@@ -1,63 +1,71 @@
-/* Cupola tokens. Light is the default; dark is a neutral grey, not a blue
-   slate. water.css owns the element defaults — this file only supplies the
-   values it reads, plus the app's own scale. No hue is used for chrome:
-   colour belongs to status, meters and the four data series. */
+/* Cupola design tokens — layered cleanly over water.css.
+   Light is the default; dark is a crisp neutral charcoal (never blue-slate).
+   Colour is reserved for status, meters, data series and the single accent. */
 
 :root {
-  --font-ui: 'Avenir Next', Avenir, system-ui, -apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-ui: 'Avenir Next', Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  /* light: a cool grey ground around white cards */
+  /* Light palette: airy cool-neutral ground with pure crisp white cards */
   --ground: #f6f7f9;
   --card: #ffffff;
-  --well: #eef0f3;
-  --border: #e3e6ea;
-  --border-strong: #d3d7dd;
-  --text: #1c1f24;
-  --muted: #555f6b;
-  --faint: #7f8792;
-  --accent: #1b6c80;
+  --card-hover: #fafbfc;
+  --well: #eef0f4;
+  --border: #e4e7ec;
+  --border-strong: #cdd3dc;
+
+  --text: #111418;
+  --muted: #5a6370;
+  --faint: #848d9a;
+
+  --accent: #0f6e82;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(27, 108, 128, 0.14);
-  --track: #e5e8ec;
-  --ok: #1e7a4b;
-  --warn: #96560a;
-  --bad: #b3261e;
-  --shadow: 0 12px 32px rgba(20, 24, 28, 0.18);
-  --data-1: #2a6fb0;
-  --data-2: #1f8a7a;
-  --data-3: #b26a1f;
-  --data-4: #b03b3b;
+  --accent-soft: rgba(15, 110, 130, 0.11);
 
-  --fs-page: 24px;
-  --fs-head: 18px;
-  --fs-card: 16px;
-  --fs-body: 15px;
-  --fs-table: 14px;
-  --fs-small: 13px;
-  --fs-figure: 26px;
+  --track: #e6e9ef;
+  --ok: #157f4a;
+  --ok-soft: rgba(21, 127, 74, 0.1);
+  --warn: #a65708;
+  --warn-soft: rgba(166, 87, 8, 0.1);
+  --bad: #c02626;
+  --bad-soft: rgba(192, 38, 38, 0.1);
 
-  --radius-card: 6px;
-  --radius-control: 6px;
+  --shadow: 0 16px 40px rgba(15, 20, 28, 0.14), 0 2px 6px rgba(15, 20, 28, 0.06);
+  --shadow-sm: 0 1px 2px rgba(15, 20, 28, 0.06);
+
+  /* Four harmonious data hues */
+  --data-1: #1f6fa8;
+  --data-2: #178772;
+  --data-3: #b86c1c;
+  --data-4: #b83b3b;
+
+  /* Refined typographic scale */
+  --fs-page: 22px;
+  --fs-head: 16px;
+  --fs-card: 14.5px;
+  --fs-body: 14px;
+  --fs-table: 13.5px;
+  --fs-small: 12px;
+  --fs-xs: 11px;
+  --fs-figure: 23px;
+
+  /* Geometry & rhythm */
+  --radius-card: 10px;
+  --radius-control: 7px;
   --radius-pill: 999px;
 
-  --row-height: 44px;
+  --row-height: 46px;
   --control-height: 36px;
-  --header-height: 52px;
+  --header-height: 54px;
   --pad: 16px;
-  --pad-wide: 24px;
-  --gap: 12px;
-  --content-width: 1200px;
+  --pad-wide: 28px;
+  --gap: 14px;
+  --content-width: 1240px;
 
-  /* A notch or a rounded corner eats into the screen edges. The horizontal
-     padding is the design padding plus whatever the safe area takes, so no
-     text ever sits under one; both insets are 0 in a browser tab. They read
-     --pad-wide at use time, so the narrow breakpoint's smaller padding still
-     applies. */
   --pad-safe-left: calc(var(--pad-wide) + env(safe-area-inset-left, 0px));
   --pad-safe-right: calc(var(--pad-wide) + env(safe-area-inset-right, 0px));
 
-  /* what water.css reads */
+  /* water.css variable bindings */
   --background-body: var(--ground);
   --background: var(--well);
   --background-alt: var(--card);
@@ -72,35 +80,45 @@
   --button-hover: var(--border);
   --form-text: var(--text);
   --form-placeholder: var(--faint);
-  --scrollbar-thumb: #c4c9cf;
-  --scrollbar-thumb-hover: #aab0b7;
+  --scrollbar-thumb: #c5cbd3;
+  --scrollbar-thumb-hover: #a7afb9;
   --variable: var(--text);
   --highlight: var(--accent-soft);
-  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='%235f6874'%3E%3Cpath d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%235a6370' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
 html[data-theme='dark'] {
-  --ground: #1a1c1e;
-  --card: #212427;
-  --well: #2a2e32;
-  --border: #34383d;
-  --border-strong: #43484e;
-  --text: #e7e9eb;
-  --muted: #a4a9ae;
-  --faint: #7c8288;
-  --accent: #5ba7bd;
-  --accent-ink: #10171a;
-  --accent-soft: rgba(91, 167, 189, 0.2);
-  --track: #303438;
-  --ok: #5cb98a;
-  --warn: #d9a441;
-  --bad: #e0685f;
-  --shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-  --data-1: #6aa9e0;
-  --data-2: #4fc2ab;
-  --data-3: #d99a55;
-  --data-4: #e0786f;
+  --ground: #111316;
+  --card: #181b20;
+  --card-hover: #1e2228;
+  --well: #22262d;
+  --border: #262b33;
+  --border-strong: #383f4a;
+
+  --text: #eef0f3;
+  --muted: #98a0ab;
+  --faint: #6c7480;
+
+  --accent: #4fb3c8;
+  --accent-ink: #0c1417;
+  --accent-soft: rgba(79, 179, 200, 0.16);
+
+  --track: #282d36;
+  --ok: #4cc38a;
+  --ok-soft: rgba(76, 195, 138, 0.14);
+  --warn: #e0a73c;
+  --warn-soft: rgba(224, 167, 60, 0.14);
+  --bad: #e96962;
+  --bad-soft: rgba(233, 105, 98, 0.15);
+
+  --shadow: 0 20px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+
+  --data-1: #62a8e5;
+  --data-2: #46c2a8;
+  --data-3: #e09f4c;
+  --data-4: #e5736b;
 
   --selection: var(--accent-soft);
   --background-body: var(--ground);
@@ -116,8 +134,8 @@ html[data-theme='dark'] {
   --button-hover: var(--border-strong);
   --form-text: var(--text);
   --form-placeholder: var(--faint);
-  --scrollbar-thumb: #3d4247;
-  --scrollbar-thumb-hover: #4c5258;
-  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='%23a4a9ae'%3E%3Cpath d='M1 1.5 6 6.5l5-5'/%3E%3C/svg%3E");
+  --scrollbar-thumb: #353b45;
+  --scrollbar-thumb-hover: #464e5a;
+  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%2398a0ab' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
   color-scheme: dark;
 }

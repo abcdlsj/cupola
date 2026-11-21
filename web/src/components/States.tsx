@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Banner, Button, Grid, HStack, Skeleton, VStack } from '../ui/primitives';
+import { Banner, Button, HStack, Skeleton, VStack } from '../ui/primitives';
 
 /** A block that failed to load: what failed, and a retry. */
 export function ErrorPanel({ what, onRetry }: { what: string; onRetry: () => void }) {
@@ -45,15 +45,15 @@ export function LoadingRows({ rows = 6, columns = 4 }: { rows?: number; columns?
 
 export function LoadingCharts({ count = 4, height = 152 }: { count?: number; height?: number }) {
   return (
-    <Grid columns={{ minWidth: 320, repeat: 'fit' }} aria-hidden="true">
+    <div className="chart-grid" aria-hidden="true">
       {Array.from({ length: count }, (_, index) => (
-        <section className="panel" key={index} style={{ padding: 14, gap: 8 }}>
+        <section className="chart-card" key={index}>
           <Skeleton height={14} width={120} />
           <Skeleton height={10} width={200} />
           <Skeleton height={height} />
         </section>
       ))}
-    </Grid>
+    </div>
   );
 }
 

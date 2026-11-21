@@ -5,11 +5,11 @@
  * that turns into stacked blocks on a phone.
  */
 import { Fragment, type ReactNode } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { ApiError, useMe } from '../../data/queries';
 import { PageHead, useIsPhone } from '../../ui/kit';
 import { Banner, Grid, HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
-import { Select } from '../../ui/controls';
+import { Tab, TabList } from '../../ui/controls';
 
 const SECTIONS = [
   { slug: 'nodes', label: 'Nodes' },
@@ -22,33 +22,19 @@ const SECTIONS = [
 ];
 
 function SettingsTabs() {
-  const phone = useIsPhone();
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const section = SECTIONS.find((entry) => pathname.startsWith(`/settings/${entry.slug}`))?.slug ?? 'nodes';
-  if (phone) {
-    return (
-      <Select
-        label="Settings section"
-        value={section}
-        options={SECTIONS.map((entry) => ({ value: entry.slug, label: entry.label }))}
-        onChange={(value) => navigate(`/settings/${value}`)}
-      />
-    );
-  }
   return (
-    <nav className="tabs" aria-label="Settings sections">
+    <TabList label="Settings sections">
       {SECTIONS.map((entry) => (
-        <Link
+        <Tab
           key={entry.slug}
           href={`/settings/${entry.slug}`}
-          className="tab"
-          aria-current={entry.slug === section ? 'page' : undefined}
-        >
-          {entry.label}
-        </Link>
+          selected={entry.slug === section}
+          label={entry.label}
+        />
       ))}
-    </nav>
+    </TabList>
   );
 }
 
@@ -186,20 +172,29 @@ export function RowsTable<T extends Record<string, unknown>>({
   const cell = (column: TableColumn<T>, row: T): ReactNode =>
     column.renderCell ? column.renderCell(row) : String(row[column.key] ?? '—');
   return (
-    <div className="rows" role="list" aria-label={label} data-testid={testId}>
-      {data.map((row) => (
-        <div key={idKey(row)} role="listitem" style={{ padding: '10px 0' }}>
-          <VStack gap={2}>
-            {cell(head, row)}
-            {rest.map((column) => (
-              <HStack key={column.key} gap={3} vAlign="center" hAlign="between" wrap>
-                {column.header ? <span className="muted small">{column.header}</span> : null}
-                {cell(column, row)}
-              </HStack>
-            ))}
-          </VStack>
-        </div>
-      ))}
+    <div className="rows-card" data-testid={testId}>
+      <div className="rows" role="list" aria-label={label}>
+        {data.map((row) => (
+          <div key={idKey(row)} role="listitem" style={{ padding: '12px 16px' }}>
+            <VStack gap={2}>
+              {cell(head, row)}
+              {rest.map((column) => (
+                <HStack
+                  key={column.key}
+                  gap={3}
+                  vAlign="center"
+                  hAlign={column.header ? 'between' : 'end'}
+                  wrap
+                  style={column.header ? undefined : { borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 2 }}
+                >
+                  {column.header ? <span className="muted small">{column.header}</span> : null}
+                  {cell(column, row)}
+                </HStack>
+              ))}
+            </VStack>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

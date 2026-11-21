@@ -46,8 +46,7 @@ export function applyTheme(preference = themePreference()): void {
 
 export function setThemePreference(preference: ThemePreference): void {
   try {
-    if (preference === 'system') localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, preference);
+    localStorage.setItem(KEY, preference);
   } catch {
     // the choice still applies for this visit
   }

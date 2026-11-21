@@ -56,8 +56,6 @@ export function Rows({ children }: { children: ReactNode }) {
   return <div className="rows">{Children.toArray(children)}</div>;
 }
 
-const CHART_GRID = { minWidth: 320, max: 3, repeat: 'fit' } as const;
-
 export function CpuPage() {
   const view = useSnapshot();
   const { nodeId = '' } = useParams();
@@ -77,7 +75,7 @@ export function CpuPage() {
   return (
     <>
       <Band title="Utilisation" desc={`${rangeLabel(range)} · ${snap.node.cores} threads`} first>
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <ChartCard
             title="CPU utilisation and pressure"
             desc="Pressure is the share of time runnable tasks waited for a CPU; the dashed line is the 80 % alert."
@@ -106,22 +104,24 @@ export function CpuPage() {
               ]}
             />
           </Section>
-        </Grid>
+        </div>
       </Band>
       <Band title="Per core" desc={`${cores.length} threads · ${snap.node.cpu_model || 'unknown model'}`}>
         {cores.length === 0 ? (
           <Empty>This agent did not report per-core usage.</Empty>
         ) : (
-          <Grid columns={{ minWidth: 240, repeat: 'fill' }} gap={0} columnGap={6}>
-            {cores.map((value, index) => (
-              <HStack key={index} gap={3} vAlign="center" paddingBlock={1.5}>
-                <span className="code muted" style={{ width: 28 }}>
-                  {index}
-                </span>
-                <Meter value={value} label={`Thread ${index}`} tone="neutral" width={140} />
-              </HStack>
-            ))}
-          </Grid>
+          <div className="section">
+            <Grid columns={{ minWidth: 220, repeat: 'fill' }} gap={0} columnGap={6}>
+              {cores.map((value, index) => (
+                <HStack key={index} gap={3} vAlign="center" paddingBlock={1.5}>
+                  <span className="code muted" style={{ width: 28 }}>
+                    {index}
+                  </span>
+                  <Meter value={value} label={`Thread ${index}`} tone="neutral" width={140} />
+                </HStack>
+              ))}
+            </Grid>
+          </div>
         )}
       </Band>
     </>
@@ -192,7 +192,7 @@ export function MemoryPage() {
   return (
     <>
       <Band title="Usage" desc={`${rangeLabel(range)} · ${size(total)} installed`} first>
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <ChartCard
             title="Memory usage"
             desc={`Used share of ${size(total)} over the window.`}
@@ -227,31 +227,33 @@ export function MemoryPage() {
               ) : null}
             </VStack>
           </Section>
-        </Grid>
+        </div>
       </Band>
       <Band title="Largest residents" desc={`${top.length} of ${snap.processes.length} sampled processes, by resident memory`}>
         {top.length === 0 ? (
           <Empty>No process sample in the last snapshot.</Empty>
         ) : phone ? (
-          <Rows>
-            {top.map(({ proc }) => (
-              <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
-                <HStack gap={2} vAlign="center" hAlign="between">
-                  <HStack gap={1.5} vAlign="center">
-                    {procLink(proc)}
-                    <Text type="supporting">{proc.user}</Text>
+          <div className="rows-card">
+            <Rows>
+              {top.map(({ proc }) => (
+                <VStack key={proc.pid} gap={1.5} paddingBlock={3}>
+                  <HStack gap={2} vAlign="center" hAlign="between">
+                    <HStack gap={1.5} vAlign="center">
+                      {procLink(proc)}
+                      <Text type="supporting">{proc.user}</Text>
+                    </HStack>
+                    <Text type="code" color="secondary">
+                      {proc.pid}
+                    </Text>
                   </HStack>
-                  <Text type="code" color="secondary">
-                    {proc.pid}
-                  </Text>
-                </HStack>
-                <HStack gap={4} vAlign="center" wrap>
-                  <Meter value={share(proc)} text={size(proc.rss_bytes)} tone="neutral" label={`${proc.name} resident memory`} width={140} />
-                  <Stat label="CPU">{percent(proc.cpu_percent, 1)}</Stat>
-                </HStack>
-              </VStack>
-            ))}
-          </Rows>
+                  <HStack gap={4} vAlign="center" wrap>
+                    <Meter value={share(proc)} text={size(proc.rss_bytes)} tone="neutral" label={`${proc.name} resident memory`} width={140} />
+                    <Stat label="CPU">{percent(proc.cpu_percent, 1)}</Stat>
+                  </HStack>
+                </VStack>
+              ))}
+            </Rows>
+          </div>
         ) : (
           <Table data={top} columns={columns} idKey="pid" label="Largest residents" hasHover />
         )}
@@ -289,7 +291,7 @@ export function StoragePage() {
   return (
     <>
       <Band title="Throughput" desc={`${rangeLabel(range)} · all sampled block devices`} first>
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <ChartCard
             title="Disk I/O"
             desc="Bytes per second across the sampled block devices."
@@ -310,39 +312,41 @@ export function StoragePage() {
             pending={io.pending}
             empty={empty}
           />
-        </Grid>
+        </div>
       </Band>
       <Band title="Filesystems" desc={`${snap.disks.length} mounted · fill prediction covers the root filesystem`}>
         {snap.disks.length === 0 ? (
           <Empty>No filesystem reported.</Empty>
         ) : (
-          <Rows>
-            {snap.disks.map((disk) => (
-              <VStack key={disk.device + disk.mount} gap={2} paddingBlock={3}>
-                <HStack gap={3} vAlign="center" hAlign="between">
-                  <VStack gap={0.5}>
-                    <span className="code">{disk.mount}</span>
-                    <span className="muted small">
-                      {disk.device} · {disk.fstype}
-                      {disk.read_only ? ' · read-only' : ''}
-                    </span>
-                  </VStack>
-                  <Meter value={disk.used_pct} label={`${disk.mount} used`} width={phone ? 120 : 220} />
-                </HStack>
-                <HStack gap={5} vAlign="center" wrap>
-                  <Stat label="Used">{`${size(disk.used)} of ${size(disk.total)}`}</Stat>
-                  <Stat label="Inodes">
-                    <Meter value={disk.inode_pct} label={`${disk.mount} inodes used`} width={64} />
-                  </Stat>
-                  <Stat label="Read">{rate(disk.read_bps)}</Stat>
-                  <Stat label="Write">{rate(disk.write_bps)}</Stat>
-                  {disk.mount === '/' && view.health.days_to_full ? (
-                    <Stat label="Full in">{days(view.health.days_to_full)}</Stat>
-                  ) : null}
-                </HStack>
-              </VStack>
-            ))}
-          </Rows>
+          <div className="rows-card">
+            <Rows>
+              {snap.disks.map((disk) => (
+                <VStack key={disk.device + disk.mount} gap={2} paddingBlock={3.5}>
+                  <HStack gap={3} vAlign="center" hAlign="between" wrap>
+                    <VStack gap={0.5}>
+                      <span className="code">{disk.mount}</span>
+                      <span className="muted small">
+                        {disk.device} · {disk.fstype}
+                        {disk.read_only ? ' · read-only' : ''}
+                      </span>
+                    </VStack>
+                    <Meter value={disk.used_pct} label={`${disk.mount} used`} width={phone ? 120 : 200} />
+                  </HStack>
+                  <HStack gap={5} vAlign="center" wrap>
+                    <Stat label="Used">{`${size(disk.used)} of ${size(disk.total)}`}</Stat>
+                    <Stat label="Inodes">
+                      <Meter value={disk.inode_pct} label={`${disk.mount} inodes used`} width={64} />
+                    </Stat>
+                    <Stat label="Read">{rate(disk.read_bps)}</Stat>
+                    <Stat label="Write">{rate(disk.write_bps)}</Stat>
+                    {disk.mount === '/' && view.health.days_to_full ? (
+                      <Stat label="Full in">{days(view.health.days_to_full)}</Stat>
+                    ) : null}
+                  </HStack>
+                </VStack>
+              ))}
+            </Rows>
+          </div>
         )}
       </Band>
       {snap.smart.length > 0 ? (
@@ -399,7 +403,7 @@ export function NetworkPage() {
   return (
     <>
       <Band title="Traffic" desc={`${rangeLabel(range)} · loopback excluded`} first>
-        <Grid columns={CHART_GRID}>
+        <div className="chart-grid">
           <ChartCard
             title="Bandwidth"
             desc={`Bits per second over ${ifaces.length} ${ifaces.length === 1 ? 'interface' : 'interfaces'}, loopback excluded.`}
@@ -425,7 +429,7 @@ export function NetworkPage() {
               ]}
             />
           </Section>
-        </Grid>
+        </div>
       </Band>
       <Band title="Interfaces" desc={`${snap.network.length} reported · live rates from the latest snapshot`}>
         {snap.network.length === 0 ? (

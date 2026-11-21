@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode, type SyntheticEvent } from 'react';
-import { Outlet, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { StatusPill } from '../../components/StatusPill';
 import { ErrorPanel, LoadingCharts } from '../../components/States';
@@ -8,23 +8,21 @@ import { ApiError } from '../../data/api';
 import { prefetchSeries, TAB_SERIES, useNode } from '../../data/queries';
 import type { NodeView } from '../../data/types';
 import { relative, size, uptime } from '../../lib/format';
-import { PageHead, useIsPhone } from '../../ui/kit';
-import { Badge, HStack, Link, StatusDot, Skeleton, VStack } from '../../ui/primitives';
-import { Select, Tab, TabList } from '../../ui/controls';
+import { PageHead } from '../../ui/kit';
+import { Badge, Banner, Link, Skeleton, VStack } from '../../ui/primitives';
+import { Tab, TabList } from '../../ui/controls';
 import { RangeSelect, useRange } from './RangeControl';
 
 /** Tabs whose screens draw history; the window picker only shows on these. */
 const CHART_TABS = new Set(['', '/cpu', '/memory', '/storage', '/network', '/containers']);
 
-/** Tab and picker values cannot be empty; the overview's path segment is. */
+/** Tab values cannot be empty; the overview's path segment is. */
 const OVERVIEW = 'overview';
 
 interface TabItem {
   to: string;
   label: string;
-  /** plain count for the tab strip and the phone picker */
   count?: number;
-  /** failed services: said in words and in colour */
   failed?: number;
 }
 
@@ -51,20 +49,15 @@ function tabEnd(item: TabItem): ReactNode {
   return <span className="tab-count">{item.count}</span>;
 }
 
-function pickerLabel(item: TabItem): string {
-  if (item.failed) return `${item.label} · ${item.failed} failed`;
-  return item.count != null ? `${item.label} · ${item.count}` : item.label;
-}
-
 function LoadingHead() {
   return (
     <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <VStack gap={1} paddingBlock={2}>
+      <VStack gap={1.5} paddingBlock={1}>
         <Skeleton height={12} width={140} />
-        <Skeleton height={26} width={200} />
-        <Skeleton height={12} width={320} />
+        <Skeleton height={24} width={200} />
+        <Skeleton height={12} width={300} />
       </VStack>
-      <Skeleton height={32} />
+      <Skeleton height={34} />
     </div>
   );
 }
@@ -72,15 +65,11 @@ function LoadingHead() {
 export function NodeLayout() {
   const { nodeId = '' } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   const query = useNode(nodeId);
   const client = useQueryClient();
   const [range] = useRange();
   const [params] = useSearchParams();
-  const phone = useIsPhone();
 
-  // The samples are already on the hub. Pull the overview window as soon as the
-  // node resolves so the first chart paints without a second round trip.
   useEffect(() => {
     if (!nodeId) return;
     prefetchSeries(client, nodeId, (TAB_SERIES[''] ?? []).map(([metric]) => [metric, range] as const));
@@ -118,8 +107,6 @@ export function NodeLayout() {
   const now = Date.now();
   const os = [info?.platform || node.os, info?.platform_version].filter(Boolean).join(' ') || node.os;
   const host = info?.hostname || node.id;
-  // the title already is the node name; the host only earns a mention when the
-  // machine calls itself something else
   const meta = [
     host === node.name ? '' : host,
     os,
@@ -132,8 +119,6 @@ export function NodeLayout() {
     .join(' · ');
   const warning = view.health.warnings?.[0];
   const rest = location.pathname.slice(`/nodes/${nodeId}`.length).split('/').filter(Boolean);
-  // detail routes (a process, a unit) have no window picker; only the tab roots
-  // and container details, which draw history, do
   const tab = rest.length === 0 ? '' : rest.length === 1 || rest[0] === 'containers' ? `/${rest[0]}` : '/detail';
   const selected = rest.length === 0 ? OVERVIEW : `/${rest[0]}`;
   const search = params.get('range') ? `?range=${params.get('range')}` : '';
@@ -142,8 +127,6 @@ export function NodeLayout() {
   const prefetch = (to: string) =>
     prefetchSeries(client, node.id, (TAB_SERIES[to] ?? []).map(([metric]) => [metric, range] as const));
 
-  // Tabs take no pointer handlers of their own; read the hovered or focused
-  // link's path and warm the series that tab will ask for.
   const warm = (event: SyntheticEvent) => {
     const anchor = (event.target as HTMLElement).closest('a');
     if (!anchor) return;
@@ -162,50 +145,33 @@ export function NodeLayout() {
               <Link href="/">Systems</Link>
               <span className="crumbs-sep">/</span>
               <StatusPill status={view.health.status} />
+              <span className="crumbs-sep">·</span>
               <span>
                 {snap ? `up ${uptime(snap.node.uptime_sec)}` : `last seen ${node.last_seen ? relative(node.last_seen, now) : 'never'}`}
               </span>
               {node.labels.map((label) => (
-                <Badge key={label} variant="neutral" label={label} />
+                <span key={label} className="role-tag">
+                  {label}
+                </span>
               ))}
             </div>
           }
           actions={CHART_TABS.has(tab) ? <RangeSelect /> : undefined}
         />
-        {warning ? (
-          <HStack gap={2} vAlign="center">
-            <StatusDot variant="warning" label="Warning" />
-            <span className="muted small">{warning}</span>
-          </HStack>
-        ) : null}
-        {phone ? (
-          <Select
-            label="View"
-            isLabelHidden
-            width="100%"
-            value={selected}
-            options={items.map((item) => ({ value: item.to || OVERVIEW, label: pickerLabel(item) }))}
-            onChange={(value) => {
-              const to = value === OVERVIEW ? '' : value;
-              prefetch(to);
-              navigate(href(to));
-            }}
-          />
-        ) : (
-          <div onPointerOver={warm} onFocus={warm}>
-            <TabList label="System views">
-              {items.map((item) => (
-                <Tab
-                  key={item.label}
-                  href={href(item.to)}
-                  selected={(item.to || OVERVIEW) === selected}
-                  label={item.label}
-                  endContent={tabEnd(item)}
-                />
-              ))}
-            </TabList>
-          </div>
-        )}
+        {warning ? <Banner status="warning" title={warning} /> : null}
+        <div onPointerOver={warm} onFocus={warm}>
+          <TabList label="System views">
+            {items.map((item) => (
+              <Tab
+                key={item.label}
+                href={href(item.to)}
+                selected={(item.to || OVERVIEW) === selected}
+                label={item.label}
+                endContent={tabEnd(item)}
+              />
+            ))}
+          </TabList>
+        </div>
       </VStack>
       <Outlet context={view} />
     </>

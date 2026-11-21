@@ -1,4 +1,4 @@
-/** A filter field: one search input, its label announced, no visible label. */
+/** A filter field: one search input with an inline clear control. */
 export function SearchInput({
   label,
   value,
@@ -23,6 +23,11 @@ export function SearchInput({
         enterKeyHint="search"
         onChange={(event) => onChange(event.target.value)}
       />
+      {value ? (
+        <button type="button" className="search-clear" aria-label={`Clear ${label.toLowerCase()}`} onClick={() => onChange('')}>
+          ×
+        </button>
+      ) : null}
     </span>
   );
 }
