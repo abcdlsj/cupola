@@ -1,6 +1,6 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 import { useState, type MouseEvent, type ReactNode } from 'react';
-import { EmptyState, HStack, Link, List, ListItem, StatusDot, Table, Text, VStack } from '../ui/primitives';
+import { Badge, EmptyState, HStack, Link, List, ListItem, StatusDot, Table, Text, VStack } from '../ui/primitives';
 import { SegmentedControl, SegmentedControlItem, Select } from '../ui/controls';
 import type { TableColumn } from '../ui/primitives';
 import type { FleetService, Service } from '../data/types';
@@ -214,11 +214,10 @@ export function UnitTable({
     {
       key: 'unit',
       header: 'Unit',
-      width: '100%',
       renderCell: (row) => (
         <HStack gap={2} vAlign="center">
           <StatusDot variant={dotVariant(row.unit.active_state)} label={stateWord(row.unit.active_state)} />
-          <VStack gap={0}>
+          <VStack gap={0} style={{ minWidth: 0 }}>
             {name(row)}
             {row.unit.description ? (
               <Text type="supporting" maxLines={1} title={row.unit.description}>
@@ -234,10 +233,10 @@ export function UnitTable({
     columns.push({
       key: 'node',
       header: 'System',
-      width: '160px',
+      width: '150px',
       renderCell: (row) =>
         row.nodeName && row.nodeId ? (
-          <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} maxLines={1}>
+          <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} className="nowrap">
             {row.nodeName}
           </Link>
         ) : (
@@ -251,11 +250,15 @@ export function UnitTable({
     key: 'state',
     header: 'State',
     width: '120px',
-    renderCell: (row) => (
-      <Text type="supporting" textWrap="nowrap">
-        {stateWord(row.unit.active_state)}
-      </Text>
-    ),
+    renderCell: (row) => {
+      const tone = unitTone(row.unit.active_state);
+      return (
+        <Badge
+          variant={tone === 'fail' ? 'error' : tone === 'ok' ? 'success' : 'neutral'}
+          label={stateWord(row.unit.active_state)}
+        />
+      );
+    },
   });
   if (showSubState) {
     columns.push({

@@ -1,11 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bell, HardDrives, ListBullets, MagnifyingGlass, Moon, PlayCircle, Rows, SlidersHorizontal, Sun } from '@phosphor-icons/react';
+import {
+  Bell,
+  HardDrives,
+  ListBullets,
+  MagnifyingGlass,
+  Moon,
+  PlayCircle,
+  Plus,
+  Rows,
+  SlidersHorizontal,
+  Sun,
+} from '@phosphor-icons/react';
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { CupolaMark } from './CupolaMark';
 import { CommandPalette } from './CommandPalette';
 import { ErrorBoundary } from './ErrorBoundary';
 import { OfflineBanner } from './OfflineBanner';
-import { Link } from '../ui/primitives';
+import { Button, Link } from '../ui/primitives';
 import { useAlerts, useFleet, useMe } from '../data/queries';
 import { useStream } from '../data/stream';
 import { setThemePreference, useResolvedTheme } from '../lib/theme';
@@ -21,14 +32,33 @@ const NAV = [
   { to: '/events', label: 'Events', icon: ListBullets, match: (path: string) => path.startsWith('/events') },
 ];
 
-function Utilities({ onSearch, onSettings }: { onSearch: () => void; onSettings: boolean }) {
+function Brand() {
+  return (
+    <RouterLink className="brand" to="/">
+      <span className="brand-mark">
+        <CupolaMark size={15} />
+      </span>
+      cupola
+    </RouterLink>
+  );
+}
+
+function Utilities({
+  onSearch,
+  onSettings,
+  phone,
+}: {
+  onSearch: () => void;
+  onSettings: boolean;
+  phone: boolean;
+}) {
   const theme = useResolvedTheme();
   const navigate = useNavigate();
   return (
     <div className="utils">
       <button type="button" className="cmd-trigger" aria-label="Search (⌘K)" title="Search (⌘K)" onClick={onSearch}>
-        <MagnifyingGlass size={16} aria-hidden="true" />
-        <span className="cmd-trigger-label">Search</span>
+        <MagnifyingGlass size={15} aria-hidden="true" />
+        <span className="cmd-trigger-label">Search systems…</span>
         <kbd className="cmd-kbd">⌘K</kbd>
       </button>
       <button
@@ -38,7 +68,7 @@ function Utilities({ onSearch, onSettings }: { onSearch: () => void; onSettings:
         title={theme === 'dark' ? 'Light theme' : 'Dark theme'}
         onClick={() => setThemePreference(theme === 'dark' ? 'light' : 'dark')}
       >
-        {theme === 'dark' ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+        {theme === 'dark' ? <Sun size={16} aria-hidden="true" /> : <Moon size={16} aria-hidden="true" />}
       </button>
       <button
         type="button"
@@ -48,8 +78,14 @@ function Utilities({ onSearch, onSettings }: { onSearch: () => void; onSettings:
         title="Settings"
         onClick={() => navigate('/settings/nodes')}
       >
-        <SlidersHorizontal size={18} aria-hidden="true" />
+        <SlidersHorizontal size={16} aria-hidden="true" />
       </button>
+      {phone ? null : (
+        <Button variant="primary" size="sm" href="/settings/nodes">
+          <Plus size={14} weight="bold" aria-hidden="true" />
+          Add system
+        </Button>
+      )}
     </div>
   );
 }
@@ -119,17 +155,13 @@ export function AppShell() {
         <div className="topbar-inner">
           {phone ? (
             <nav aria-label="Primary" className="brand-nav">
-              <RouterLink className="brand" to="/">
-                <CupolaMark size={20} />
-                cupola
-              </RouterLink>
+              <Brand />
             </nav>
           ) : (
             <nav aria-label="Primary" className="navlinks">
-              <RouterLink className="brand" to="/" style={{ marginRight: 16 }}>
-                <CupolaMark size={20} />
-                cupola
-              </RouterLink>
+              <span style={{ marginRight: 16, display: 'inline-flex', alignItems: 'center' }}>
+                <Brand />
+              </span>
               {NAV.map((item) => {
                 const active = item.match(pathname);
                 return (
@@ -146,7 +178,7 @@ export function AppShell() {
               })}
             </nav>
           )}
-          <Utilities onSearch={() => setPaletteOpen(true)} onSettings={onSettings} />
+          <Utilities onSearch={() => setPaletteOpen(true)} onSettings={onSettings} phone={phone} />
         </div>
       </header>
 

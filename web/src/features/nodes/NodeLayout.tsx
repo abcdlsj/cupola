@@ -1,16 +1,27 @@
-import { useEffect, type ReactNode, type SyntheticEvent } from 'react';
+import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
+import {
+  Clock,
+  Columns,
+  Cpu,
+  Desktop,
+  HardDrives,
+  Memory,
+  PlugsConnected,
+  Rows,
+  TerminalWindow,
+} from '@phosphor-icons/react';
 import { Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { StatusPill } from '../../components/StatusPill';
+import { StatusDot } from '../../components/StatusPill';
 import { ErrorPanel, LoadingCharts } from '../../components/States';
 import { MissingNode } from '../../components/NotFoundPage';
 import { ApiError } from '../../data/api';
 import { prefetchSeries, TAB_SERIES, useNode } from '../../data/queries';
 import type { NodeView } from '../../data/types';
 import { relative, size, uptime } from '../../lib/format';
-import { PageHead } from '../../ui/kit';
+import { PageHead, useIsPhone } from '../../ui/kit';
 import { Badge, Banner, Link, Skeleton, VStack } from '../../ui/primitives';
-import { Tab, TabList } from '../../ui/controls';
+import { SegmentedControl, SegmentedControlItem, Tab, TabList } from '../../ui/controls';
 import { RangeSelect, useRange } from './RangeControl';
 
 /** Tabs whose screens draw history; the window picker only shows on these. */
@@ -18,6 +29,17 @@ const CHART_TABS = new Set(['', '/cpu', '/memory', '/storage', '/network', '/con
 
 /** Tab values cannot be empty; the overview's path segment is. */
 const OVERVIEW = 'overview';
+
+type ChartLayout = 'grid' | 'full';
+const LAYOUT_KEY = 'cupola.chartLayout';
+
+function readChartLayout(): ChartLayout {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === 'full' ? 'full' : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
 
 interface TabItem {
   to: string;
@@ -52,11 +74,12 @@ function tabEnd(item: TabItem): ReactNode {
 function LoadingHead() {
   return (
     <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <VStack gap={1.5} paddingBlock={1}>
-        <Skeleton height={12} width={140} />
-        <Skeleton height={24} width={200} />
-        <Skeleton height={12} width={300} />
-      </VStack>
+      <div className="node-infobar">
+        <VStack gap={2} width="100%">
+          <Skeleton height={24} width={200} />
+          <Skeleton height={16} width={360} />
+        </VStack>
+      </div>
       <Skeleton height={34} />
     </div>
   );
@@ -69,11 +92,23 @@ export function NodeLayout() {
   const client = useQueryClient();
   const [range] = useRange();
   const [params] = useSearchParams();
+  const phone = useIsPhone();
+  const [chartLayout, setChartLayout] = useState<ChartLayout>(readChartLayout);
 
   useEffect(() => {
     if (!nodeId) return;
     prefetchSeries(client, nodeId, (TAB_SERIES[''] ?? []).map(([metric]) => [metric, range] as const));
   }, [client, nodeId, range]);
+
+  const changeLayout = (next: string) => {
+    const mode: ChartLayout = next === 'full' ? 'full' : 'grid';
+    setChartLayout(mode);
+    try {
+      localStorage.setItem(LAYOUT_KEY, mode);
+    } catch {
+      // storage blocked
+    }
+  };
 
   if (query.isPending) {
     return (
@@ -106,17 +141,11 @@ export function NodeLayout() {
   const info = snap?.node;
   const now = Date.now();
   const os = [info?.platform || node.os, info?.platform_version].filter(Boolean).join(' ') || node.os;
+  const kernel = node.kernel || info?.kernel || '';
   const host = info?.hostname || node.id;
-  const meta = [
-    host === node.name ? '' : host,
-    os,
-    node.kernel || info?.kernel || '',
-    info ? `${info.cpu_model || 'unknown CPU'} · ${info.cores} threads` : '',
-    snap ? `${size(snap.memory.total)} memory` : '',
-    [node.agent_version, node.mode].filter(Boolean).join(' · '),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const upText = snap
+    ? `up ${uptime(snap.node.uptime_sec)}`
+    : `last seen ${node.last_seen ? relative(node.last_seen, now) : 'never'}`;
   const warning = view.health.warnings?.[0];
   const rest = location.pathname.slice(`/nodes/${nodeId}`.length).split('/').filter(Boolean);
   const tab = rest.length === 0 ? '' : rest.length === 1 || rest[0] === 'containers' ? `/${rest[0]}` : '/detail';
@@ -137,28 +166,99 @@ export function NodeLayout() {
   return (
     <>
       <VStack gap={3}>
-        <PageHead
-          title={node.name}
-          desc={meta}
-          leading={
-            <div className="crumbs">
-              <Link href="/">Systems</Link>
-              <span className="crumbs-sep">/</span>
-              <StatusPill status={view.health.status} />
-              <span className="crumbs-sep">·</span>
-              <span>
-                {snap ? `up ${uptime(snap.node.uptime_sec)}` : `last seen ${node.last_seen ? relative(node.last_seen, now) : 'never'}`}
-              </span>
+        <div className="crumbs">
+          <Link href="/">Systems</Link>
+          <span className="crumbs-sep">/</span>
+          <span>{node.name}</span>
+        </div>
+
+        <header className="node-infobar">
+          <div className="node-infobar-main">
+            <div className="node-infobar-title">
+              <StatusDot status={view.health.status} isPulsing />
+              <h1>{node.name}</h1>
               {node.labels.map((label) => (
                 <span key={label} className="role-tag">
                   {label}
                 </span>
               ))}
             </div>
-          }
-          actions={CHART_TABS.has(tab) ? <RangeSelect /> : undefined}
-        />
+            <div className="spec-chips">
+              {host && host !== node.name ? (
+                <span className="spec-chip code">
+                  <HardDrives size={13} aria-hidden="true" />
+                  {host}
+                </span>
+              ) : null}
+              {os ? (
+                <span className="spec-chip">
+                  <Desktop size={13} aria-hidden="true" />
+                  {os}
+                </span>
+              ) : null}
+              {kernel ? (
+                <span className="spec-chip code">
+                  <TerminalWindow size={13} aria-hidden="true" />
+                  {kernel}
+                </span>
+              ) : null}
+              {info ? (
+                <span className="spec-chip">
+                  <Cpu size={13} aria-hidden="true" />
+                  {info.cpu_model ? `${info.cpu_model} · ` : ''}
+                  {info.cores} threads
+                </span>
+              ) : null}
+              {snap ? (
+                <span className="spec-chip code">
+                  <Memory size={13} aria-hidden="true" />
+                  {size(snap.memory.total)}
+                </span>
+              ) : null}
+              <span className="spec-chip code">
+                <Clock size={13} aria-hidden="true" />
+                {upText}
+              </span>
+              {node.agent_version || node.mode ? (
+                <span className="spec-chip code">
+                  <PlugsConnected size={13} aria-hidden="true" />
+                  {[node.agent_version, node.mode].filter(Boolean).join(' · ')}
+                </span>
+              ) : null}
+            </div>
+          </div>
+
+          {CHART_TABS.has(tab) ? (
+            <div className="node-infobar-actions">
+              <RangeSelect />
+              {phone ? null : (
+                <SegmentedControl label="Chart width" value={chartLayout} onChange={changeLayout}>
+                  <SegmentedControlItem
+                    value="grid"
+                    label={
+                      <>
+                        <Columns size={13} aria-hidden="true" />
+                        Grid
+                      </>
+                    }
+                  />
+                  <SegmentedControlItem
+                    value="full"
+                    label={
+                      <>
+                        <Rows size={13} aria-hidden="true" />
+                        Full
+                      </>
+                    }
+                  />
+                </SegmentedControl>
+              )}
+            </div>
+          ) : null}
+        </header>
+
         {warning ? <Banner status="warning" title={warning} /> : null}
+
         <div onPointerOver={warm} onFocus={warm}>
           <TabList label="System views">
             {items.map((item) => (
@@ -173,7 +273,9 @@ export function NodeLayout() {
           </TabList>
         </div>
       </VStack>
-      <Outlet context={view} />
+      <div className={!phone && chartLayout === 'full' ? 'charts-single' : undefined} style={{ display: 'contents' }}>
+        <Outlet context={view} />
+      </div>
     </>
   );
 }

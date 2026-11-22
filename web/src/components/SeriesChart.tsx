@@ -14,10 +14,8 @@ import { niceMax, tickValue, type ChartUnit } from '../lib/axis';
 
 export type { ChartUnit };
 
-/** uPlot paints a flat translucent area under each line; no gradients. */
-// Ten percent: enough to read the shape, not enough to make a colour field
-// out of ten stacked charts.
-const FILL_ALPHA = '1e';
+/** uPlot paints a translucent area under the primary curve; crisp Beszel look. */
+const FILL_ALPHA = '24';
 
 /** One thin line. The colour comes from a data hue, never from the chrome. */
 export interface ChartSeries {
@@ -26,7 +24,7 @@ export interface ChartSeries {
   color: string;
 }
 
-const AXIS_FONT = '11px "Avenir Next", Avenir, system-ui, sans-serif';
+const AXIS_FONT = '11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
 
 /** Monotone-ish curves, the way Beszel draws its metrics; uPlot keeps the knots on the samples. */
 const spline = uPlot.paths.spline?.();
@@ -34,8 +32,8 @@ const spline = uPlot.paths.spline?.();
 /** Chart chrome comes from the theme tokens; read once per chart build. */
 function inks() {
   return {
-    axis: cssColor('var(--muted)'),
-    grid: cssColor('var(--border)'),
+    axis: cssColor('var(--faint)'),
+    grid: cssColor('var(--chart-grid)'),
     cursor: cssColor('var(--accent)'),
     threshold: cssColor('var(--muted)'),
     surface: cssColor('var(--card)'),

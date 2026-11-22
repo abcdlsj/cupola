@@ -37,17 +37,17 @@ export function severityTone(severity: Severity): 'error' | 'warning' | 'neutral
 }
 
 /** A node's state as a coloured dot; the label is for screen readers and the tip. */
-export function StatusDot({ status }: { status: NodeStatus }) {
+export function StatusDot({ status, isPulsing = false }: { status: NodeStatus; isPulsing?: boolean }) {
   const label = statusLabel(status);
-  return <Dot variant={statusTone(status)} label={label} tooltip={label} />;
+  return <Dot variant={statusTone(status)} label={label} tooltip={label} isPulsing={isPulsing && status === 'healthy'} />;
 }
 
 /** Dot and word, for headers where the state needs to be read, not just seen. */
-export function StatusPill({ status }: { status: NodeStatus }) {
+export function StatusPill({ status, isPulsing = false }: { status: NodeStatus; isPulsing?: boolean }) {
   const label = statusLabel(status);
   return (
     <HStack gap={1.5} vAlign="center">
-      <Dot variant={statusTone(status)} label={label} />
+      <Dot variant={statusTone(status)} label={label} isPulsing={isPulsing && status === 'healthy'} />
       <Text type="supporting">{label}</Text>
     </HStack>
   );

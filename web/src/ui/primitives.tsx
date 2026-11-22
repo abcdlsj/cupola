@@ -404,6 +404,7 @@ export function Table<T extends Record<string, unknown>>({
   idKey,
   label,
   hasHover = false,
+  onRowClick,
   footer,
 }: {
   data: T[];
@@ -413,6 +414,7 @@ export function Table<T extends Record<string, unknown>>({
   density?: 'compact' | 'regular';
   dividers?: 'rows' | 'none';
   hasHover?: boolean;
+  onRowClick?: (row: T) => void;
   footer?: ReactNode;
 }) {
   const keyOf = (row: T, index: number): string =>
@@ -437,7 +439,19 @@ export function Table<T extends Record<string, unknown>>({
           </thead>
           <tbody>
             {data.map((row, index) => (
-              <tr key={keyOf(row, index)} className={hasHover ? 'is-hover' : undefined}>
+              <tr
+                key={keyOf(row, index)}
+                className={[hasHover ? 'is-hover' : '', onRowClick ? 'is-clickable' : ''].filter(Boolean).join(' ') || undefined}
+                onClick={
+                  onRowClick
+                    ? (event) => {
+                        const target = event.target as HTMLElement;
+                        if (target.closest('a, button, input, select, textarea')) return;
+                        onRowClick(row);
+                      }
+                    : undefined
+                }
+              >
                 {columns.map((column) => (
                   <td key={column.key} className={column.align === 'end' ? 'num' : undefined}>
                     {column.renderCell ? column.renderCell(row) : String(row[column.key] ?? '—')}

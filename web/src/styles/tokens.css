@@ -1,141 +1,115 @@
-/* Cupola design tokens — layered cleanly over water.css.
-   Light is the default; dark is a crisp neutral charcoal (never blue-slate).
-   Colour is reserved for status, meters, data series and the single accent. */
+/* Cupola design tokens — Beszel Refined (Zinc Light & Obsidian Dark).
+   Light is the default; dark is pure neutral Zinc charcoal.
+   Colour is reserved for status dots, resource meters, chart curves and links. */
 
 :root {
-  --font-ui: 'Avenir Next', Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  /* Light palette: airy cool-neutral ground with pure crisp white cards */
+  /* Light Zinc palette */
   --ground: #f6f7f9;
   --card: #ffffff;
-  --card-hover: #fafbfc;
-  --well: #eef0f4;
-  --border: #e4e7ec;
-  --border-strong: #cdd3dc;
+  --card-subtle: #fafafa;
+  --card-hover: #f9fafb;
+  --well: #f1f2f5;
+  --border: #e4e4e7;
+  --border-subtle: #efefef;
+  --border-strong: #d4d4d8;
+  --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --topbar-bg: rgba(246, 247, 249, 0.86);
 
-  --text: #111418;
-  --muted: #5a6370;
-  --faint: #848d9a;
+  --text: #09090b;
+  --muted: #52525b;
+  --faint: #71717a;
 
-  --accent: #0f6e82;
+  --accent: #2563eb;
   --accent-ink: #ffffff;
-  --accent-soft: rgba(15, 110, 130, 0.11);
+  --accent-soft: rgba(37, 99, 235, 0.11);
 
-  --track: #e6e9ef;
-  --ok: #157f4a;
-  --ok-soft: rgba(21, 127, 74, 0.1);
-  --warn: #a65708;
-  --warn-soft: rgba(166, 87, 8, 0.1);
-  --bad: #c02626;
-  --bad-soft: rgba(192, 38, 38, 0.1);
+  --track: #e6e7ec;
+  --ok: #059669;
+  --ok-soft: rgba(5, 150, 105, 0.12);
+  --warn: #d97706;
+  --warn-soft: rgba(217, 119, 6, 0.12);
+  --bad: #dc2626;
+  --bad-soft: rgba(220, 38, 38, 0.11);
 
-  --shadow: 0 16px 40px rgba(15, 20, 28, 0.14), 0 2px 6px rgba(15, 20, 28, 0.06);
-  --shadow-sm: 0 1px 2px rgba(15, 20, 28, 0.06);
+  --shadow: 0 16px 40px rgba(9, 9, 11, 0.12), 0 2px 6px rgba(9, 9, 11, 0.05);
+  --shadow-sm: 0 1px 2px rgba(9, 9, 11, 0.05);
 
-  /* Four harmonious data hues */
-  --data-1: #1f6fa8;
-  --data-2: #178772;
-  --data-3: #b86c1c;
-  --data-4: #b83b3b;
+  /* Chart series hues (Beszel-aligned: blue, emerald, amber, rose) */
+  --data-1: #2563eb;
+  --data-2: #059669;
+  --data-3: #d97706;
+  --data-4: #dc2626;
+  --chart-grid: rgba(9, 9, 11, 0.07);
 
-  /* Refined typographic scale */
+  /* Type scale */
   --fs-page: 22px;
-  --fs-head: 16px;
-  --fs-card: 14.5px;
-  --fs-body: 14px;
+  --fs-head: 15.5px;
+  --fs-card: 14px;
+  --fs-body: 13.5px;
   --fs-table: 13.5px;
   --fs-small: 12px;
   --fs-xs: 11px;
-  --fs-figure: 23px;
+  --fs-figure: 22px;
 
   /* Geometry & rhythm */
-  --radius-card: 10px;
-  --radius-control: 7px;
+  --radius-card: 12px;
+  --radius-control: 8px;
+  --radius-sm: 6px;
   --radius-pill: 999px;
 
-  --row-height: 46px;
-  --control-height: 36px;
-  --header-height: 54px;
-  --pad: 16px;
+  --row-height: 48px;
+  --control-height: 34px;
+  --header-height: 56px;
+  --pad: 18px;
   --pad-wide: 28px;
-  --gap: 14px;
-  --content-width: 1240px;
+  --gap: 16px;
+  --content-width: 1360px;
 
   --pad-safe-left: calc(var(--pad-wide) + env(safe-area-inset-left, 0px));
   --pad-safe-right: calc(var(--pad-wide) + env(safe-area-inset-right, 0px));
 
-  /* water.css variable bindings */
-  --background-body: var(--ground);
-  --background: var(--well);
-  --background-alt: var(--card);
-  --selection: var(--accent-soft);
-  --text-main: var(--text);
-  --text-bright: var(--text);
-  --text-muted: var(--muted);
-  --links: var(--accent);
-  --focus: var(--accent-soft);
-  --code: var(--text);
-  --button-base: var(--well);
-  --button-hover: var(--border);
-  --form-text: var(--text);
-  --form-placeholder: var(--faint);
-  --scrollbar-thumb: #c5cbd3;
-  --scrollbar-thumb-hover: #a7afb9;
-  --variable: var(--text);
-  --highlight: var(--accent-soft);
-  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%235a6370' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
 html[data-theme='dark'] {
-  --ground: #111316;
-  --card: #181b20;
-  --card-hover: #1e2228;
-  --well: #22262d;
-  --border: #262b33;
-  --border-strong: #383f4a;
+  --ground: #09090b;
+  --card: #111114;
+  --card-subtle: #151519;
+  --card-hover: #19191f;
+  --well: #1b1b21;
+  --border: #232329;
+  --border-subtle: #1b1b21;
+  --border-strong: #34343e;
+  --inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  --topbar-bg: rgba(9, 9, 11, 0.85);
 
-  --text: #eef0f3;
-  --muted: #98a0ab;
-  --faint: #6c7480;
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --faint: #71717a;
 
-  --accent: #4fb3c8;
-  --accent-ink: #0c1417;
-  --accent-soft: rgba(79, 179, 200, 0.16);
+  --accent: #3b82f6;
+  --accent-ink: #ffffff;
+  --accent-soft: rgba(59, 130, 246, 0.16);
 
-  --track: #282d36;
-  --ok: #4cc38a;
-  --ok-soft: rgba(76, 195, 138, 0.14);
-  --warn: #e0a73c;
-  --warn-soft: rgba(224, 167, 60, 0.14);
-  --bad: #e96962;
-  --bad-soft: rgba(233, 105, 98, 0.15);
+  --track: #222229;
+  --ok: #10b981;
+  --ok-soft: rgba(16, 185, 129, 0.15);
+  --warn: #f59e0b;
+  --warn-soft: rgba(245, 158, 11, 0.15);
+  --bad: #ef4444;
+  --bad-soft: rgba(239, 68, 68, 0.15);
 
-  --shadow: 0 20px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow: 0 24px 56px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
 
-  --data-1: #62a8e5;
-  --data-2: #46c2a8;
-  --data-3: #e09f4c;
-  --data-4: #e5736b;
+  --data-1: #3b82f6;
+  --data-2: #10b981;
+  --data-3: #f59e0b;
+  --data-4: #ef4444;
+  --chart-grid: rgba(255, 255, 255, 0.06);
 
-  --selection: var(--accent-soft);
-  --background-body: var(--ground);
-  --background: var(--well);
-  --background-alt: var(--card);
-  --text-main: var(--text);
-  --text-bright: var(--text);
-  --text-muted: var(--muted);
-  --links: var(--accent);
-  --focus: var(--accent-soft);
-  --code: var(--text);
-  --button-base: var(--well);
-  --button-hover: var(--border-strong);
-  --form-text: var(--text);
-  --form-placeholder: var(--faint);
-  --scrollbar-thumb: #353b45;
-  --scrollbar-thumb-hover: #464e5a;
-  --select-arrow: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%2398a0ab' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5'/%3E%3C/svg%3E");
   color-scheme: dark;
 }

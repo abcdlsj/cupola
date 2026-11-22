@@ -30,15 +30,15 @@ export function useIsPhone(): boolean {
 
 export type Tone = 'success' | 'warning' | 'error' | 'neutral' | 'accent';
 
-/** Where a meter turns amber and red; a healthy meter is the accent, not green. */
-export const METER_WARN = 75;
+/** Beszel meter thresholds: emerald green < 65 %, amber < 90 %, red >= 90 %. */
+export const METER_WARN = 65;
 export const METER_CRIT = 90;
 
-export function levelOf(value: number | null | undefined): 'accent' | 'warning' | 'error' | 'neutral' {
+export function levelOf(value: number | null | undefined): 'success' | 'warning' | 'error' | 'neutral' {
   if (value == null || !Number.isFinite(value)) return 'neutral';
   if (value >= METER_CRIT) return 'error';
   if (value >= METER_WARN) return 'warning';
-  return 'accent';
+  return 'success';
 }
 
 /** A figure in mono with its unit stepped back in the UI face. Missing is a dash. */
@@ -120,6 +120,7 @@ export function KpiCell({
   state,
   note,
   digits = 0,
+  isPulsing = false,
 }: {
   label: string;
   value: string | number | null | undefined;
@@ -127,16 +128,18 @@ export function KpiCell({
   state?: Tone;
   note?: ReactNode;
   digits?: number;
+  isPulsing?: boolean;
 }) {
   const missing = value == null || (typeof value === 'number' && !Number.isFinite(value));
   const text = missing ? '—' : typeof value === 'number' ? value.toFixed(digits) : value;
+  const valueTone = state === 'error' || state === 'warning' ? state : undefined;
   return (
     <div className="kpi-cell">
       <div className="kpi-label">
         <span>{label}</span>
-        {state ? <StatusDot variant={state === 'accent' ? 'accent' : state} label={label} /> : null}
+        {state ? <StatusDot variant={state === 'accent' ? 'accent' : state} label={label} isPulsing={isPulsing} /> : null}
       </div>
-      <div className={missing ? 'kpi-value is-missing' : 'kpi-value'}>
+      <div className={missing ? 'kpi-value is-missing' : 'kpi-value'} data-tone={missing ? undefined : valueTone}>
         <span>{text}</span>
         {unit && !missing ? <span className="unit">{unit}</span> : null}
       </div>
