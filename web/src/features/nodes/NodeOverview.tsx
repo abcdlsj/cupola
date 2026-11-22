@@ -7,7 +7,7 @@ import { useContainerHistory } from '../../data/queries';
 import type { NodeView, ProcessInfo, SeriesPoint } from '../../data/types';
 import { seriesColor } from '../../lib/chart';
 import { days, netRate, percent, rate, relative, size } from '../../lib/format';
-import { Band, KpiCell, KpiStrip, levelOf, Meter, Section, useIsPhone } from '../../ui/kit';
+import { Band, Meter, Section, useIsPhone } from '../../ui/kit';
 import { HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
 import { emptyNote, peak, Rows, Stat, useMetric, useSnapshot, WaitingForSnapshot } from './MetricPages';
 import { historyChart, peakOf, percentCeiling } from './NodeLists';
@@ -149,11 +149,11 @@ export function NodeOverview() {
     const containers = [...(history.data?.containers ?? [])].sort((a, b) => peakOf(b.points, 'cpu') - peakOf(a.points, 'cpu')).slice(0, DOCKER_SERIES);
     return {
       cpu: [one('CPU', cpu.points, 0)],
-      mem: [one('Memory', mem.points, 0)],
-      load: [one('1 min', load.points, 0)],
+      mem: [one('Memory', mem.points, 1)],
+      load: [one('1 min', load.points, 2)],
       psi: [one('CPU', psiCpu.points, 0), one('I/O', psiIo.points, 2)],
-      disk: [one('Read', diskR.points, 0), one('Write', diskW.points, 1)],
-      net: [one('Received', netRx.points, 0), one('Sent', netTx.points, 1)],
+      disk: [one('Read', diskR.points, 0), one('Write', diskW.points, 2)],
+      net: [one('Received', netRx.points, 1), one('Sent', netTx.points, 0)],
       dockerCpu: historyChart(containers, 'cpu'),
       dockerMem: historyChart(containers, 'mem'),
       dockerCpuMax: percentCeiling(peakOf(containers.flatMap((entry) => entry.points), 'cpu')),
@@ -162,7 +162,6 @@ export function NodeOverview() {
 
   if (!snap) return <WaitingForSnapshot view={view} />;
 
-  const offline = view.health.status === 'offline';
   const empty = emptyNote(view);
   const ifaces = snap.network.filter((iface) => iface.iface !== 'lo');
   const rxNow = ifaces.reduce((sum, iface) => sum + iface.rx_bps, 0);
@@ -175,117 +174,72 @@ export function NodeOverview() {
   const containerCpu = snap.containers.reduce((sum, container) => sum + container.cpu_percent, 0);
   const containerMem = snap.containers.reduce((sum, container) => sum + container.mem_bytes, 0);
   const rootFull = view.health.days_to_full;
-  const root = snap.disks.find((disk) => disk.mount === '/');
-  const hottest = temps[0];
-  const tone = (value: number | null | undefined) => (offline ? 'neutral' : levelOf(value));
 
   return (
     <>
-      <KpiStrip>
-        <KpiCell
-          label="CPU"
-          value={snap.cpu.percent}
-          unit="%"
-          digits={1}
-          state={tone(snap.cpu.percent)}
-          note={`load ${snap.cpu.load1.toFixed(2)}`}
+      <div className="chart-grid">
+        <ChartCard
+          title="CPU Usage"
+          desc={`Average system-wide CPU utilization across ${snap.node.cores} threads`}
+          now={percent(snap.cpu.percent, 1)}
+          series={charts.cpu}
+          unit="percent"
+          threshold={80}
+          pending={cpu.pending}
+          empty={empty}
         />
-        <KpiCell
-          label="Memory"
-          value={snap.memory.used_percent}
-          unit="%"
-          digits={1}
-          state={tone(snap.memory.used_percent)}
-          note={`${size(snap.memory.used)} of ${size(snap.memory.total)}`}
+        <ChartCard
+          title="Memory Usage"
+          desc={`${size(snap.memory.used)} used of ${size(snap.memory.total)} · ${size(snap.memory.cached + snap.memory.buffers)} cache and buffers`}
+          now={percent(snap.memory.used_percent, 1)}
+          series={charts.mem}
+          unit="percent"
+          pending={mem.pending}
+          empty={empty}
         />
-        <KpiCell
-          label="Root disk"
-          value={root ? root.used_pct : null}
-          unit="%"
-          digits={1}
-          state={tone(root?.used_pct)}
-          note={rootFull ? `full in ${days(rootFull)}` : `${snap.disks.length} ${snap.disks.length === 1 ? 'filesystem' : 'filesystems'}`}
+        <ChartCard
+          title="Disk I/O"
+          desc={`Throughput across ${snap.disks.length} mounted ${snap.disks.length === 1 ? 'filesystem' : 'filesystems'}`}
+          now={rate(readNow + writeNow)}
+          series={charts.disk}
+          unit="rate"
+          legend={[rate(readNow), rate(writeNow)]}
+          pending={diskR.pending || diskW.pending}
+          empty={empty}
         />
-        <KpiCell
-          label="Temperature"
-          value={hottest ? Math.round(hottest.value) : null}
-          unit="°C"
-          state={hottest ? tone(hottest.value) : undefined}
-          note={hottest ? hottest.label || hottest.chip : 'no sensor'}
+        <ChartCard
+          title="Bandwidth"
+          desc={`Network traffic across ${ifaces.length} non-loopback ${ifaces.length === 1 ? 'interface' : 'interfaces'}`}
+          now={netRate(rxNow + txNow)}
+          series={charts.net}
+          unit="net"
+          legend={[netRate(rxNow), netRate(txNow)]}
+          pending={netRx.pending || netTx.pending}
+          empty={empty}
         />
-        <KpiCell
-          label="Network"
-          value={netRate(rxNow + txNow).split(' ')[0]}
-          unit={netRate(rxNow + txNow).split(' ')[1]}
-          note={`in ${netRate(rxNow)} · out ${netRate(txNow)}`}
+        <ChartCard
+          title="Load Average"
+          desc={`System load average over 1, 5, and 15 minutes (${snap.node.cores} threads)`}
+          now={`${snap.cpu.load1.toFixed(2)} · ${snap.cpu.load5.toFixed(2)} · ${snap.cpu.load15.toFixed(2)}`}
+          series={charts.load}
+          unit="load"
+          threshold={snap.node.cores || undefined}
+          maxValue={Math.max(snap.node.cores || 1, peak(load.points)) * 1.1}
+          pending={load.pending}
+          empty={empty}
         />
-      </KpiStrip>
-
-      <Band title="Activity" desc={`${rangeLabel(range)} · CPU, memory, load, pressure, disk and network`}>
-        <div className="chart-grid">
-          <ChartCard
-            title="CPU usage"
-            desc={`Average across ${snap.node.cores} threads; the dashed line is the 80 % alert.`}
-            now={percent(snap.cpu.percent, 1)}
-            series={charts.cpu}
-            unit="percent"
-            threshold={80}
-            pending={cpu.pending}
-            empty={empty}
-          />
-          <ChartCard
-            title="Memory usage"
-            desc={`${size(snap.memory.used)} used of ${size(snap.memory.total)}; ${size(snap.memory.cached + snap.memory.buffers)} cache and buffers.`}
-            now={percent(snap.memory.used_percent, 1)}
-            series={charts.mem}
-            unit="percent"
-            pending={mem.pending}
-            empty={empty}
-          />
-          <ChartCard
-            title="Load average"
-            desc={`Run-queue length; the dashed line is one task per thread (${snap.node.cores}).`}
-            now={`${snap.cpu.load1.toFixed(2)} · ${snap.cpu.load5.toFixed(2)} · ${snap.cpu.load15.toFixed(2)}`}
-            series={charts.load}
-            unit="load"
-            threshold={snap.node.cores || undefined}
-            maxValue={Math.max(snap.node.cores || 1, peak(load.points)) * 1.1}
-            pending={load.pending}
-            empty={empty}
-          />
-          <ChartCard
-            title="Pressure stall"
-            desc="Share of time some task waited on the CPU or on I/O."
-            now={percent(Math.max(snap.pressure.cpu.some, snap.pressure.io.some), 1)}
-            series={charts.psi}
-            unit="percent"
-            maxValue={psiMax}
-            legend={[percent(last(psiCpu.points) ?? snap.pressure.cpu.some, 1), percent(last(psiIo.points) ?? snap.pressure.io.some, 1)]}
-            pending={psiCpu.pending || psiIo.pending}
-            empty={empty}
-          />
-          <ChartCard
-            title="Disk I/O"
-            desc={`Throughput across ${snap.disks.length} mounted ${snap.disks.length === 1 ? 'filesystem' : 'filesystems'}.`}
-            now={rate(readNow + writeNow)}
-            series={charts.disk}
-            unit="rate"
-            legend={[rate(readNow), rate(writeNow)]}
-            pending={diskR.pending || diskW.pending}
-            empty={empty}
-          />
-          <ChartCard
-            title="Bandwidth"
-            desc={`All interfaces except loopback (${ifaces.length}).`}
-            now={netRate(rxNow + txNow)}
-            series={charts.net}
-            unit="net"
-            legend={[netRate(rxNow), netRate(txNow)]}
-            pending={netRx.pending || netTx.pending}
-            empty={empty}
-          />
-        </div>
-      </Band>
+        <ChartCard
+          title="Pressure Stall"
+          desc="Share of time tasks waited on CPU or I/O"
+          now={percent(Math.max(snap.pressure.cpu.some, snap.pressure.io.some), 1)}
+          series={charts.psi}
+          unit="percent"
+          maxValue={psiMax}
+          legend={[percent(last(psiCpu.points) ?? snap.pressure.cpu.some, 1), percent(last(psiIo.points) ?? snap.pressure.io.some, 1)]}
+          pending={psiCpu.pending || psiIo.pending}
+          empty={empty}
+        />
+      </div>
 
       {hasContainers ? (
         <Band

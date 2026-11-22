@@ -2,96 +2,60 @@
 
 ## Direction
 
-Cupola follows the **Beszel** design philosophy refined with a neutral Zinc
-palette: a high-signal fleet overview with a compact summary strip and sortable
-systems table (with a Table/Cards switcher), bordered cards on a crisp light or
-obsidian-dark ground, emerald/amber/red resource meters, and a per-system
-hardware InfoBar above a 2-column (or full-width) chart grid. It keeps Cupola's
-own depth — processes, systemd services, containers, remote apps/WOL, alerts,
-folded events and URL-addressable tabs.
+Cupola follows **Beszel's** UI architecture directly: a floating rounded card
+navbar inside the centered container, a spacious `All Systems` centerpiece card
+with icon-labelled sortable headers and chunky horizontal percentage meters
+(number left, 13 px rounded bar right), a hairline-separated hardware InfoBar
+on each system page, an elevated pill `TabList` with icons, and tall 206 px
+gradient-filled area charts.
 
 The stylesheet (`web/src/styles/tokens.css` and `web/src/styles/cupola.css`) is
 self-contained with zero CSS framework overhead and zero runtime CSS-in-JS.
-Nothing is fetched from a third party: UI text uses the platform sans-serif face
-(`SF Pro Text` / `Inter` / `Segoe UI` / system sans), and all figures,
-timestamps and IDs use self-hosted **IBM Plex Mono** from `web/public/fonts/`.
+All fonts are self-hosted in `web/public/fonts/`: **InterVariable** for UI and
+tabular figures, and **IBM Plex Mono** for code, units, timestamps and IDs.
 
-Two themes share one layout, chosen with the header's sun/moon button or in
-**Settings → Appearance** (system, light, dark; stored in `localStorage` under
-`cupola.theme`; `web/public/theme-init.js` resolves it before first paint).
-**Light is the default**, even when the OS prefers dark; only an explicit choice
-(or `System`) changes it.
+Two themes share one layout, chosen from the navbar's sun/moon button or in
+**Settings → Appearance** (system, light, dark; stored under `cupola.theme`;
+resolved before first paint by `web/public/theme-init.js`). **Light is the
+default**.
 
-- **Light (Zinc):** ground `#f6f7f9`, white cards `#ffffff` with a 1 px
-  `#e4e4e7` border, ink `#09090b`, muted `#52525b`, accent `#2563eb`.
-- **Dark (Obsidian Zinc):** ground `#09090b`, cards `#111114` with a 1 px
-  `#232329` border and a subtle top catch-light, text `#f4f4f5`, muted
-  `#a1a1aa`, accent `#3b82f6`.
+- **Light (Beszel warm stone):** ground `#faf9f7`, white cards `#ffffff`, warm
+  hairline border `#e2dfda`, ink `#1a1918`, muted `#615e5a`.
+- **Dark (Beszel slate charcoal):** ground `#151619`, cards `#1a1b1f`, border
+  `#2c2e34`, text `#f5f6f7`, muted `#a6a9b0`.
 
-Chart hues are `--data-1…4` (blue, emerald, amber, red); uPlot resolves them
-through `cssColor()` in `web/src/lib/theme.ts` and rebuilds when the theme
-changes.
-
-## Type
-
-- UI: platform sans (`SF Pro Text` / `Inter` / system-ui), 400 body, 500 for
-  navigation, controls and row identities, 600 for headings.
-- Figures, timestamps, IDs, chart axes: **IBM Plex Mono**, tabular. Units next
-  to a figure step back in muted UI face (`<Figure>`).
-- Sentence case everywhere; no tracked uppercase headers.
+Chart hues match Beszel's harmonious HSL palette (`--data-1…4`: blue, emerald,
+amber, rose); uPlot resolves them through `cssColor()` and renders vertical
+canvas gradient fills fading smoothly toward the baseline.
 
 ## Shell
 
-- **Top bar (≥ 900 px):** translucent 56 px sticky bar centered at 1360 px. Left
-  side holds the rounded-square Cupola mark and `cupola`, followed by
-  **Systems**, **Services**, **Apps**, **Alerts** (with firing count badge) and
-  **Events**; the active destination sits on a subtle bordered surface. Right
-  side holds Search (`⌘K`), theme switch, Settings and a primary **+ Add system**
-  button.
-- **Phone (≤ 899 px):** top bar keeps the mark and icon utilities inside
-  `env(safe-area-inset-top)`; the five destinations move to a bottom bar pinned
-  to `visualViewport.height` (`--app-height` from `public/theme-init.js`) inside
-  `env(safe-area-inset-bottom)`.
+- **Floating Navbar (≥ 900 px):** a 62 px rounded card inside the 1480 px
+  container (`my-4`), holding the brand mark, primary destinations (`Systems`,
+  `Services`, `Apps`, `Alerts`, `Events`), `Search ⌘K`, theme switch, Settings
+  and `+ Add System`.
+- **Phone (≤ 899 px):** compact floating top bar inside
+  `env(safe-area-inset-top)` and a 5-tab bottom bar pinned to
+  `visualViewport.height` (`--app-height`) inside `env(safe-area-inset-bottom)`.
 
 ## Meters and status
 
-- **Meters (`<Meter>`):** Beszel thresholds — emerald green (`--ok`) below 65 %,
-  amber (`--warn`) 65–89 %, red (`--bad`) at 90 % and above, with a 6 px rounded
-  pill track and tabular mono readout. Non-health shares (e.g., per-process CPU)
-  use the neutral accent bar.
-- **Status (`<StatusDot>`):** 7.5 px dot with a soft semantic halo (green up,
-  amber degraded, red down, grey waiting); live system headers pulse gently when
-  healthy.
+- **Beszel meters (`<Meter>`):** tabular percentage on the left (`38.1%`)
+  followed by a 13 px tall rounded bar filling the column (`#3db86a` green
+  `< 65 %`, `#eab308` yellow `65–89 %`, `#ef4444` red `≥ 90 %`).
+- **Load average (`LoadTrio`):** colored status dot plus the 1m / 5m / 15m load
+  figures.
+- **Status (`<StatusDot>`):** 8 px emerald / amber / red dot, pulsing gently on
+  the live system InfoBar when healthy.
 
 ## Screens
 
-- **Systems (`/`):** 4-card fleet KPI summary strip (Systems online, Fleet CPU,
-  Fleet memory, Attention), followed by the **Systems** card (live badge,
-  `?q=` filter, Table/Cards view switcher, sortable columns including Network
-  Rx/Tx, row click navigation, and responsive Beszel grid cards), and the
-  **Services** card (failed units pinned first, honest counts, pager). `/nodes`
-  redirects here.
-- **System (`/nodes/:id`):** breadcrumb, Beszel **InfoBar** card (live status
-  dot, name, role tags, icon hardware spec chips for OS/kernel/CPU/RAM/uptime/
-  agent, plus `?range=` time window selector and Grid/Full chart width switch),
-  underline tabs with counts, KPI strip, 2-column (or full-width) uPlot chart
-  cards, disks/sensors cards and top processes.
-- **Services, Apps, Alerts, Events, Settings, Login:** unified bordered cards,
-  quiet empty states, native `<dialog>` confirmation sheets and `⌘K` command
-  palette.
-
-## Charts
-
-- uPlot with smooth splines over a flat translucent fill (~14 % opacity) on the
-  primary series, faint horizontal gridlines, mono axis ticks, dashed threshold
-  lines and a floating crosshair readout.
-- Windows with fewer than two samples keep their frame height with a dashed
-  empty box.
-
-## PWA / iOS
-
-- Manifest: standalone, `start_url=/`, `viewport-fit=cover`, safe-area padding,
-  `--app-height` synced to `visualViewport.height` with keyboard and cold-launch
-  guards (`web/public/theme-init.js`).
-- Service worker: shell precache, network-first API, IndexedDB last snapshot,
-  explicit offline banner.
+- **All Systems (`/`):** one spacious centerpiece card with `?q=` search,
+  Table / Grid switcher, icon-labelled sortable columns (`System`, `CPU`,
+  `Memory`, `Disk`, `Load Avg`, `Net`, `Temp`, `Uptime`), and Beszel grid cards
+  with aligned icon/label/meter rows; Systemd Services card below.
+- **System (`/nodes/:id`):** Beszel **InfoBar** card (system name + single
+  horizontal icon/text spec strip separated by 1 px vertical hairlines +
+  `?range=` window selector + `Grid` / `Full` chart width toggle), elevated pill
+  `TabList` with icons, and straight into the tall 2-column (or full-width)
+  gradient area chart grid, followed by disks/sensors and top processes.

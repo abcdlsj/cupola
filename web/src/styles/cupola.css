@@ -1,6 +1,7 @@
-/* Cupola — Beszel-refined minimalist monitoring UI.
-   Zero CSS framework overhead, pure semantic tokens, crisp 1px borders,
-   high-contrast tabular typography and safe-area-first mobile PWA shell. */
+/* Cupola — True Beszel architecture:
+   Floating rounded card navbar inside the container, spacious All Systems
+   centerpiece card with icon headers & chunky horizontal meters, hairline-separated
+   system InfoBar, elevated pill TabsList, and tall luminous area charts. */
 
 /* ------------------------------------------------------------------ reset -- */
 
@@ -15,6 +16,7 @@ html {
   color-scheme: light;
   -webkit-tap-highlight-color: transparent;
   overflow-anchor: none;
+  scrollbar-gutter: stable;
 }
 
 html[data-theme='dark'] {
@@ -30,6 +32,7 @@ body {
   line-height: 1.5;
   font-weight: 400;
   font-variant-numeric: tabular-nums;
+  font-variant-ligatures: no-contextual;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--ground);
@@ -43,8 +46,8 @@ h4 {
   margin: 0;
   color: var(--text);
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
 }
 
 h1 {
@@ -57,7 +60,7 @@ h2 {
 
 h3 {
   font-size: var(--fs-card);
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
 }
 
 h4 {
@@ -69,14 +72,13 @@ p {
 }
 
 a {
-  color: var(--accent);
+  color: var(--text);
   text-decoration: none;
   transition: color 120ms ease-out;
 }
 
 a:hover {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--accent);
 }
 
 button,
@@ -111,7 +113,7 @@ kbd,
 samp,
 time {
   font-family: var(--font-mono);
-  font-size: 0.92em;
+  font-size: 0.9em;
 }
 
 hr {
@@ -148,7 +150,7 @@ table {
 }
 
 .t-2xs {
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .t-xsm {
@@ -190,7 +192,7 @@ table {
 }
 
 .code {
-  font-size: 0.92em;
+  font-size: 0.9em;
 }
 
 .fig {
@@ -205,7 +207,7 @@ table {
 .unit {
   font-family: var(--font-ui);
   color: var(--muted);
-  font-size: 0.78em;
+  font-size: 0.8em;
   font-weight: 400;
   margin-left: 3px;
 }
@@ -246,7 +248,7 @@ table {
   border: 0;
 }
 
-/* ----------------------------------------------------------------- shell -- */
+/* ------------------------------------------- shell (Beszel Floating Card) -- */
 
 .boot {
   min-height: var(--app-height, 100dvh);
@@ -267,16 +269,12 @@ table {
   background: var(--ground);
 }
 
+/* Beszel Floating Navbar sitting cleanly inside the centered container */
 .topbar {
   flex: none;
-  position: sticky;
-  top: 0;
   z-index: 30;
-  padding-top: env(safe-area-inset-top, 0px);
-  background: var(--topbar-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--pad-safe-right) 0 var(--pad-safe-left);
+  background: var(--ground);
 }
 
 .topbar-inner {
@@ -287,7 +285,18 @@ table {
   height: var(--header-height);
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 0 var(--pad-safe-right) 0 var(--pad-safe-left);
+  padding: 0 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow-xs);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
 }
 
 .brand-nav {
@@ -300,23 +309,22 @@ table {
   align-items: center;
   gap: 9px;
   color: var(--text);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: -0.025em;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   white-space: nowrap;
 }
 
 .brand:hover {
-  text-decoration: none;
   color: var(--text);
 }
 
 .brand-mark {
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
   background: var(--text);
-  color: var(--ground);
+  color: var(--card);
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -332,63 +340,62 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 11px;
-  border-radius: 7px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   white-space: nowrap;
-  transition: color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out;
+  transition: color 120ms ease-out, background-color 120ms ease-out;
 }
 
 .topbar .navlink:hover {
   color: var(--text);
-  background: var(--card-hover);
-  text-decoration: none;
+  background: var(--well);
 }
 
 .topbar .navlink[aria-current='page'] {
   color: var(--text);
   background: var(--well);
-  box-shadow: inset 0 0 0 1px var(--border);
 }
 
 .navcount {
   font-family: var(--font-mono);
   font-size: 11px;
-  font-weight: 500;
-  line-height: 17px;
-  height: 17px;
-  padding: 0 5px;
+  font-weight: 600;
+  line-height: 18px;
+  height: 18px;
+  padding: 0 6px;
   border-radius: var(--radius-pill);
   background: var(--bad-soft);
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 .utils {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .cmd-trigger {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 32px;
-  padding: 0 9px 0 11px;
+  height: 36px;
+  padding: 0 10px 0 13px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
-  background: var(--card);
+  background: transparent;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
   transition: border-color 120ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
 }
 
 .cmd-trigger:hover {
   border-color: var(--border-strong);
   color: var(--text);
-  background: var(--card-hover);
+  background: var(--well);
 }
 
 .cmd-trigger-label {
@@ -400,36 +407,35 @@ table {
   font-size: 10.5px;
   font-weight: 500;
   line-height: 1;
-  padding: 2px 5px;
+  padding: 3px 5px;
   border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--well);
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .icon-btn {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   border-radius: var(--radius-control);
-  border: 1px solid var(--border);
-  background: var(--card);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--muted);
   display: inline-grid;
   place-items: center;
-  transition: border-color 120ms ease-out, color 120ms ease-out, background-color 120ms ease-out;
+  transition: color 120ms ease-out, background-color 120ms ease-out, border-color 120ms ease-out;
 }
 
 .icon-btn:hover {
-  border-color: var(--border-strong);
   color: var(--text);
-  background: var(--card-hover);
+  background: var(--well);
 }
 
 .icon-btn[aria-current='page'] {
   color: var(--text);
   background: var(--well);
-  border-color: var(--border-strong);
+  border-color: var(--border);
 }
 
 .shell-main {
@@ -450,24 +456,24 @@ table {
 .content-inner {
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 24px var(--pad-safe-right) 40px var(--pad-safe-left);
+  padding: 18px var(--pad-safe-right) 36px var(--pad-safe-left);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .foot {
   flex: none;
-  border-top: 1px solid var(--border-subtle);
   background: var(--ground);
 }
 
 .foot-inner {
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 10px var(--pad-safe-right) 10px var(--pad-safe-left);
+  padding: 10px var(--pad-safe-right) 14px var(--pad-safe-left);
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
   font-size: 12px;
   color: var(--faint);
@@ -485,7 +491,7 @@ table {
   color: var(--border-strong);
 }
 
-/* Mobile bottom navigation */
+/* Mobile bottom tabbar */
 .tabbar {
   flex: none;
   border-top: 1px solid var(--border);
@@ -509,11 +515,6 @@ table {
   color: var(--muted);
   font-size: 11px;
   font-weight: 500;
-  text-decoration: none;
-}
-
-.tabbar-link:hover {
-  text-decoration: none;
 }
 
 .tabbar-link[aria-current='page'] {
@@ -565,11 +566,10 @@ table {
   font-size: var(--fs-page);
   font-weight: 600;
   letter-spacing: -0.025em;
-  line-height: 1.2;
 }
 
 .page-desc {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
@@ -585,9 +585,8 @@ table {
   align-items: center;
   gap: 7px;
   flex-wrap: wrap;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
-  margin-bottom: 2px;
 }
 
 .crumbs a {
@@ -605,7 +604,7 @@ table {
 .band {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .band-head {
@@ -624,7 +623,7 @@ table {
 }
 
 .band-desc {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -635,7 +634,7 @@ table {
   flex-wrap: wrap;
 }
 
-/* ----------------------------------------------------- cards & surfaces -- */
+/* ----------------------------------------------------- Beszel Card System -- */
 
 .panel,
 .table-card,
@@ -645,40 +644,49 @@ table {
 .beszel-card {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
 }
 
+/* Signature Beszel outer card with padded header + inner bordered table */
 .beszel-card {
-  overflow: hidden;
+  padding: 22px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .beszel-card-head {
-  padding: 15px 18px;
-  border-bottom: 1px solid var(--border-subtle);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 14px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
 .beszel-card-title-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 5px;
   min-width: 0;
 }
 
-.beszel-card-title-group h1,
+.beszel-card-title-group h1 {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
 .beszel-card-title-group h2 {
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 600;
   letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 .beszel-card-title-group p {
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
@@ -689,23 +697,25 @@ table {
   flex-wrap: wrap;
 }
 
-.beszel-card .table-card,
-.beszel-card .rows-card {
-  border: none;
-  border-radius: 0;
+/* Inner bordered table frame inside a Beszel card */
+.beszel-card .table-card {
+  border: 1px solid var(--border);
+  border-radius: 9px;
   box-shadow: none;
   background: transparent;
 }
 
-.beszel-card-body {
-  padding: 16px 18px;
+.beszel-card .rows-card {
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: none;
 }
 
 .section {
-  padding: 16px 18px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .section.is-alert {
@@ -717,24 +727,22 @@ table {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-subtle);
 }
 
 .section-heading {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .section-desc {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -752,25 +760,34 @@ table {
 }
 
 .panel-foot {
-  padding: 10px 16px;
+  padding: 11px 16px;
   border-top: 1px solid var(--border-subtle);
-  background: var(--card-subtle);
+  background: var(--table-header);
 }
 
-/* ----------------------------------------------------- KPI summary strip -- */
+/* Fleet inline status pills inside All Systems header */
+.fleet-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+/* ----------------------------------------------------- KPI strip (secondary pages) -- */
 
 .kpi-strip {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .kpi-cell {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
-  padding: 14px 16px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -782,15 +799,14 @@ table {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--muted);
 }
 
 .kpi-value {
-  font-family: var(--font-mono);
   font-size: var(--fs-figure);
-  font-weight: 500;
+  font-weight: 600;
   letter-spacing: -0.025em;
   line-height: 1.15;
   color: var(--text);
@@ -801,15 +817,15 @@ table {
 }
 
 .kpi-value[data-tone='error'] {
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 .kpi-value[data-tone='warning'] {
-  color: var(--warn);
+  color: var(--warn-text);
 }
 
 .kpi-note {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--faint);
   white-space: nowrap;
   overflow: hidden;
@@ -821,8 +837,8 @@ table {
 .dot {
   position: relative;
   display: inline-block;
-  width: 7.5px;
-  height: 7.5px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex: none;
   background: var(--faint);
@@ -830,37 +846,38 @@ table {
 
 .dot[data-tone='success'] {
   background: var(--ok);
-  box-shadow: 0 0 0 3px var(--ok-soft);
 }
 
 .dot[data-tone='warning'] {
   background: var(--warn);
-  box-shadow: 0 0 0 3px var(--warn-soft);
 }
 
 .dot[data-tone='error'] {
   background: var(--bad);
-  box-shadow: 0 0 0 3px var(--bad-soft);
 }
 
 .dot[data-tone='accent'] {
   background: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.dot.is-pulsing {
+  width: 10px;
+  height: 10px;
 }
 
 .dot.is-pulsing::after {
   content: '';
   position: absolute;
-  inset: -2px;
+  inset: 0;
   border-radius: 50%;
   background: inherit;
-  opacity: 0.45;
-  animation: cupola-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.65;
+  animation: cupola-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
 @keyframes cupola-ping {
   75%, 100% {
-    transform: scale(2.1);
+    transform: scale(2.2);
     opacity: 0;
   }
 }
@@ -869,10 +886,10 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.2;
-  padding: 3px 8px;
+  padding: 3px 9px;
   border-radius: var(--radius-pill);
   background: var(--well);
   color: var(--muted);
@@ -881,17 +898,17 @@ table {
 
 .pill[data-tone='success'] {
   background: var(--ok-soft);
-  color: var(--ok);
+  color: var(--ok-text);
 }
 
 .pill[data-tone='warning'] {
   background: var(--warn-soft);
-  color: var(--warn);
+  color: var(--warn-text);
 }
 
 .pill[data-tone='error'] {
   background: var(--bad-soft);
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 .pill[data-tone='accent'] {
@@ -905,62 +922,72 @@ table {
   font-size: 11px;
   font-weight: 500;
   line-height: 1.2;
-  padding: 2px 6px;
+  padding: 2px 7px;
   border-radius: 5px;
   background: var(--well);
-  border: 1px solid var(--border);
   color: var(--muted);
   white-space: nowrap;
 }
 
 a.role-tag:hover {
   color: var(--text);
-  border-color: var(--border-strong);
-  text-decoration: none;
 }
 
 .live-badge {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--well);
-  border: 1px solid var(--border);
   white-space: nowrap;
 }
 
-/* ----------------------------------------------------- meters (Beszel) -- */
+/* ------------------------------------------- ICONIC BESZEL CHUNKY METERS -- */
 
 .meter {
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 9px;
-  max-width: 100%;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Value FIRST, then wide 14px chunky rounded bar — Beszel's exact signature! */
+.meter-value {
+  font-size: 13.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  min-width: 44px;
+  flex: none;
+  white-space: nowrap;
+}
+
+.meter-value.is-missing {
+  color: var(--faint);
 }
 
 .meter-track {
-  display: inline-block;
-  position: relative;
-  height: 6px;
-  border-radius: var(--radius-pill);
+  flex: 1;
+  min-width: 52px;
+  height: 13px;
+  border-radius: 4px;
   background: var(--track);
   overflow: hidden;
-  flex: none;
+  display: block;
 }
 
 .meter-track.is-empty {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 
 .meter-fill {
   display: block;
   height: 100%;
-  border-radius: var(--radius-pill);
+  border-radius: 2px;
   background: var(--ok);
-  transition: width 160ms ease-out;
+  transition: width 200ms ease-out;
 }
 
 .meter-fill[data-level='success'] {
@@ -979,26 +1006,15 @@ a.role-tag:hover {
   background: var(--accent);
 }
 
-.meter-value {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text);
-  min-width: 40px;
-  text-align: right;
+/* Load average Beszel trio: dot + 1m 5m 15m */
+.load-trio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.015em;
   white-space: nowrap;
-}
-
-.meter-value[data-level='warning'] {
-  color: var(--warn);
-}
-
-.meter-value[data-level='error'] {
-  color: var(--bad);
-}
-
-.meter-value.is-missing {
-  color: var(--faint);
 }
 
 /* ---------------------------------------------------------------- tables -- */
@@ -1018,13 +1034,14 @@ a.role-tag:hover {
 }
 
 .table thead th {
+  height: 46px;
   text-align: left;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
-  color: var(--faint);
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  background: var(--card-subtle);
+  color: var(--muted);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--table-header);
   white-space: nowrap;
 }
 
@@ -1035,7 +1052,8 @@ a.role-tag:hover {
 }
 
 .table tbody td {
-  padding: 12px 16px;
+  height: var(--row-height);
+  padding: 0 16px;
   border-bottom: 1px solid var(--border-subtle);
   vertical-align: middle;
 }
@@ -1059,15 +1077,16 @@ a.role-tag:hover {
 .sort-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2px 6px;
-  margin: -2px -6px;
+  gap: 7px;
+  height: 34px;
+  padding: 0 10px;
+  margin: 0 -10px;
   border: none;
-  border-radius: 5px;
+  border-radius: 7px;
   background: transparent;
   color: inherit;
   font: inherit;
-  transition: color 120ms ease-out, background-color 120ms ease-out;
+  transition: color 100ms ease-out, background-color 100ms ease-out;
 }
 
 .sort-btn:hover {
@@ -1077,64 +1096,47 @@ a.role-tag:hover {
 
 .sort-btn[data-active='true'] {
   color: var(--text);
+  background: var(--well);
+}
+
+.sort-btn svg {
+  flex: none;
+  opacity: 0.78;
 }
 
 .node-link {
   color: var(--text);
   font-weight: 500;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 .node-link:hover {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.net-stack {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.3;
-  white-space: nowrap;
-}
-
-.net-rx {
   color: var(--text);
 }
 
-.net-tx {
-  color: var(--faint);
-  font-size: 11px;
-}
-
-/* ----------------------------------------------------- Beszel grid cards -- */
+/* ----------------------------------------------------- Beszel Grid Cards -- */
 
 .sys-cards {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .sys-card {
   display: flex;
   flex-direction: column;
-  background: var(--card);
+  background: transparent;
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
-  border-radius: var(--radius-card);
+  border-radius: 10px;
   overflow: hidden;
   color: var(--text);
-  text-decoration: none;
-  transition: border-color 140ms ease-out, background-color 140ms ease-out;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out, background-color 150ms ease-out;
 }
 
 .sys-card:hover {
   border-color: var(--border-strong);
-  background: var(--card-hover);
-  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  color: var(--text);
 }
 
 .sys-card-head {
@@ -1142,8 +1144,8 @@ a.role-tag:hover {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 12px 15px;
-  background: var(--card-subtle);
+  padding: 12px 16px;
+  background: var(--table-header);
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1154,100 +1156,53 @@ a.role-tag:hover {
   min-width: 0;
 }
 
-.sys-card-name-row {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  min-width: 0;
-}
-
 .sys-card-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sys-card-right {
+.sys-card-rows {
+  display: grid;
+  grid-template-columns: 18px minmax(64px, max-content) minmax(0, 1fr);
+  align-items: center;
+  gap: 11px 10px;
+  padding: 15px 18px 16px;
+  font-size: 13.5px;
+}
+
+.sys-card-ico {
+  color: var(--muted);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--muted);
-  white-space: nowrap;
-  flex: none;
 }
 
-.sys-card-metrics {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 16px;
-  padding: 14px 15px;
-}
-
-.sys-metric {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-}
-
-.sys-metric-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 6px;
-  font-size: 12px;
-}
-
-.sys-metric-label {
+.sys-card-lbl {
   color: var(--muted);
 }
 
-.sys-metric-val {
-  font-family: var(--font-mono);
-  font-size: 12.5px;
-  font-weight: 500;
-  color: var(--text);
-}
-
-.sys-metric-val.is-missing {
-  color: var(--faint);
-}
-
-.sys-card-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 9px 15px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 11.5px;
-  color: var(--faint);
-}
-
-/* ----------------------------------------------------- Node InfoBar card -- */
+/* ------------------------------------------- Beszel InfoBar (System Detail) -- */
 
 .node-infobar {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
-  padding: 16px 20px;
+  padding: 18px 24px 20px;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
 .node-infobar-main {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
@@ -1260,33 +1215,40 @@ a.role-tag:hover {
 }
 
 .node-infobar-title h1 {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
-.spec-chips {
+/* Beszel inline icon+text strip with crisp vertical hairline separators */
+.infobar-strip {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 10px 0;
+  font-size: 13.5px;
+  color: var(--text);
+  opacity: 0.9;
 }
 
-.spec-chip {
+.infobar-item {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 3px 9px;
-  border-radius: 6px;
-  background: var(--well);
-  border: 1px solid var(--border);
-  font-size: 12px;
-  color: var(--muted);
   white-space: nowrap;
 }
 
-.spec-chip svg {
-  color: var(--faint);
+.infobar-item svg {
+  color: var(--muted);
+  flex: none;
+}
+
+.infobar-sep {
+  width: 1px;
+  height: 15px;
+  background: var(--border-strong);
+  margin: 0 12px;
   flex: none;
 }
 
@@ -1298,13 +1260,16 @@ a.role-tag:hover {
   flex: none;
 }
 
-/* ------------------------------------------------------------------ tabs -- */
+/* ------------------------------------------- Beszel Elevated Pill TabsList -- */
 
 .tabs {
   display: flex;
   align-items: center;
-  gap: 2px;
-  border-bottom: 1px solid var(--border);
+  gap: 4px;
+  padding: 5px;
+  border-radius: 10px;
+  background: var(--well);
+  border: 1px solid var(--border-subtle);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -1314,28 +1279,29 @@ a.role-tag:hover {
 }
 
 .tab {
-  position: relative;
+  flex: 1 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 9px 13px;
-  font-size: 13px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 7px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 120ms ease-out, border-color 120ms ease-out;
+  transition: color 120ms ease-out, background-color 120ms ease-out, box-shadow 120ms ease-out;
 }
 
 .tab:hover {
   color: var(--text);
-  text-decoration: none;
 }
 
 .tab[aria-current='page'] {
   color: var(--text);
-  border-bottom-color: var(--text);
+  background: var(--card);
+  box-shadow: var(--shadow-xs);
 }
 
 .tab-count {
@@ -1344,12 +1310,12 @@ a.role-tag:hover {
   color: var(--faint);
 }
 
-/* ------------------------------------------------------------ chart grid -- */
+/* ------------------------------------------- Beszel Spacious Chart Grid -- */
 
 .chart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .chart-grid.is-single,
@@ -1357,18 +1323,23 @@ a.role-tag:hover {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Beszel trick: if the last card is odd in a 2-col grid, span full width cleanly */
+.chart-grid:not(.is-single) > .chart-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
 .chart-card {
-  padding: 16px 18px 14px;
+  padding: 20px 24px 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   min-width: 0;
 }
 
 .chart-card-head {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
 .chart-card-title-row {
@@ -1379,22 +1350,24 @@ a.role-tag:hover {
 }
 
 .chart-card-title {
-  font-size: 14px;
+  font-size: 19px;
   font-weight: 600;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
 .chart-card-now {
-  font-family: var(--font-mono);
-  font-size: 16.5px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
   color: var(--text);
   white-space: nowrap;
 }
 
 .chart-card-desc {
-  font-size: 12px;
-  color: var(--faint);
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .chart-empty {
@@ -1403,7 +1376,7 @@ a.role-tag:hover {
   border: 1px dashed var(--border);
   border-radius: 8px;
   color: var(--faint);
-  font-size: 12.5px;
+  font-size: 13px;
   text-align: center;
   padding: 16px;
 }
@@ -1412,10 +1385,10 @@ a.role-tag:hover {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 14px;
+  gap: 16px;
   padding-top: 8px;
   border-top: 1px solid var(--border-subtle);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
@@ -1426,33 +1399,33 @@ a.role-tag:hover {
 }
 
 .legend-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
   flex: none;
 }
 
 .chart-readout {
   position: absolute;
-  top: 6px;
+  top: 8px;
   z-index: 10;
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 136px;
-  padding: 8px 10px;
+  gap: 5px;
+  min-width: 148px;
+  padding: 9px 11px;
   border-radius: 8px;
   border: 1px solid var(--border-strong);
   background: var(--card);
   box-shadow: var(--shadow);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .chart-readout-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
 }
 
 .chart-readout-row .name {
@@ -1474,22 +1447,21 @@ a.role-tag:hover {
   justify-content: center;
   gap: 6px;
   height: var(--control-height);
-  padding: 0 12px;
+  padding: 0 13px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--text);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   white-space: nowrap;
-  text-decoration: none;
   transition: background-color 120ms ease-out, border-color 120ms ease-out, opacity 120ms ease-out;
 }
 
 .btn:hover:not(:disabled) {
   background: var(--well);
   border-color: var(--border-strong);
-  text-decoration: none;
+  color: var(--text);
 }
 
 .btn:disabled {
@@ -1500,14 +1472,14 @@ a.role-tag:hover {
 .btn-primary {
   background: var(--text);
   border-color: var(--text);
-  color: var(--ground);
+  color: var(--card);
 }
 
 .btn-primary:hover:not(:disabled) {
-  opacity: 0.9;
+  opacity: 0.88;
   background: var(--text);
   border-color: var(--text);
-  color: var(--ground);
+  color: var(--card);
 }
 
 .btn-danger {
@@ -1520,6 +1492,7 @@ a.role-tag:hover {
   opacity: 0.9;
   background: var(--bad);
   border-color: var(--bad);
+  color: #ffffff;
 }
 
 .btn-ghost {
@@ -1535,9 +1508,9 @@ a.role-tag:hover {
 }
 
 .btn-sm {
-  height: 30px;
-  padding: 0 10px;
-  font-size: 12.5px;
+  height: 32px;
+  padding: 0 11px;
+  font-size: 13px;
 }
 
 .btn-lg {
@@ -1555,7 +1528,7 @@ a.role-tag:hover {
 }
 
 .field-label {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text);
 }
@@ -1575,19 +1548,19 @@ a.role-tag:hover {
 
 .field-error {
   font-size: 12px;
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 .input {
   width: 100%;
   height: var(--control-height);
-  padding: 0 11px;
+  padding: 0 12px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
-  background: var(--ground);
+  background: var(--card);
   color: var(--text);
-  font-size: 13px;
-  transition: border-color 120ms ease-out, background-color 120ms ease-out;
+  font-size: 13.5px;
+  transition: border-color 120ms ease-out;
 }
 
 .input:hover:not(:disabled) {
@@ -1596,7 +1569,6 @@ a.role-tag:hover {
 
 .input:focus {
   border-color: var(--accent);
-  background: var(--card);
 }
 
 .input::placeholder {
@@ -1613,8 +1585,8 @@ a.role-tag:hover {
 }
 
 .input-sm {
-  height: 30px;
-  font-size: 12.5px;
+  height: 32px;
+  font-size: 13px;
 }
 
 .search {
@@ -1623,12 +1595,12 @@ a.role-tag:hover {
 }
 
 .input-search {
-  padding-right: 28px;
+  padding-right: 30px;
 }
 
 .search-clear {
   position: absolute;
-  right: 4px;
+  right: 5px;
   top: 50%;
   transform: translateY(-50%);
   width: 24px;
@@ -1693,8 +1665,8 @@ a.role-tag:hover {
 
 .select-popup li {
   padding: 7px 10px;
-  border-radius: 5px;
-  font-size: 13px;
+  border-radius: 6px;
+  font-size: 13.5px;
   color: var(--text);
   cursor: pointer;
 }
@@ -1715,7 +1687,7 @@ a.role-tag:hover {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--text);
   cursor: pointer;
 }
@@ -1739,7 +1711,7 @@ a.role-tag:hover {
 }
 
 .check-group legend {
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text);
   margin-bottom: 6px;
@@ -1749,11 +1721,11 @@ a.role-tag:hover {
 .seg {
   display: inline-flex;
   align-items: center;
-  padding: 2px;
+  padding: 3px;
   gap: 2px;
   border-radius: var(--radius-control);
-  border: 1px solid var(--border);
-  background: var(--ground);
+  background: var(--well);
+  border: 1px solid var(--border-subtle);
 }
 
 .seg.is-fill {
@@ -1766,13 +1738,13 @@ a.role-tag:hover {
 }
 
 .seg-option {
-  height: 28px;
-  padding: 0 10px;
+  height: 30px;
+  padding: 0 11px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   white-space: nowrap;
   display: inline-flex;
@@ -1790,7 +1762,7 @@ a.role-tag:hover {
 .seg-option[aria-pressed='true'] {
   background: var(--card);
   color: var(--text);
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--border);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ----------------------------------------------------- rows, lists, facts -- */
@@ -1808,7 +1780,7 @@ a.role-tag:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 16px;
+  padding: 12px 16px;
 }
 
 .row-link {
@@ -1817,16 +1789,15 @@ a.role-tag:hover {
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  margin: -11px -16px;
-  padding: 11px 16px;
+  margin: -12px -16px;
+  padding: 12px 16px;
   color: inherit;
-  text-decoration: none;
   transition: background-color 110ms ease-out;
 }
 
 .row-link:hover {
   background: var(--card-hover);
-  text-decoration: none;
+  color: inherit;
 }
 
 .row-main {
@@ -1861,14 +1832,14 @@ a.role-tag:hover {
 }
 
 .fact dt {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
   flex: none;
 }
 
 .fact dd {
   margin: 0;
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--text);
   text-align: right;
   min-width: 0;
@@ -1879,7 +1850,7 @@ a.role-tag:hover {
   background: var(--card-subtle);
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
-  padding: 14px 16px;
+  padding: 16px 18px;
 }
 
 /* ----------------------------------------------------- banners & empties -- */
@@ -1889,8 +1860,8 @@ a.role-tag:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 14px;
-  border-radius: var(--radius-control);
+  padding: 12px 16px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--card);
 }
@@ -1911,13 +1882,13 @@ a.role-tag:hover {
 }
 
 .banner-title {
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 500;
   color: var(--text);
 }
 
 .banner-desc {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -1930,13 +1901,13 @@ a.role-tag:hover {
 }
 
 .empty-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text);
 }
 
 .empty-desc {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
@@ -1946,12 +1917,12 @@ a.role-tag:hover {
 
 .code-block {
   margin: 0;
-  padding: 12px 14px;
+  padding: 13px 15px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: var(--ground);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   line-height: 1.55;
   overflow: auto;
   white-space: pre-wrap;
@@ -1961,7 +1932,7 @@ a.role-tag:hover {
 .code-title {
   display: block;
   font-family: var(--font-ui);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--faint);
   margin-bottom: 6px;
@@ -1989,13 +1960,12 @@ a.role-tag:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .pager-range b {
-  font-family: var(--font-mono);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text);
 }
 
@@ -2006,15 +1976,14 @@ a.role-tag:hover {
 }
 
 .pager-pg {
-  min-width: 28px;
-  height: 28px;
+  min-width: 30px;
+  height: 30px;
   padding: 0 7px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   display: inline-grid;
   place-items: center;
 }
@@ -2027,7 +1996,7 @@ a.role-tag:hover {
 .pager-pg[aria-current='page'] {
   background: var(--text);
   border-color: var(--text);
-  color: var(--ground);
+  color: var(--card);
 }
 
 .pager-pg:disabled {
@@ -2045,6 +2014,7 @@ a.role-tag:hover {
 .action-list {
   background: var(--card);
   border: 1px solid var(--border);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
   overflow: hidden;
 }
@@ -2054,7 +2024,7 @@ a.role-tag:hover {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 18px;
+  padding: 15px 20px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2065,14 +2035,14 @@ a.role-tag:hover {
 .action-main {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   min-width: 0;
 }
 
 .mark {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
   border: 1px solid var(--border);
   background: var(--well);
   color: var(--text);
@@ -2089,16 +2059,8 @@ a.role-tag:hover {
   font-weight: 500;
 }
 
-.action-title a {
-  color: var(--text);
-}
-
-.action-title a:hover {
-  color: var(--accent);
-}
-
 .action-desc {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
@@ -2110,7 +2072,7 @@ a.role-tag:hover {
 }
 
 .action-when {
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--faint);
   white-space: nowrap;
 }
@@ -2125,9 +2087,9 @@ a.role-tag:hover {
 .event-summary-card {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
-  padding: 13px 16px;
+  padding: 14px 16px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2142,7 +2104,7 @@ a.role-tag:hover {
 .event-kind {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top);
+  box-shadow: var(--shadow-xs);
   border-radius: var(--radius-card);
   overflow: hidden;
 }
@@ -2153,9 +2115,9 @@ a.role-tag:hover {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 13px 18px;
   border: none;
-  background: var(--card-subtle);
+  background: var(--table-header);
   color: var(--text);
   text-align: left;
   transition: background-color 110ms ease-out;
@@ -2167,13 +2129,12 @@ a.role-tag:hover {
 
 .event-kind-name {
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
 }
 
 .event-kind-count {
   margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--muted);
 }
 
@@ -2193,7 +2154,7 @@ a.role-tag:hover {
   grid-template-columns: 24px 86px minmax(0, 1fr) 120px 144px;
   align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 11px 18px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -2262,7 +2223,7 @@ button.event-fold:hover {
 }
 
 .event-block {
-  padding: 11px 16px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
@@ -2305,7 +2266,7 @@ button.event-fold:hover {
 
 .dialog::backdrop,
 .palette::backdrop {
-  background: rgba(9, 9, 11, 0.55);
+  background: rgba(15, 16, 18, 0.55);
   backdrop-filter: blur(4px);
 }
 
@@ -2320,22 +2281,22 @@ button.event-fold:hover {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 18px;
+  padding: 16px 20px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .dialog-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .dialog-sub {
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--muted);
 }
 
 .dialog-body {
-  padding: 16px 18px;
+  padding: 18px 20px;
   overflow-y: auto;
 }
 
@@ -2344,9 +2305,9 @@ button.event-fold:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 18px;
+  padding: 12px 20px;
   border-top: 1px solid var(--border-subtle);
-  background: var(--card-subtle);
+  background: var(--table-header);
 }
 
 /* Command palette */
@@ -2359,7 +2320,7 @@ button.event-fold:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 13px 16px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--muted);
 }
@@ -2385,7 +2346,7 @@ button.event-fold:hover {
 
 .palette-group {
   padding: 8px 10px 4px;
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--faint);
 }
@@ -2396,7 +2357,7 @@ button.event-fold:hover {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 9px 10px;
+  padding: 9px 11px;
   border: none;
   border-radius: 7px;
   background: transparent;
@@ -2427,9 +2388,9 @@ button.event-fold:hover {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   border-top: 1px solid var(--border-subtle);
-  background: var(--card-subtle);
+  background: var(--table-header);
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--faint);
@@ -2449,8 +2410,8 @@ button.event-fold:hover {
   width: 100%;
   max-width: 860px;
   display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 44px;
+  grid-template-columns: 1fr 410px;
+  gap: 48px;
   align-items: center;
 }
 
@@ -2463,22 +2424,22 @@ button.event-fold:hover {
 .login-wordmark {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
   color: var(--text);
 }
 
 .login-intro h1 {
-  font-size: 28px;
-  line-height: 1.2;
-  letter-spacing: -0.03em;
+  font-size: 30px;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
 }
 
 .login-intro p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 14.5px;
   line-height: 1.6;
 }
 
@@ -2489,26 +2450,26 @@ button.event-fold:hover {
   flex-direction: column;
   gap: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .login-card {
   background: var(--card);
   border: 1px solid var(--border);
-  box-shadow: var(--inset-top), var(--shadow-sm);
+  box-shadow: var(--shadow-sm);
   border-radius: 14px;
-  padding: 24px;
+  padding: 26px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
 .login-card h2 {
-  font-size: 18px;
+  font-size: 20px;
 }
 
 .login-lede {
-  font-size: 13px;
+  font-size: 13.5px;
   color: var(--muted);
   margin-top: -10px;
 }
@@ -2529,13 +2490,21 @@ button.event-fold:hover {
 
 @media (max-width: 899px) {
   :root {
-    --pad-wide: 14px;
-    --header-height: 50px;
+    --pad-wide: 12px;
+    --header-height: 54px;
+  }
+
+  .topbar {
+    padding: calc(10px + env(safe-area-inset-top, 0px)) var(--pad-safe-right) 0 var(--pad-safe-left);
+  }
+
+  .topbar-inner {
+    padding: 0 14px;
   }
 
   .content-inner {
-    padding: 14px var(--pad-safe-right) 24px var(--pad-safe-left);
-    gap: 16px;
+    padding: 12px var(--pad-safe-right) 24px var(--pad-safe-left);
+    gap: 14px;
   }
 
   .cmd-trigger-label,
@@ -2544,15 +2513,20 @@ button.event-fold:hover {
   }
 
   .cmd-trigger {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     padding: 0;
     justify-content: center;
+    border-color: transparent;
   }
 
-  .icon-btn {
-    width: 34px;
-    height: 34px;
+  .beszel-card {
+    padding: 16px 14px;
+    gap: 14px;
+  }
+
+  .beszel-card-controls {
+    width: 100%;
   }
 
   .kpi-strip {
@@ -2566,33 +2540,38 @@ button.event-fold:hover {
 
   .chart-grid {
     grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .chart-card {
+    padding: 16px 16px 14px;
   }
 
   .sys-cards {
     grid-template-columns: minmax(0, 1fr);
-    gap: 10px;
-  }
-
-  .beszel-card-head {
-    padding: 13px 14px;
-  }
-
-  .beszel-card-controls {
-    width: 100%;
-  }
-
-  .beszel-card-body {
-    padding: 12px 14px;
+    gap: 12px;
   }
 
   .node-infobar {
-    padding: 14px;
+    padding: 16px;
     flex-direction: column;
     align-items: stretch;
+    gap: 14px;
   }
 
   .node-infobar-main {
     width: 100%;
+  }
+
+  .infobar-strip {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+
+  .infobar-strip::-webkit-scrollbar {
+    display: none;
   }
 
   .node-infobar-actions {
@@ -2607,23 +2586,11 @@ button.event-fold:hover {
     flex: 1;
   }
 
-  .spec-chips {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: none;
-    max-width: 100%;
-    padding-bottom: 2px;
-  }
-
-  .spec-chips::-webkit-scrollbar {
-    display: none;
-  }
-
   .action-row {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
-    padding: 13px 14px;
+    padding: 14px 16px;
   }
 
   .action-side {

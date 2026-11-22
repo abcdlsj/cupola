@@ -2,9 +2,8 @@ import type { ReactNode } from 'react';
 import { SeriesChart, type ChartMarker, type ChartSeries, type ChartUnit } from './SeriesChart';
 
 /**
- * One metric in a chart grid: title and one line of context on the left, the
- * current reading on the right, the chart, and a swatch legend when there is
- * more than one series. Loading and empty windows keep the frame's height.
+ * Beszel-style spacious ChartCard: bold title and description on the left,
+ * current reading on the right, tall luminous area chart, and optional swatch legend.
  */
 export function ChartCard({
   title,
@@ -16,8 +15,8 @@ export function ChartCard({
   marker,
   maxValue,
   pending = false,
-  empty = 'No sample in this window yet.',
-  height = 152,
+  empty = 'Waiting for enough records to display.',
+  height = 206,
   legend,
 }: {
   title: string;

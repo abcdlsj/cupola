@@ -2,16 +2,15 @@
 
 ## Fonts
 
-- IBM Plex Sans — SIL Open Font License 1.1.
+- Inter Variable — SIL Open Font License 1.1.
 - IBM Plex Mono — SIL Open Font License 1.1.
 
-Self-hosted subset WOFF2 files live in `web/public/fonts/`:
+Self-hosted WOFF2 files live in `web/public/fonts/`:
 
 ```
-ibm-plex-sans-400.woff2  ibm-plex-sans-500.woff2
-ibm-plex-sans-600.woff2  ibm-plex-sans-700.woff2
+InterVariable.woff2
 ibm-plex-mono-400.woff2  ibm-plex-mono-500.woff2
-OFL-IBMPlexSans.txt  OFL-IBMPlexMono.txt
+OFL-IBMPlexMono.txt
 ```
 
 Copied from the npm packages `@fontsource/ibm-plex-sans` and

@@ -64,14 +64,14 @@ export function Figure({
 }
 
 /**
- * Every percentage in a table or list: a thin bar plus the figure. `neutral`
- * is for data that is not health (a process's share of the CPU).
+ * Beszel-style percentage meter: tabular value FIRST, then a chunky rounded bar
+ * filling the available cell width. `neutral` is for non-health shares (process CPU).
  */
 export function Meter({
   value,
   label,
-  digits = 0,
-  width = 96,
+  digits = 1,
+  width,
   showValue = true,
   tone,
   text,
@@ -88,11 +88,17 @@ export function Meter({
   const missing = value == null || !Number.isFinite(value);
   const clamped = missing ? 0 : Math.max(0, Math.min(100, value));
   const level = missing || tone === 'neutral' ? 'accent' : levelOf(value);
+  const formatted = missing ? '—' : (text ?? `${clamped >= 10 ? clamped.toFixed(digits === 0 ? 0 : 1) : clamped.toFixed(digits)}%`);
   return (
     <span className="meter">
+      {showValue ? (
+        <span className={missing ? 'meter-value is-missing' : 'meter-value'} data-level={missing ? undefined : level}>
+          {formatted}
+        </span>
+      ) : null}
       <span
         className={missing ? 'meter-track is-empty' : 'meter-track'}
-        style={{ width }}
+        style={width != null ? { width, flex: width === '100%' ? 1 : 'none' } : undefined}
         role="progressbar"
         aria-label={label}
         aria-valuemin={0}
@@ -102,12 +108,6 @@ export function Meter({
       >
         {missing ? null : <span className="meter-fill" data-level={level} style={{ width: `${clamped}%` }} />}
       </span>
-      {showValue ? (
-        <span className={missing ? 'meter-value is-missing' : 'meter-value'} data-level={missing ? undefined : level}>
-          {missing ? '—' : (text ?? clamped.toFixed(digits))}
-          {missing || text ? null : <span className="unit">%</span>}
-        </span>
-      ) : null}
     </span>
   );
 }

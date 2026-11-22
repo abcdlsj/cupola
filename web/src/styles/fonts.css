@@ -1,18 +1,26 @@
-/* IBM Plex Mono, self-hosted: figures, timestamps and IDs. The UI face is
-   Avenir Next from the operating system (iOS and macOS ship it); anything else
-   falls back to the platform UI font. */
+/* Inter Variable + IBM Plex Mono, both self-hosted in web/public/fonts/.
+   No runtime font requests to third-party CDNs. */
 
 @font-face {
-  font-family: "IBM Plex Mono";
+  font-family: 'InterVariable';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/InterVariable.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url("/fonts/ibm-plex-mono-400.woff2") format("woff2");
+  src: url('/fonts/ibm-plex-mono-400.woff2') format('woff2');
 }
+
 @font-face {
-  font-family: "IBM Plex Mono";
+  font-family: 'IBM Plex Mono';
   font-style: normal;
   font-weight: 500;
   font-display: swap;
-  src: url("/fonts/ibm-plex-mono-500.woff2") format("woff2");
+  src: url('/fonts/ibm-plex-mono-500.woff2') format('woff2');
 }

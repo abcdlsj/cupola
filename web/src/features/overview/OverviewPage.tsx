@@ -1,12 +1,19 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentType } from 'react';
 import {
   ArrowDown,
   ArrowUp,
   ArrowsDownUp,
-  CaretRight,
+  ArrowsLeftRight,
+  ClockClockwise,
+  Cpu,
+  HardDrive,
+  HardDrives,
+  Hourglass,
   List,
+  Memory,
   SquaresFour,
+  Thermometer,
 } from '@phosphor-icons/react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ErrorPanel, LoadingPage } from '../../components/States';
@@ -16,9 +23,9 @@ import { UnitTable } from '../../components/UnitTable';
 import { useFleet, useFleetServices } from '../../data/queries';
 import type { NodeView } from '../../data/types';
 import { nodeFigures, type NodeFigures } from '../../lib/fleet';
-import { netRate, relative, size, uptime } from '../../lib/format';
+import { netRate, relative, uptime } from '../../lib/format';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
-import { Figure, KpiCell, KpiStrip, levelOf, Meter, useIsPhone } from '../../ui/kit';
+import { Figure, levelOf, Meter, useIsPhone } from '../../ui/kit';
 import {
   Badge,
   Button,
@@ -27,8 +34,6 @@ import {
   Link,
   StatusDot as Dot,
   Table,
-  Text,
-  VStack,
   type TableColumn,
 } from '../../ui/primitives';
 import { SegmentedControl, SegmentedControlItem } from '../../ui/controls';
@@ -42,7 +47,7 @@ interface SystemRow extends Record<string, unknown> {
 }
 
 type ViewMode = 'table' | 'cards';
-type SortKey = 'strain' | 'name' | 'cpu' | 'mem' | 'disk' | 'net' | 'temp' | 'uptime';
+type SortKey = 'strain' | 'name' | 'cpu' | 'mem' | 'disk' | 'load' | 'net' | 'temp' | 'uptime';
 
 const VIEW_STORAGE_KEY = 'cupola.systemsView';
 
@@ -63,15 +68,6 @@ function nodeHref(id: string): string {
 /** The first node label, else the push transport. */
 function roleOf(view: NodeView): string {
   return view.node.labels[0] ?? (view.node.mode === 'push' ? 'push' : '');
-}
-
-function metaOf(view: NodeView, fig: NodeFigures): string {
-  const mem = view.health.mem_total ? size(view.health.mem_total) : null;
-  return [view.node.os || null, fig.cores ? `${fig.cores}c` : null, mem].filter(Boolean).join(' · ');
-}
-
-function loadPct(fig: NodeFigures): number | null {
-  return fig.load && fig.cores ? (fig.load[0] / fig.cores) * 100 : null;
 }
 
 function strainScore(row: SystemRow): number {
@@ -102,6 +98,8 @@ function sortRows(rows: SystemRow[], key: SortKey, dir: 'asc' | 'desc'): SystemR
           return row.fig.mem ?? -1;
         case 'disk':
           return row.fig.disk ?? -1;
+        case 'load':
+          return row.fig.load ? row.fig.load[0] : -1;
         case 'net':
           return row.fig.net ?? -1;
         case 'temp':
@@ -116,30 +114,37 @@ function sortRows(rows: SystemRow[], key: SortKey, dir: 'asc' | 'desc'): SystemR
   });
 }
 
-function SystemName({ view }: { view: NodeView }) {
-  const role = roleOf(view);
+function LoadTrio({ fig, online }: { fig: NodeFigures; online: boolean }) {
+  if (!fig.load) return <Figure value={null} />;
+  const max = Math.max(...fig.load);
+  const pct = (max / Math.max(1, fig.cores)) * 100;
+  const variant = !online ? 'neutral' : levelOf(pct);
   return (
-    <HStack gap={2} vAlign="center">
-      <Link href={nodeHref(view.node.id)} maxLines={1} className="node-link">
-        {view.node.name}
-      </Link>
-      {role ? <span className="role-tag">{role}</span> : null}
-    </HStack>
+    <span className="load-trio">
+      <Dot variant={variant === 'neutral' ? 'neutral' : variant} label={`Load ${fig.load[0].toFixed(2)}`} />
+      {fig.load.map((val, idx) => (
+        <span key={idx}>{val >= 10 ? val.toFixed(1) : val.toFixed(2)}</span>
+      ))}
+    </span>
   );
 }
 
 function SortHeader({
   label,
+  Icon,
   col,
   active,
   dir,
   onSort,
+  hideSort = false,
 }: {
   label: string;
+  Icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
   col: SortKey;
   active: SortKey;
   dir: 'asc' | 'desc';
   onSort: (col: SortKey) => void;
+  hideSort?: boolean;
 }) {
   const isActive = active === col;
   return (
@@ -149,94 +154,70 @@ function SortHeader({
       data-active={isActive ? 'true' : undefined}
       onClick={() => onSort(col)}
     >
+      <Icon size={15} aria-hidden={true} />
       <span>{label}</span>
-      {isActive ? (
+      {hideSort ? null : isActive ? (
         dir === 'asc' ? (
-          <ArrowUp size={12} aria-hidden="true" />
+          <ArrowUp size={13} aria-hidden="true" />
         ) : (
-          <ArrowDown size={12} aria-hidden="true" />
+          <ArrowDown size={13} aria-hidden="true" />
         )
       ) : (
-        <ArrowsDownUp size={12} style={{ opacity: 0.45 }} aria-hidden="true" />
+        <ArrowsDownUp size={13} style={{ opacity: 0.4 }} aria-hidden="true" />
       )}
     </button>
   );
 }
 
-/** Beszel grid cards: tappable card with header bar, 2×2 metric meters and footer. */
+/** Beszel SystemCard: tinted header + aligned icon/label/meter rows. */
 function SystemCards({ rows }: { rows: SystemRow[] }) {
   return (
     <div className="sys-cards">
       {rows.map(({ id, view, fig }) => {
         const role = roleOf(view);
-        const meta = metaOf(view, fig) || 'no data yet';
-        const upText = fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null;
-        const tempText = fig.temp != null ? `${Math.round(fig.temp)} °C` : null;
-        const metrics: Array<{ label: string; value: number | null; text?: string }> = [
-          { label: 'CPU', value: fig.cpu },
-          { label: 'Memory', value: fig.mem },
-          { label: 'Disk', value: fig.disk },
-          { label: 'Load', value: loadPct(fig), text: fig.load ? fig.load[0].toFixed(2) : undefined },
-        ];
+        const upText = fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : '—';
         return (
           <Link href={nodeHref(view.node.id)} key={id} className="sys-card">
             <div className="sys-card-head">
               <div className="sys-card-id">
                 <StatusDot status={view.health.status} />
-                <div className="sys-card-name-row">
-                  <span className="sys-card-name">{view.node.name}</span>
-                  {role ? <span className="role-tag">{role}</span> : null}
-                </div>
+                <span className="sys-card-name">{view.node.name}</span>
               </div>
-              <div className="sys-card-right">
-                {tempText ? <span>{tempText}</span> : null}
-                {tempText && upText ? <span className="faint">·</span> : null}
-                {upText ? <span>{upText}</span> : null}
-                <CaretRight size={14} aria-hidden="true" />
-              </div>
+              {role ? <span className="role-tag">{role}</span> : null}
             </div>
 
-            <div className="sys-card-metrics">
-              {metrics.map((metric) => {
-                const missing = metric.value == null || !Number.isFinite(metric.value);
-                const level = missing ? undefined : levelOf(metric.value);
-                const display = missing ? '—' : (metric.text ?? `${Math.round(metric.value!)}%`);
-                return (
-                  <div className="sys-metric" key={metric.label}>
-                    <div className="sys-metric-head">
-                      <span className="sys-metric-label">{metric.label}</span>
-                      <span
-                        className={missing ? 'sys-metric-val is-missing' : 'sys-metric-val'}
-                        style={
-                          level === 'error'
-                            ? { color: 'var(--bad)' }
-                            : level === 'warning'
-                              ? { color: 'var(--warn)' }
-                              : undefined
-                        }
-                      >
-                        {display}
-                      </span>
-                    </div>
-                    <Meter
-                      value={metric.value}
-                      label={`${view.node.name} ${metric.label.toLowerCase()}`}
-                      text={metric.text}
-                      showValue={false}
-                      width="100%"
-                    />
-                  </div>
-                );
-              })}
-            </div>
+            <div className="sys-card-rows">
+              <span className="sys-card-ico"><Cpu size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">CPU:</span>
+              <Meter value={fig.cpu} label={`${view.node.name} CPU`} />
 
-            <div className="sys-card-foot">
-              <span className="clamp-1">{meta}</span>
-              {fig.rx != null && fig.tx != null ? (
-                <span className="code nowrap">
-                  ↓ {netRate(fig.rx)} · ↑ {netRate(fig.tx)}
-                </span>
+              <span className="sys-card-ico"><Memory size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">Memory:</span>
+              <Meter value={fig.mem} label={`${view.node.name} memory`} />
+
+              <span className="sys-card-ico"><HardDrive size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">Disk:</span>
+              <Meter value={fig.disk} label={`${view.node.name} disk`} />
+
+              <span className="sys-card-ico"><Hourglass size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">Load:</span>
+              <LoadTrio fig={fig} online={fig.online} />
+
+              <span className="sys-card-ico"><ArrowsLeftRight size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">Net:</span>
+              <span className="nowrap">{fig.net != null ? netRate(fig.net) : '—'}</span>
+
+              {fig.temp != null ? (
+                <>
+                  <span className="sys-card-ico"><Thermometer size={15} aria-hidden="true" /></span>
+                  <span className="sys-card-lbl">Temp:</span>
+                  <span>{Math.round(fig.temp)} °C</span>
+                </>
               ) : null}
+
+              <span className="sys-card-ico"><ClockClockwise size={15} aria-hidden="true" /></span>
+              <span className="sys-card-lbl">Uptime:</span>
+              <span>{upText}</span>
             </div>
           </Link>
         );
@@ -246,10 +227,10 @@ function SystemCards({ rows }: { rows: SystemRow[] }) {
 }
 
 /**
- * The home screen (Beszel-refined):
- * 1. Compact 4-card Fleet Summary strip (Online, Fleet CPU, Fleet Memory, Attention)
- * 2. All Systems card with filter, sortable table and Table/Cards switcher
- * 3. Systemd Services card (failed first, with honest state counts)
+ * The home screen — authentic Beszel layout:
+ * 1. One spacious All Systems centerpiece card with icon headers, chunky meters
+ *    and Table/Cards toggle (no generic 4-box SaaS KPI clutter).
+ * 2. Systemd Services card below (failed pinned first).
  */
 export function OverviewPage() {
   const fleet = useFleet();
@@ -310,45 +291,9 @@ export function OverviewPage() {
   );
   const shown = sortRows(filtered, sortKey, sortDir);
 
-  // Fleet KPI summaries
-  const onlineRows = allRows.filter(({ fig }) => fig.online);
-  const pushCount = nodes.filter((view) => view.node.mode === 'push').length;
-  const pullCount = nodes.length - pushCount;
-  const totalCores = onlineRows.reduce((sum, { fig }) => sum + fig.cores, 0);
-  const avgCpu =
-    onlineRows.length > 0
-      ? onlineRows.reduce((sum, { fig }) => sum + (fig.cpu ?? 0), 0) / onlineRows.length
-      : null;
-  const peakCpuNode = [...onlineRows].sort((a, b) => (b.fig.cpu ?? 0) - (a.fig.cpu ?? 0))[0];
-
-  const totalMemBytes = onlineRows.reduce((sum, { view }) => sum + (view.health.mem_total || 0), 0);
-  const usedMemBytes = onlineRows.reduce((sum, { view }) => sum + (view.health.mem_used || 0), 0);
-  const fleetMemPct =
-    totalMemBytes > 0
-      ? (usedMemBytes / totalMemBytes) * 100
-      : onlineRows.length > 0
-        ? onlineRows.reduce((sum, { fig }) => sum + (fig.mem ?? 0), 0) / onlineRows.length
-        : null;
-
-  const strained = nodes.filter((view) => view.health.status !== 'healthy').length;
+  const onlineCount = allRows.filter(({ fig }) => fig.online).length;
   const failedUnits = units.filter((unit) => unit.active_state === 'failed').length;
   const activeUnits = units.filter((unit) => unit.active_state === 'active').length;
-  const attentionCount = strained + failedUnits;
-
-  const worstDisk = [...nodes]
-    .filter((view) => view.health.status !== 'offline')
-    .sort((a, b) => b.health.root_disk_pct - a.health.root_disk_pct)[0];
-
-  const finding = [
-    `${nodes.length} ${nodes.length === 1 ? 'system' : 'systems'}`,
-    strained ? `${strained} need attention` : 'all healthy',
-    worstDisk && worstDisk.health.root_disk_pct >= 75
-      ? `${worstDisk.node.name} at ${Math.round(worstDisk.health.root_disk_pct)}% disk`
-      : null,
-    failedUnits ? `${failedUnits} ${failedUnits === 1 ? 'unit' : 'units'} failed` : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
 
   const stale = Boolean(fleet.data?.stale);
   const updated = fleet.data?.updated;
@@ -358,48 +303,56 @@ export function OverviewPage() {
   const columns: Array<TableColumn<SystemRow>> = [
     {
       key: 'name',
-      header: <SortHeader label="System" col="name" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '25%',
-      renderCell: ({ view, fig }) => (
-        <HStack gap={2.5} vAlign="center">
-          <StatusDot status={view.health.status} />
-          <VStack gap={0.5} style={{ minWidth: 0 }}>
-            <SystemName view={view} />
-            <Text type="supporting" maxLines={1}>
-              {metaOf(view, fig) || 'no data yet'}
-            </Text>
-          </VStack>
-        </HStack>
-      ),
+      header: <SortHeader label="System" Icon={HardDrives} col="name" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      width: '18%',
+      renderCell: ({ view }) => {
+        const role = roleOf(view);
+        return (
+          <HStack gap={2.5} vAlign="center">
+            <StatusDot status={view.health.status} />
+            <Link href={nodeHref(view.node.id)} maxLines={1} className="node-link">
+              {view.node.name}
+            </Link>
+            {role ? <span className="role-tag">{role}</span> : null}
+          </HStack>
+        );
+      },
     },
     {
       key: 'cpu',
-      header: <SortHeader label="CPU" col="cpu" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '13%',
-      renderCell: ({ view, fig }) => <Meter value={fig.cpu} label={`${view.node.name} CPU`} width={68} />,
+      header: <SortHeader label="CPU" Icon={Cpu} col="cpu" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      width: '16%',
+      renderCell: ({ view, fig }) => <Meter value={fig.cpu} label={`${view.node.name} CPU`} />,
     },
     {
       key: 'memory',
-      header: <SortHeader label="Memory" col="mem" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '13%',
-      renderCell: ({ view, fig }) => <Meter value={fig.mem} label={`${view.node.name} memory`} width={68} />,
+      header: <SortHeader label="Memory" Icon={Memory} col="mem" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      width: '16%',
+      renderCell: ({ view, fig }) => <Meter value={fig.mem} label={`${view.node.name} memory`} />,
     },
     {
       key: 'disk',
-      header: <SortHeader label="Disk" col="disk" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      header: <SortHeader label="Disk" Icon={HardDrive} col="disk" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      width: '16%',
+      renderCell: ({ view, fig }) => <Meter value={fig.disk} label={`${view.node.name} root filesystem`} />,
+    },
+    {
+      key: 'load',
+      header: <SortHeader label="Load Avg" Icon={Hourglass} col="load" active={sortKey} dir={sortDir} onSort={toggleSort} />,
       width: '13%',
-      renderCell: ({ view, fig }) => <Meter value={fig.disk} label={`${view.node.name} root filesystem`} width={68} />,
+      renderCell: ({ fig }) => <LoadTrio fig={fig} online={fig.online} />,
     },
     {
       key: 'net',
-      header: <SortHeader label="Network" col="net" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '14%',
-      align: 'end',
+      header: <SortHeader label="Net" Icon={ArrowsLeftRight} col="net" active={sortKey} dir={sortDir} onSort={toggleSort} />,
+      width: '10%',
       renderCell: ({ fig }) =>
-        fig.rx != null && fig.tx != null ? (
-          <span className="net-stack">
-            <span className="net-rx">↓ {netRate(fig.rx)}</span>
-            <span className="net-tx">↑ {netRate(fig.tx)}</span>
+        fig.net != null ? (
+          <span
+            className="nowrap"
+            title={fig.rx != null && fig.tx != null ? `In ${netRate(fig.rx)} · Out ${netRate(fig.tx)}` : undefined}
+          >
+            {netRate(fig.net)}
           </span>
         ) : (
           <Figure value={null} />
@@ -407,22 +360,23 @@ export function OverviewPage() {
     },
     {
       key: 'temp',
-      header: <SortHeader label="Temp" col="temp" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '10%',
-      align: 'end',
-      renderCell: ({ fig }) => (
-        <span style={fig.temp != null && fig.temp >= 75 ? { color: 'var(--warn)' } : undefined}>
-          <Figure value={fig.temp} digits={0} unit="°C" />
-        </span>
+      header: (
+        <SortHeader label="Temp" Icon={Thermometer} col="temp" active={sortKey} dir={sortDir} onSort={toggleSort} hideSort />
       ),
+      width: '5%',
+      renderCell: ({ fig }) => (fig.temp != null ? <span className="nowrap">{Math.round(fig.temp)} °C</span> : <Figure value={null} />),
     },
     {
       key: 'uptime',
-      header: <SortHeader label="Uptime" col="uptime" active={sortKey} dir={sortDir} onSort={toggleSort} />,
-      width: '12%',
+      header: (
+        <SortHeader label="Uptime" Icon={ClockClockwise} col="uptime" active={sortKey} dir={sortDir} onSort={toggleSort} hideSort />
+      ),
+      width: '6%',
       align: 'end',
       renderCell: ({ view, fig }) => (
-        <Figure value={fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : null} />
+        <span className="nowrap muted">
+          {fig.online && view.health.uptime_sec > 0 ? uptime(view.health.uptime_sec) : '—'}
+        </span>
       ),
     },
   ];
@@ -443,53 +397,16 @@ export function OverviewPage() {
 
   return (
     <>
-      <KpiStrip>
-        <KpiCell
-          label="Systems online"
-          value={nodes.length ? `${onlineRows.length} / ${nodes.length}` : '0'}
-          state={onlineRows.length === nodes.length && nodes.length > 0 ? 'success' : nodes.length === 0 ? 'neutral' : 'error'}
-          isPulsing={onlineRows.length === nodes.length && nodes.length > 0}
-          note={nodes.length ? `${pullCount} pull · ${pushCount} push` : 'add a node to begin'}
-        />
-        <KpiCell
-          label="Fleet CPU"
-          value={avgCpu}
-          unit="%"
-          digits={1}
-          state={avgCpu != null ? levelOf(avgCpu) : undefined}
-          note={
-            peakCpuNode && peakCpuNode.fig.cpu != null
-              ? `${totalCores} cores · peak ${peakCpuNode.view.node.name} (${Math.round(peakCpuNode.fig.cpu)}%)`
-              : `${totalCores} cores`
-          }
-        />
-        <KpiCell
-          label="Fleet memory"
-          value={fleetMemPct}
-          unit="%"
-          digits={1}
-          state={fleetMemPct != null ? levelOf(fleetMemPct) : undefined}
-          note={totalMemBytes > 0 ? `${size(usedMemBytes)} of ${size(totalMemBytes)}` : 'waiting for samples'}
-        />
-        <KpiCell
-          label="Attention"
-          value={attentionCount}
-          state={attentionCount > 0 ? 'error' : 'success'}
-          note={
-            failedUnits > 0
-              ? `${failedUnits} failed ${failedUnits === 1 ? 'unit' : 'units'}`
-              : strained > 0
-                ? `${strained} strained ${strained === 1 ? 'system' : 'systems'}`
-                : 'all systems nominal'
-          }
-        />
-      </KpiStrip>
-
       <section className="beszel-card" aria-label="Systems">
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
-            <h1>Systems</h1>
-            <p>{finding}</p>
+            <h1>All Systems</h1>
+            <p>
+              Updated in real time. Click on a system to view more information.{' '}
+              <span className="faint">
+                · {nodes.length} {nodes.length === 1 ? 'system' : 'systems'} ({onlineCount} up)
+              </span>
+            </p>
           </div>
           <div className="beszel-card-controls">
             {updated ? (
@@ -500,9 +417,7 @@ export function OverviewPage() {
                   isPulsing={!stale}
                   tooltip={stale ? 'The hub stopped answering' : 'Refreshed live'}
                 />
-                <span>
-                  {stale ? 'stale, ' : ''}updated {relative(updated, Date.now())}
-                </span>
+                <span>{stale ? 'stale, ' : ''}{relative(updated, Date.now())}</span>
               </span>
             ) : null}
             <SearchInput
@@ -510,7 +425,7 @@ export function OverviewPage() {
               value={query}
               onChange={(value) => update('q', value || null)}
               placeholder="Filter systems…"
-              width={phone ? '100%' : 210}
+              width={phone ? '100%' : 240}
             />
             {phone ? null : (
               <SegmentedControl label="View mode" value={viewMode} onChange={changeView}>
@@ -518,7 +433,7 @@ export function OverviewPage() {
                   value="table"
                   label={
                     <>
-                      <List size={14} aria-hidden="true" />
+                      <List size={15} aria-hidden="true" />
                       Table
                     </>
                   }
@@ -527,8 +442,8 @@ export function OverviewPage() {
                   value="cards"
                   label={
                     <>
-                      <SquaresFour size={14} aria-hidden="true" />
-                      Cards
+                      <SquaresFour size={15} aria-hidden="true" />
+                      Grid
                     </>
                   }
                 />
@@ -548,9 +463,7 @@ export function OverviewPage() {
             />
           )
         ) : effectiveMode === 'cards' ? (
-          <div className="beszel-card-body">
-            <SystemCards rows={shown} />
-          </div>
+          <SystemCards rows={shown} />
         ) : (
           <Table
             data={shown}
@@ -566,7 +479,7 @@ export function OverviewPage() {
       <section className="beszel-card" aria-label="Services">
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
-            <h2>Services</h2>
+            <h2>Systemd Services</h2>
             <p>{services.isPending ? 'Loading units…' : `${units.length} units across fleet · failed pinned first`}</p>
           </div>
           <div className="beszel-card-controls">
@@ -576,9 +489,7 @@ export function OverviewPage() {
           </div>
         </header>
         {services.isError ? (
-          <div className="beszel-card-body">
-            <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />
-          </div>
+          <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />
         ) : services.isPending ? null : (
           <UnitTable rows={unitRows} footer={pager} />
         )}

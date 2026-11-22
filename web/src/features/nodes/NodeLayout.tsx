@@ -1,18 +1,25 @@
-import { useEffect, useState, type ReactNode, type SyntheticEvent } from 'react';
+import { Fragment, useEffect, useState, type ComponentType, type ReactNode, type SyntheticEvent } from 'react';
 import {
-  Clock,
+  ClockClockwise,
+  ClockCounterClockwise,
   Columns,
   Cpu,
+  Cube,
   Desktop,
+  HardDrive,
   HardDrives,
+  ListNumbers,
   Memory,
+  PlayCircle,
   PlugsConnected,
   Rows,
+  SquaresFour,
   TerminalWindow,
+  WifiHigh,
 } from '@phosphor-icons/react';
 import { Outlet, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { StatusDot } from '../../components/StatusPill';
+import { StatusDot, statusLabel } from '../../components/StatusPill';
 import { ErrorPanel, LoadingCharts } from '../../components/States';
 import { MissingNode } from '../../components/NotFoundPage';
 import { ApiError } from '../../data/api';
@@ -44,6 +51,7 @@ function readChartLayout(): ChartLayout {
 interface TabItem {
   to: string;
   label: string;
+  Icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
   count?: number;
   failed?: number;
 }
@@ -52,16 +60,22 @@ function tabs(view: NodeView): TabItem[] {
   const snap = view.snapshot;
   const failed = snap?.services.filter((service) => service.active_state === 'failed').length ?? 0;
   return [
-    { to: '', label: 'Overview' },
-    { to: '/cpu', label: 'CPU' },
-    { to: '/memory', label: 'Memory' },
-    { to: '/storage', label: 'Storage', count: snap?.disks.length || undefined },
-    { to: '/network', label: 'Network' },
-    { to: '/processes', label: 'Processes', count: snap?.cpu.procs || undefined },
-    { to: '/services', label: 'Services', count: failed ? undefined : snap?.services.length || undefined, failed: failed || undefined },
-    { to: '/containers', label: 'Containers', count: snap?.containers.length || undefined },
-    { to: '/apps', label: 'Apps', count: view.health.apps || undefined },
-    { to: '/events', label: 'Events' },
+    { to: '', label: 'Overview', Icon: SquaresFour },
+    { to: '/cpu', label: 'CPU', Icon: Cpu },
+    { to: '/memory', label: 'Memory', Icon: Memory },
+    { to: '/storage', label: 'Storage', Icon: HardDrive, count: snap?.disks.length || undefined },
+    { to: '/network', label: 'Network', Icon: WifiHigh },
+    { to: '/processes', label: 'Processes', Icon: ListNumbers, count: snap?.cpu.procs || undefined },
+    {
+      to: '/services',
+      label: 'Services',
+      Icon: TerminalWindow,
+      count: failed ? undefined : snap?.services.length || undefined,
+      failed: failed || undefined,
+    },
+    { to: '/containers', label: 'Containers', Icon: Cube, count: snap?.containers.length || undefined },
+    { to: '/apps', label: 'Apps', Icon: PlayCircle, count: view.health.apps || undefined },
+    { to: '/events', label: 'Events', Icon: ClockCounterClockwise },
   ];
 }
 
@@ -73,14 +87,14 @@ function tabEnd(item: TabItem): ReactNode {
 
 function LoadingHead() {
   return (
-    <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div aria-busy="true" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="node-infobar">
         <VStack gap={2} width="100%">
-          <Skeleton height={24} width={200} />
-          <Skeleton height={16} width={360} />
+          <Skeleton height={26} width={200} />
+          <Skeleton height={16} width={420} />
         </VStack>
       </div>
-      <Skeleton height={34} />
+      <Skeleton height={44} radius={10} />
     </div>
   );
 }
@@ -114,7 +128,7 @@ export function NodeLayout() {
     return (
       <>
         <LoadingHead />
-        <LoadingCharts count={4} />
+        <LoadingCharts count={4} height={206} />
       </>
     );
   }
@@ -144,7 +158,7 @@ export function NodeLayout() {
   const kernel = node.kernel || info?.kernel || '';
   const host = info?.hostname || node.id;
   const upText = snap
-    ? `up ${uptime(snap.node.uptime_sec)}`
+    ? uptime(snap.node.uptime_sec)
     : `last seen ${node.last_seen ? relative(node.last_seen, now) : 'never'}`;
   const warning = view.health.warnings?.[0];
   const rest = location.pathname.slice(`/nodes/${nodeId}`.length).split('/').filter(Boolean);
@@ -163,19 +177,42 @@ export function NodeLayout() {
     if (TAB_SERIES[path]) prefetch(path);
   };
 
+  // Beszel InfoBar inline items separated by clean 1px vertical hairlines
+  const specs: Array<{ key: string; icon: ReactNode; text: string; title?: string }> = [];
+  if (host && host !== node.name) {
+    specs.push({ key: 'host', icon: <HardDrives size={15} aria-hidden="true" />, text: host });
+  }
+  specs.push({ key: 'up', icon: <ClockClockwise size={15} aria-hidden="true" />, text: upText, title: 'Uptime' });
+  if (os) {
+    specs.push({ key: 'os', icon: <Desktop size={15} aria-hidden="true" />, text: os, title: kernel || undefined });
+  } else if (kernel) {
+    specs.push({ key: 'kernel', icon: <TerminalWindow size={15} aria-hidden="true" />, text: kernel });
+  }
+  if (info) {
+    specs.push({
+      key: 'cpu',
+      icon: <Cpu size={15} aria-hidden="true" />,
+      text: info.cpu_model || `${info.cores} threads`,
+      title: `${info.cores} threads`,
+    });
+  }
+  if (snap) {
+    specs.push({ key: 'mem', icon: <Memory size={15} aria-hidden="true" />, text: size(snap.memory.total), title: 'Memory' });
+  }
+  if (node.agent_version || node.mode) {
+    specs.push({
+      key: 'agent',
+      icon: <PlugsConnected size={15} aria-hidden="true" />,
+      text: [node.agent_version, node.mode].filter(Boolean).join(' · '),
+    });
+  }
+
   return (
     <>
-      <VStack gap={3}>
-        <div className="crumbs">
-          <Link href="/">Systems</Link>
-          <span className="crumbs-sep">/</span>
-          <span>{node.name}</span>
-        </div>
-
+      <VStack gap={3.5}>
         <header className="node-infobar">
           <div className="node-infobar-main">
             <div className="node-infobar-title">
-              <StatusDot status={view.health.status} isPulsing />
               <h1>{node.name}</h1>
               {node.labels.map((label) => (
                 <span key={label} className="role-tag">
@@ -183,48 +220,20 @@ export function NodeLayout() {
                 </span>
               ))}
             </div>
-            <div className="spec-chips">
-              {host && host !== node.name ? (
-                <span className="spec-chip code">
-                  <HardDrives size={13} aria-hidden="true" />
-                  {host}
-                </span>
-              ) : null}
-              {os ? (
-                <span className="spec-chip">
-                  <Desktop size={13} aria-hidden="true" />
-                  {os}
-                </span>
-              ) : null}
-              {kernel ? (
-                <span className="spec-chip code">
-                  <TerminalWindow size={13} aria-hidden="true" />
-                  {kernel}
-                </span>
-              ) : null}
-              {info ? (
-                <span className="spec-chip">
-                  <Cpu size={13} aria-hidden="true" />
-                  {info.cpu_model ? `${info.cpu_model} · ` : ''}
-                  {info.cores} threads
-                </span>
-              ) : null}
-              {snap ? (
-                <span className="spec-chip code">
-                  <Memory size={13} aria-hidden="true" />
-                  {size(snap.memory.total)}
-                </span>
-              ) : null}
-              <span className="spec-chip code">
-                <Clock size={13} aria-hidden="true" />
-                {upText}
+            <div className="infobar-strip">
+              <span className="infobar-item">
+                <StatusDot status={view.health.status} isPulsing />
+                <span>{statusLabel(view.health.status)}</span>
               </span>
-              {node.agent_version || node.mode ? (
-                <span className="spec-chip code">
-                  <PlugsConnected size={13} aria-hidden="true" />
-                  {[node.agent_version, node.mode].filter(Boolean).join(' · ')}
-                </span>
-              ) : null}
+              {specs.map((item) => (
+                <Fragment key={item.key}>
+                  <span className="infobar-sep" aria-hidden="true" />
+                  <span className="infobar-item" title={item.title}>
+                    {item.icon}
+                    <span>{item.text}</span>
+                  </span>
+                </Fragment>
+              ))}
             </div>
           </div>
 
@@ -237,7 +246,7 @@ export function NodeLayout() {
                     value="grid"
                     label={
                       <>
-                        <Columns size={13} aria-hidden="true" />
+                        <Columns size={14} aria-hidden="true" />
                         Grid
                       </>
                     }
@@ -246,7 +255,7 @@ export function NodeLayout() {
                     value="full"
                     label={
                       <>
-                        <Rows size={13} aria-hidden="true" />
+                        <Rows size={14} aria-hidden="true" />
                         Full
                       </>
                     }
@@ -261,15 +270,23 @@ export function NodeLayout() {
 
         <div onPointerOver={warm} onFocus={warm}>
           <TabList label="System views">
-            {items.map((item) => (
-              <Tab
-                key={item.label}
-                href={href(item.to)}
-                selected={(item.to || OVERVIEW) === selected}
-                label={item.label}
-                endContent={tabEnd(item)}
-              />
-            ))}
+            {items.map((item) => {
+              const Icon = item.Icon;
+              return (
+                <Tab
+                  key={item.label}
+                  href={href(item.to)}
+                  selected={(item.to || OVERVIEW) === selected}
+                  label={
+                    <>
+                      <Icon size={15} aria-hidden={true} />
+                      <span>{item.label}</span>
+                    </>
+                  }
+                  endContent={tabEnd(item)}
+                />
+              );
+            })}
           </TabList>
         </div>
       </VStack>

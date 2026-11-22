@@ -14,25 +14,22 @@ import { niceMax, tickValue, type ChartUnit } from '../lib/axis';
 
 export type { ChartUnit };
 
-/** uPlot paints a translucent area under the primary curve; crisp Beszel look. */
-const FILL_ALPHA = '24';
-
-/** One thin line. The colour comes from a data hue, never from the chrome. */
+/** One crisp spline series; colour comes from theme tokens. */
 export interface ChartSeries {
   label: string;
   points: SeriesPoint[];
   color: string;
 }
 
-const AXIS_FONT = '11px "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace';
+const AXIS_FONT = '11.5px "InterVariable", "Inter", -apple-system, sans-serif';
 
-/** Monotone-ish curves, the way Beszel draws its metrics; uPlot keeps the knots on the samples. */
+/** Smooth monotone curves, the way Beszel draws its Recharts area metrics. */
 const spline = uPlot.paths.spline?.();
 
 /** Chart chrome comes from the theme tokens; read once per chart build. */
 function inks() {
   return {
-    axis: cssColor('var(--faint)'),
+    axis: cssColor('var(--muted)'),
     grid: cssColor('var(--chart-grid)'),
     cursor: cssColor('var(--accent)'),
     threshold: cssColor('var(--muted)'),
@@ -55,11 +52,26 @@ function formatValue(value: number, unit: ChartUnit): string {
   }
 }
 
-/** Applies alpha to a resolved hex or rgb() colour; anything else is left alone. */
-function withAlpha(color: string, alpha: string): string {
-  if (/^#[0-9a-fA-F]{6}$/.test(color)) return color + alpha;
+/** Applies fractional alpha (0..1) to a resolved hex or rgb() colour. */
+function withAlpha(color: string, alpha: number): string {
+  const hex = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(color);
+  if (hex) {
+    return `rgba(${parseInt(hex[1], 16)}, ${parseInt(hex[2], 16)}, ${parseInt(hex[3], 16)}, ${alpha})`;
+  }
   const rgb = /^rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(color);
-  return rgb ? `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${(parseInt(alpha, 16) / 255).toFixed(3)})` : color;
+  return rgb ? `rgba(${rgb[1]}, ${rgb[2]}, ${rgb[3]}, ${alpha})` : color;
+}
+
+/** Beszel-style vertical gradient fill fading smoothly toward the baseline. */
+function areaFill(color: string, topAlpha: number, bottomAlpha: number): uPlot.Series.Fill {
+  return (u) => {
+    const { top, height } = u.bbox;
+    if (!height) return withAlpha(color, topAlpha);
+    const gradient = u.ctx.createLinearGradient(0, top, 0, top + height);
+    gradient.addColorStop(0, withAlpha(color, topAlpha));
+    gradient.addColorStop(1, withAlpha(color, bottomAlpha));
+    return gradient;
+  };
 }
 
 function scaleMax(series: ChartSeries[], unit: ChartUnit, maxValue?: number): number {
@@ -194,16 +206,16 @@ export function SeriesChart({
       ],
       series: [
         {},
-        ...series.map((entry, index) => ({
-          stroke: cssColor(entry.color),
-          width: index === 0 ? 1.75 : 1.4,
-          paths: spline,
-          // Only the first series fills. Two translucent areas stack into a
-          // third colour nobody chose, so a comparison chart reads as one
-          // shape with a second line over it.
-          fill: index === 0 ? withAlpha(cssColor(entry.color), FILL_ALPHA) : undefined,
-          points: { show: false },
-        })),
+        ...series.map((entry, index) => {
+          const stroke = cssColor(entry.color);
+          return {
+            stroke,
+            width: index === 0 ? 2 : 1.75,
+            paths: spline,
+            fill: index === 0 ? areaFill(stroke, 0.34, 0.02) : areaFill(stroke, 0.14, 0.0),
+            points: { show: false },
+          };
+        }),
       ],
       hooks: {
         draw: [

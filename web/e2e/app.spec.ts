@@ -218,7 +218,7 @@ test.describe('settings and tokens', () => {
 
   test('appearance defaults to light and remembers the choice', async ({ page }) => {
     const ground = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
-    const LIGHT = 'rgb(246, 247, 249)';
+    const LIGHT = 'rgb(250, 249, 247)';
 
     // Light is the default: a dark OS preference does not change it.
     await page.emulateMedia({ colorScheme: 'dark' });
