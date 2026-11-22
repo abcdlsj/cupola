@@ -3,10 +3,10 @@ import { SegmentedControl, SegmentedControlItem } from '../../ui/controls';
 
 /** `short` is the segment text (it has to fit a 390 px phone); `label` is prose. */
 export const RANGES = [
-  { id: '1h', short: '1 h', label: '1 hour' },
-  { id: '24h', short: '24 h', label: '24 hours' },
-  { id: '7d', short: '7 d', label: '7 days' },
-  { id: '30d', short: '30 d', label: '30 days' },
+  { id: '1h', short: '1h', label: '1 hour' },
+  { id: '24h', short: '24h', label: '24 hours' },
+  { id: '7d', short: '7d', label: '7 days' },
+  { id: '30d', short: '30d', label: '30 days' },
 ] as const;
 
 const DEFAULT_RANGE = '1h';

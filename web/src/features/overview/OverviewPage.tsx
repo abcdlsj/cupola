@@ -211,7 +211,7 @@ function SystemCards({ rows }: { rows: SystemRow[] }) {
                 <>
                   <span className="sys-card-ico"><Thermometer size={15} aria-hidden="true" /></span>
                   <span className="sys-card-lbl">Temp:</span>
-                  <span>{Math.round(fig.temp)} °C</span>
+                  <span>{Math.round(fig.temp)}°C</span>
                 </>
               ) : null}
 
@@ -364,7 +364,7 @@ export function OverviewPage() {
         <SortHeader label="Temp" Icon={Thermometer} col="temp" active={sortKey} dir={sortDir} onSort={toggleSort} hideSort />
       ),
       width: '5%',
-      renderCell: ({ fig }) => (fig.temp != null ? <span className="nowrap">{Math.round(fig.temp)} °C</span> : <Figure value={null} />),
+      renderCell: ({ fig }) => (fig.temp != null ? <span className="nowrap">{Math.round(fig.temp)}°C</span> : <Figure value={null} />),
     },
     {
       key: 'uptime',

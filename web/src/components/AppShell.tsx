@@ -202,7 +202,7 @@ export function AppShell() {
             <div className="foot-inner">
               <span>Cupola</span>
               <span className="foot-sep">·</span>
-              <span>raw 48 h, 1 m 30 d, 1 h 13 mo</span>
+              <span>Retention: 48h raw · 30d (1m) · 13mo (1h)</span>
               <span className="foot-sep">·</span>
               <Link href="/settings/about">About</Link>
             </div>

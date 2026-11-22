@@ -74,26 +74,14 @@ export function SettingsPage({ children }: { children: ReactNode }) {
   );
 }
 
-/** Two columns on a desktop, one on a phone. */
-export function Two({ children }: { children: ReactNode }) {
-  const phone = useIsPhone();
-  if (phone) {
-    return (
-      <VStack gap={5} width="100%">
-        {children}
-      </VStack>
-    );
-  }
-  return (
-    <Grid columns={2} gap={5} style={{ alignItems: 'start' }}>
-      {children}
-    </Grid>
-  );
+/** Two columns on a desktop, one on a phone. Asymmetric by default (form + aside). */
+export function Two({ children, equal = false }: { children: ReactNode; equal?: boolean }) {
+  return <div className={equal ? 'settings-two-equal' : 'settings-two'}>{children}</div>;
 }
 
 /** Form fields: two across where there is room, one on a phone. */
 export function Fields({ children }: { children: ReactNode }) {
-  return <Grid columns={{ minWidth: 220, max: 2 }}>{children}</Grid>;
+  return <Grid columns={{ minWidth: 200, max: 2 }}>{children}</Grid>;
 }
 
 /** The current values beside the controls they describe. */

@@ -4,7 +4,7 @@ import { ErrorPanel, LoadingPage } from '../../components/States';
 import { RunActionDialog } from './RunActionDialog';
 import { useFleetActions, useRuns } from '../../data/queries';
 import type { Action, ActionRun, FleetAction } from '../../data/types';
-import { clock, relative } from '../../lib/format';
+import { clock, durationMs, relative } from '../../lib/format';
 import { actionMark } from '../../lib/actionIcon';
 import { PageHead, useIsPhone } from '../../ui/kit';
 import {
@@ -110,7 +110,7 @@ export function ActionRows({
             <div className="action-side">
               <div className="action-side-meta">
                 <LastRun action={action} />
-                <span className="action-when">{last ? `${last} · ${actionKind(action)}` : actionKind(action)}</span>
+                <span className="action-when">· {last ? `${last} · ${actionKind(action)}` : actionKind(action)}</span>
               </div>
               <Button
                 label={action.type === 'wol' ? 'Wake' : 'Run'}
@@ -135,7 +135,7 @@ function exited(run: Pick<ActionRun, 'ok' | 'exit_code'>) {
 }
 
 function seconds(ms: number): string {
-  return `${(ms / 1000).toFixed(1)} s`;
+  return durationMs(ms);
 }
 
 /**
@@ -248,7 +248,7 @@ export function RunLimits() {
       <h3 className="section-title">Run limits</h3>
       <p className="muted small">
         Actions run on the agent from its own config: a fixed script with no shell and no arguments, or a Wake-on-LAN
-        packet. One run per action, 60 s timeout, output truncated to 8 KiB. The hub cannot create or edit them.
+        packet. One run per action, 60s timeout, output truncated to 8 KiB. The hub cannot create or edit them.
       </p>
     </section>
   );

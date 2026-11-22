@@ -341,9 +341,9 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 8px;
+  height: var(--control-height);
+  padding: 0 11px;
+  border-radius: var(--radius-control);
   color: var(--muted);
   font-size: 13.5px;
   font-weight: 500;
@@ -383,8 +383,8 @@ table {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 10px 0 13px;
+  height: var(--control-height);
+  padding: 0 9px 0 12px;
   border-radius: var(--radius-control);
   border: 1px solid var(--border);
   background: transparent;
@@ -416,8 +416,8 @@ table {
 }
 
 .icon-btn {
-  width: 36px;
-  height: 36px;
+  width: var(--control-height);
+  height: var(--control-height);
   padding: 0;
   border-radius: var(--radius-control);
   border: 1px solid transparent;
@@ -452,12 +452,13 @@ table {
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  padding: 0 var(--pad-safe-right) 0 var(--pad-safe-left);
 }
 
 .content-inner {
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 18px var(--pad-safe-right) 36px var(--pad-safe-left);
+  padding: 18px 0 36px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -466,12 +467,13 @@ table {
 .foot {
   flex: none;
   background: var(--ground);
+  padding: 0 var(--pad-safe-right) 0 var(--pad-safe-left);
 }
 
 .foot-inner {
   max-width: var(--content-width);
   margin: 0 auto;
-  padding: 10px var(--pad-safe-right) 14px var(--pad-safe-left);
+  padding: 10px 0 14px;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -550,7 +552,7 @@ table {
 
 .page-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
@@ -610,7 +612,7 @@ table {
 
 .band-head {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
@@ -725,7 +727,7 @@ table {
 
 .section-head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
 }
@@ -886,11 +888,13 @@ table {
 .pill {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
+  height: 22px;
   font-size: 12px;
   font-weight: 500;
-  line-height: 1.2;
-  padding: 3px 9px;
+  line-height: 1;
+  padding: 0 9px;
   border-radius: var(--radius-pill);
   background: var(--well);
   color: var(--muted);
@@ -920,10 +924,12 @@ table {
 .role-tag {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  justify-content: center;
+  height: 22px;
+  font-size: 11.5px;
   font-weight: 500;
-  line-height: 1.2;
-  padding: 2px 7px;
+  line-height: 1;
+  padding: 0 7px;
   border-radius: 5px;
   background: var(--well);
   color: var(--muted);
@@ -1050,6 +1056,10 @@ a.role-tag:hover {
 .table td.num {
   text-align: right;
   white-space: nowrap;
+}
+
+.table td.num .btn-ghost:last-child {
+  margin-right: -11px;
 }
 
 .table tbody td {
@@ -1336,6 +1346,10 @@ a.role-tag:hover {
 /* Beszel trick: if the last card is odd in a 2-col grid, span full width cleanly */
 .chart-grid:not(.is-single) > .chart-card:last-child:nth-child(odd) {
   grid-column: 1 / -1;
+}
+
+.chart-grid > .beszel-card > .empty {
+  flex: 1;
 }
 
 .chart-card {
@@ -1724,13 +1738,17 @@ a.role-tag:hover {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
+  padding: 0;
   margin-bottom: 6px;
 }
 
-/* Segmented control */
+/* Segmented control — exact match to --control-height */
 .seg {
   display: inline-flex;
   align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  height: var(--control-height);
   padding: 3px;
   gap: 2px;
   border-radius: var(--radius-control);
@@ -1748,14 +1766,15 @@ a.role-tag:hover {
 }
 
 .seg-option {
-  height: 30px;
+  height: 100%;
   padding: 0 11px;
   border: none;
-  border-radius: 6px;
+  border-radius: 5px;
   background: transparent;
   color: var(--muted);
   font-size: 12.5px;
   font-weight: 500;
+  line-height: 1;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -1838,7 +1857,7 @@ a.role-tag:hover {
 
 .fact {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
   padding: 9px 0;
@@ -1851,6 +1870,7 @@ a.role-tag:hover {
 
 .fact dt {
   font-size: 13px;
+  line-height: 1.45;
   color: var(--muted);
   flex: none;
 }
@@ -1858,10 +1878,11 @@ a.role-tag:hover {
 .fact dd {
   margin: 0;
   font-size: 13.5px;
+  line-height: 1.45;
   color: var(--text);
   text-align: right;
   min-width: 0;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .aside {
@@ -2209,6 +2230,46 @@ a.role-tag:hover {
   gap: 24px;
 }
 
+.settings-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.85fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.settings-two-equal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+
+.settings-two-equal > .band {
+  height: 100%;
+}
+
+.settings-two-equal > .band > .section {
+  flex: 1;
+}
+
+.retention-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.retention-tier {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.retention-tier + .retention-tier {
+  padding-left: 16px;
+  border-left: 1px solid var(--border-subtle);
+}
+
 .event-kinds {
   display: flex;
   flex-direction: column;
@@ -2334,12 +2395,12 @@ button.event-fold:hover {
 
 .event-when {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--faint);
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -2624,8 +2685,26 @@ button.event-fold:hover {
   }
 
   .content-inner {
-    padding: 12px var(--pad-safe-right) 24px var(--pad-safe-left);
+    padding: 12px 0 24px;
     gap: 14px;
+  }
+
+  .settings-two,
+  .settings-two-equal {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .retention-tiers {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .retention-tier + .retention-tier {
+    padding-left: 0;
+    padding-top: 12px;
+    border-left: none;
+    border-top: 1px solid var(--border-subtle);
   }
 
   .cmd-trigger-label,

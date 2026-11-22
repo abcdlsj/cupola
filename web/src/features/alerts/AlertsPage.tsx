@@ -263,7 +263,7 @@ export function AlertsPage() {
             <p>Metric thresholds, event matches and delivery targets</p>
           </div>
           <div className="beszel-card-controls">
-            <Text type="supporting">{`${ruleList.length} rules`}</Text>
+            <Badge variant="neutral" label={`${ruleList.length} ${ruleList.length === 1 ? 'rule' : 'rules'}`} />
           </div>
         </header>
         {rules.isError ? (
@@ -304,7 +304,9 @@ export function AlertsPage() {
               <h2>History</h2>
               <p>Every alert that fired, newest first</p>
             </div>
-            <Text type="supporting">{`${history.data?.length ?? 0} alerts`}</Text>
+            <div className="beszel-card-controls">
+              <Badge variant="neutral" label={`${history.data?.length ?? 0} alerts`} />
+            </div>
           </header>
           {history.isError ? (
             <ErrorPanel what="Couldn't load alert history." onRetry={() => void history.refetch()} />
@@ -341,7 +343,9 @@ export function AlertsPage() {
               <h2>Deliveries</h2>
               <p>Webhook and channel attempts, with their status</p>
             </div>
-            <Text type="supporting">{`${deliveries.data?.length ?? 0} attempts`}</Text>
+            <div className="beszel-card-controls">
+              <Badge variant="neutral" label={`${deliveries.data?.length ?? 0} attempts`} />
+            </div>
           </header>
           {deliveries.isError ? (
             <ErrorPanel what="Couldn't load deliveries." onRetry={() => void deliveries.refetch()} />

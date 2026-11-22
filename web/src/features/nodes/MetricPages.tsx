@@ -367,8 +367,8 @@ export function StoragePage() {
                   <Facts
                     rows={[
                       { label: 'Wear', value: <Meter value={drive.wear_percent} label={`${drive.device} wear`} width={96} /> },
-                      { label: 'Temperature', value: drive.temperature_c ? `${Math.round(drive.temperature_c)} °C` : null },
-                      { label: 'Power-on', value: drive.power_on_hours ? `${drive.power_on_hours} h` : null },
+                      { label: 'Temperature', value: drive.temperature_c ? `${Math.round(drive.temperature_c)}°C` : null },
+                      { label: 'Power-on', value: drive.power_on_hours ? `${drive.power_on_hours.toLocaleString()}h` : null },
                       { label: 'Reallocated', value: String(drive.reallocated) },
                     ]}
                   />

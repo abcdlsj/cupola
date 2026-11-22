@@ -264,9 +264,11 @@ export function Select({
 
   return (
     <div className="field" style={width ? { width } : undefined}>
-      <span className="field-label" hidden={isLabelHidden} id={`${label}-label`}>
-        {label}
-      </span>
+      {isLabelHidden ? null : (
+        <span className="field-label" id={`${label}-label`}>
+          {label}
+        </span>
+      )}
       <span ref={root} style={{ position: 'relative', display: 'block' }}>
         <button
           ref={trigger}

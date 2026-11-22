@@ -3,6 +3,7 @@ import {
   clock,
   day,
   duration,
+  durationMs,
   eventTime,
   netRate,
   percent,
@@ -24,6 +25,9 @@ describe('duration', () => {
     expect(duration(3 * 86400 + 2 * 3600)).toBe('3d 2h');
     expect(duration(2 * 86400 + 22 * 3600)).toBe('2d 22h');
     expect(duration(-5)).toBe('0s');
+    expect(durationMs(420)).toBe('420ms');
+    expect(durationMs(1450)).toBe('1.4s');
+    expect(durationMs(125_000)).toBe('2m');
   });
 });
 

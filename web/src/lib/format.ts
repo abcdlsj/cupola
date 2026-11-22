@@ -47,6 +47,13 @@ export function duration(totalSeconds: number): string {
   return restHours ? `${days}d ${restHours}h` : `${days}d`;
 }
 
+export function durationMs(ms: number): string {
+  if (!Number.isFinite(ms) || ms < 0) return '0ms';
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
+  return duration(ms / 1000);
+}
+
 export function relative(ms: number, now: number): string {
   const delta = Math.max(0, now - ms);
   if (delta < 5000) return 'just now';

@@ -15,7 +15,7 @@ import {
 import { eventTime, relative } from '../../lib/format';
 import { setThemePreference, useResolvedTheme, useThemePreference, type ThemePreference } from '../../lib/theme';
 import { Band, Facts, Figure } from '../../ui/kit';
-import { Badge, Banner, Button, CodeBlock, Grid, HStack, Text, VStack } from '../../ui/primitives';
+import { Badge, Banner, Button, CodeBlock, HStack, Text, VStack } from '../../ui/primitives';
 import { Dialog, SegmentedControl, SegmentedControlItem, TextInput } from '../../ui/controls';
 import { Aside, errorText, Fields, Notice, SettingsPage, Two, type Message } from './settingsKit';
 
@@ -32,26 +32,26 @@ export function RetentionSettingsPage() {
         ) : (
           <Two>
             <div className="section">
-              <Grid columns={{ minWidth: 140, max: 3 }}>
+              <div className="retention-tiers">
                 {(
                   [
-                    ['Raw samples', `${data.poll_interval_sec} s`, `kept ${data.retention_raw_hours} h`],
-                    ['1-minute rollups', '1 m', `kept ${data.retention_minute_days} d`],
-                    ['1-hour rollups', '1 h', `kept ${data.retention_hour_months} mo`],
+                    ['Raw samples', `${data.poll_interval_sec}s`, `Kept ${data.retention_raw_hours}h`],
+                    ['1-minute rollups', '1m', `Kept ${data.retention_minute_days}d`],
+                    ['1-hour rollups', '1h', `Kept ${data.retention_hour_months}mo`],
                   ] as const
                 ).map(([label, step, kept]) => (
-                  <VStack key={label} gap={1}>
+                  <div className="retention-tier" key={label}>
                     <span className="muted small">{label}</span>
                     <Figure value={step} size="heading" />
                     <span className="code muted">{kept}</span>
-                  </VStack>
+                  </div>
                 ))}
-              </Grid>
+              </div>
             </div>
             <Aside
               title="Hub"
               rows={[
-                ['Events and action runs', '90 days'],
+                ['Events and action runs', '90d'],
                 ['Data directory', data.data_dir],
               ]}
             />
@@ -109,9 +109,8 @@ export function AccountSettingsPage() {
         {me.data?.mode === 'token' ? (
           <Banner status="info" title="Sign in with the admin password to change it." />
         ) : (
-          <Two>
-            <div className="section">
-              <form
+          <div className="section" style={{ maxWidth: 640 }}>
+            <form
                 noValidate
                 data-testid="password-form"
                 onSubmit={async (event) => {
@@ -166,9 +165,7 @@ export function AccountSettingsPage() {
                   </HStack>
                 </VStack>
               </form>
-            </div>
-            <div />
-          </Two>
+          </div>
         )}
       </Band>
     </SettingsPage>
@@ -256,8 +253,8 @@ export function AboutSettingsPage() {
 
   return (
     <SettingsPage>
-      <Two>
-        <Band title="This hub" first>
+      <Two equal>
+        <Band title="This hub" desc="Local instance and active session" first>
           <div className="section">
             <Facts
               rows={[
@@ -283,7 +280,7 @@ export function AboutSettingsPage() {
 
         <Band
           title="Updates"
-          desc={updates.data?.repo ? <span className="code muted">{updates.data.repo}</span> : undefined}
+          desc={updates.data?.repo ? <span className="code muted">{updates.data.repo}</span> : 'Release checks and self-upgrade'}
           first
         >
           <div className="section">

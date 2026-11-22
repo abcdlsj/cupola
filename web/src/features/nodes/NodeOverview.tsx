@@ -306,7 +306,7 @@ export function NodeOverview() {
                     key={`${sensor.chip}-${sensor.label}`}
                     name={sensor.label || sensor.chip}
                     sub={sensor.label ? sensor.chip : undefined}
-                    meter={<Meter value={sensor.value} text={`${Math.round(sensor.value)} °C`} label={`${sensor.label || sensor.chip} temperature`} />}
+                    meter={<Meter value={sensor.value} text={`${Math.round(sensor.value)}°C`} label={`${sensor.label || sensor.chip} temperature`} />}
                   />
                 ))}
                 {gpus.map((gpu) => (
@@ -315,7 +315,7 @@ export function NodeOverview() {
                     name={`GPU ${gpu.index}`}
                     sub={gpu.name}
                     meter={<Meter value={gpu.util_percent} label={`GPU ${gpu.index} utilisation`} />}
-                    figure={`${Math.round(gpu.temp_c)} °C`}
+                    figure={`${Math.round(gpu.temp_c)}°C`}
                   />
                 ))}
               </Rows>

@@ -284,9 +284,9 @@ function JoinBand() {
         </SegmentedControl>
       }
     >
-      <Two>
-        {left}
-        {issued ? (
+      {issued ? (
+        <Two>
+          {left}
           <VStack gap={3}>
             {mode === 'tailnet' ? (
               <Select label="Target OS" value={os} options={OS_OPTIONS.slice(0, 2)} onChange={(value) => setOs(value as Os)} />
@@ -311,8 +311,10 @@ function JoinBand() {
               </Text>
             ) : null}
           </VStack>
-        ) : null}
-      </Two>
+        </Two>
+      ) : (
+        left
+      )}
     </Band>
   );
 }
@@ -485,59 +487,56 @@ export function NodesSettingsPage() {
 
       {admin ? (
         <Band title="Register an existing agent" desc="The agent is installed and has its own token">
-          <Two>
-            <div className="section">
-              <form
-                noValidate
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void submit();
-                }}
-              >
-                <VStack gap={4}>
-                  <Fields>
+          <div className="section">
+            <form
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit();
+              }}
+            >
+              <VStack gap={4}>
+                <Fields>
+                  <TextInput
+                    label="ID (short slug)"
+                    value={form.id}
+                    onChange={(id) => setForm({ ...form, id })}
+                    autoCapitalize="none"
+                    isRequired
+                    status={required(form.id, tried)}
+                  />
+                  <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
+                  <Select label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
+                  {form.mode === 'pull' ? (
                     <TextInput
-                      label="ID (short slug)"
-                      value={form.id}
-                      onChange={(id) => setForm({ ...form, id })}
-                      autoCapitalize="none"
+                      label="Agent URL"
+                      type="url"
+                      value={form.url}
+                      onChange={(url) => setForm({ ...form, url })}
                       isRequired
-                      status={required(form.id, tried)}
+                      status={required(form.url, tried)}
                     />
-                    <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
-                    <Select label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
-                    {form.mode === 'pull' ? (
-                      <TextInput
-                        label="Agent URL"
-                        type="url"
-                        value={form.url}
-                        onChange={(url) => setForm({ ...form, url })}
-                        isRequired
-                        status={required(form.url, tried)}
-                      />
-                    ) : (
-                      <TextInput label="Agent URL" description="Unused in push mode" value={form.url} onChange={() => undefined} isDisabled />
-                    )}
-                    <TextInput
-                      label="Agent token"
-                      type="password"
-                      autoComplete="off"
-                      value={form.token}
-                      onChange={(token) => setForm({ ...form, token })}
-                      isRequired
-                      status={required(form.token, tried)}
-                    />
-                    <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" />
-                  </Fields>
-                  <Notice message={addMessage} />
-                  <HStack>
-                    <Button type="submit" label="Add node" variant="primary" isLoading={create.isPending} />
-                  </HStack>
-                </VStack>
-              </form>
-            </div>
-            <div />
-          </Two>
+                  ) : (
+                    <TextInput label="Agent URL" description="Unused in push mode" value={form.url} onChange={() => undefined} isDisabled />
+                  )}
+                  <TextInput
+                    label="Agent token"
+                    type="password"
+                    autoComplete="off"
+                    value={form.token}
+                    onChange={(token) => setForm({ ...form, token })}
+                    isRequired
+                    status={required(form.token, tried)}
+                  />
+                  <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" />
+                </Fields>
+                <Notice message={addMessage} />
+                <HStack>
+                  <Button type="submit" label="Add node" variant="primary" isLoading={create.isPending} />
+                </HStack>
+              </VStack>
+            </form>
+          </div>
         </Band>
       ) : (
         <AdminOnly />

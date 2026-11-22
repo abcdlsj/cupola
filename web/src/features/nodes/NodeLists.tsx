@@ -867,7 +867,7 @@ export function AppDetailPage() {
               ? 'Wake-on-LAN packet sent by the agent.'
               : 'Fixed script from the agent config: no shell, no arguments, scrubbed environment.'}
           </Text>
-          <Text type="supporting">One run at a time, 60 s timeout, output truncated to 8 KiB. Every result is an event.</Text>
+          <Text type="supporting">One run at a time, 60s timeout, output truncated to 8 KiB. Every result is an event.</Text>
         </Section>
       </Grid>
       <Band title="Runs" desc={`${own.length} recorded`}>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiError, useRunAction } from '../../data/queries';
 import type { Action, ActionResult } from '../../data/types';
+import { durationMs } from '../../lib/format';
 import { Facts } from '../../ui/kit';
 import { Badge, Banner, Button, CodeBlock, HStack, Text, VStack } from '../../ui/primitives';
 import { Dialog, TextInput } from '../../ui/controls';
@@ -95,13 +96,13 @@ export function RunActionDialog({
         <VStack gap={3}>
           <HStack gap={2} vAlign="center" wrap>
             <Badge variant={result.exit_code === 0 ? 'success' : 'error'} label={result.exit_code === 0 ? 'Exited 0' : `Exited ${result.exit_code}`} />
-            <Text type="supporting">{(result.duration_ms / 1000).toFixed(1)} s</Text>
+            <Text type="supporting">{durationMs(result.duration_ms)}</Text>
             {result.truncated ? <Text type="supporting">output truncated to 8 KiB</Text> : null}
           </HStack>
           <Facts
             rows={[
               { label: 'Exit code', value: String(result.exit_code) },
-              { label: 'Duration', value: `${(result.duration_ms / 1000).toFixed(1)} s` },
+              { label: 'Duration', value: durationMs(result.duration_ms) },
               { label: 'Run', value: result.run_id.slice(0, 8) },
             ]}
           />

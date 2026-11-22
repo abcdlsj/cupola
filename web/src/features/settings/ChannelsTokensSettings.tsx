@@ -220,7 +220,7 @@ export function AlertsSettingsPage() {
           <Aside
             title="Delivery"
             rows={[
-              ['Timeout', '5 s'],
+              ['Timeout', '5s'],
               ['Retries', '3'],
               ['Signature', 'X-Cupola-Signature'],
               ['Private targets', settings.data ? (settings.data.allow_private_webhooks ? 'allowed' : 'blocked') : null],
