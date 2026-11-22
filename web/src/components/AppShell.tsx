@@ -38,7 +38,7 @@ function Brand() {
       <span className="brand-mark">
         <CupolaMark size={16} />
       </span>
-      cupola
+      Cupola
     </RouterLink>
   );
 }

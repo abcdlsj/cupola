@@ -402,7 +402,11 @@ export function OverviewPage() {
           <div className="beszel-card-title-group">
             <h1>All Systems</h1>
             <p>
-              {nodes.length} {nodes.length === 1 ? 'system' : 'systems'} · {onlineCount} online
+              {nodes.length === 0
+                ? 'No systems registered'
+                : onlineCount === nodes.length
+                  ? `${onlineCount} online`
+                  : `${onlineCount} of ${nodes.length} online`}
             </p>
           </div>
           <div className="beszel-card-controls">
@@ -479,7 +483,11 @@ export function OverviewPage() {
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
             <h2>Systemd Services</h2>
-            <p>{services.isPending ? 'Loading units…' : `${units.length} units across fleet · failed pinned first`}</p>
+            <p>
+              {services.isPending
+                ? 'Loading units…'
+                : `${units.length} ${units.length === 1 ? 'unit' : 'units'} across ${nodes.length} ${nodes.length === 1 ? 'system' : 'systems'}`}
+            </p>
           </div>
           <div className="beszel-card-controls">
             {failedUnits > 0 ? <Badge variant="error" label={`${failedUnits} failed`} /> : null}

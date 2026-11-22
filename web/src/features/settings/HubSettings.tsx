@@ -36,8 +36,8 @@ export function RetentionSettingsPage() {
                 {(
                   [
                     ['Raw samples', `${data.poll_interval_sec}s`, `Kept ${data.retention_raw_hours}h`],
-                    ['1-minute rollups', '1m', `Kept ${data.retention_minute_days}d`],
-                    ['1-hour rollups', '1h', `Kept ${data.retention_hour_months}mo`],
+                    ['Minute rollups', '1m', `Kept ${data.retention_minute_days}d`],
+                    ['Hour rollups', '1h', `Kept ${data.retention_hour_months}mo`],
                   ] as const
                 ).map(([label, step, kept]) => (
                   <div className="retention-tier" key={label}>
@@ -68,27 +68,18 @@ export function AppearanceSettingsPage() {
   return (
     <SettingsPage>
       <Band title="Appearance" desc="Saved in this browser only; light is the default" first>
-        <Two>
-          <div className="section">
-            <VStack gap={3}>
-              <SegmentedControl label="Theme" value={preference} onChange={(value) => setThemePreference(value as ThemePreference)}>
-                <SegmentedControlItem value="system" label="System" />
-                <SegmentedControlItem value="light" label="Light" />
-                <SegmentedControlItem value="dark" label="Dark" />
-              </SegmentedControl>
-              <Text type="supporting">
-                {preference === 'system' ? `Following the system, which is ${theme} now.` : `Always ${theme}, whatever the system says.`}
-              </Text>
-            </VStack>
-          </div>
-          <Aside
-            title="Current values"
-            rows={[
-              ['Preference', preference],
-              ['On screen', theme],
-            ]}
-          />
-        </Two>
+        <div className="section" style={{ maxWidth: 520 }}>
+          <VStack gap={3}>
+            <SegmentedControl label="Theme" value={preference} onChange={(value) => setThemePreference(value as ThemePreference)}>
+              <SegmentedControlItem value="system" label="System" />
+              <SegmentedControlItem value="light" label="Light" />
+              <SegmentedControlItem value="dark" label="Dark" />
+            </SegmentedControl>
+            <Text type="supporting">
+              {preference === 'system' ? `Following your OS theme (currently ${theme}).` : `Always using the ${theme} theme.`}
+            </Text>
+          </VStack>
+        </div>
       </Band>
     </SettingsPage>
   );

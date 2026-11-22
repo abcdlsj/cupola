@@ -135,13 +135,19 @@ function PeerTable({
   );
 }
 
-function JoinBand() {
-  const create = useCreateJoinCode();
+function AddNodeBand() {
+  const createJoin = useCreateJoinCode();
+  const createNode = useCreateNode();
   const [searchParams, setSearchParams] = useSearchParams();
-  const mode: 'manual' | 'tailnet' = searchParams.get('add') === 'tailnet' ? 'tailnet' : 'manual';
+  const rawAdd = searchParams.get('add');
+  const mode: 'manual' | 'tailnet' | 'existing' =
+    rawAdd === 'tailnet' ? 'tailnet' : rawAdd === 'existing' ? 'existing' : 'manual';
   const [os, setOs] = useState<Os>('linux');
   const [form, setForm] = useState({ id: '', name: '', labels: '' });
   const [tried, setTried] = useState(false);
+  const [existingForm, setExistingForm] = useState(EMPTY_NODE);
+  const [existingTried, setExistingTried] = useState(false);
+  const [existingMessage, setExistingMessage] = useState<Message>(null);
   const [filter, setFilter] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
   const [issued, setIssued] = useState<{
@@ -159,14 +165,14 @@ function JoinBand() {
   const setMode = (next: string) => {
     setError(null);
     if (next === 'tailnet') setOs((current) => (current === 'manual' ? 'linux' : current));
-    setSearchParams(next === 'tailnet' ? { add: 'tailnet' } : {}, { replace: true });
+    setSearchParams(next === 'manual' ? {} : { add: next }, { replace: true });
   };
 
   const generate = async (options: { id: string; name: string; labels: string[]; advertise?: string }) => {
     setError(null);
     setIssued(null);
     try {
-      const result = await create.mutateAsync(options);
+      const result = await createJoin.mutateAsync(options);
       setIssued({
         code: result.code,
         nodeId: result.node_id,
@@ -181,9 +187,30 @@ function JoinBand() {
   };
 
   const generateForPeer = async (peer: TailnetPeer) => {
-    if (create.isPending) return;
+    if (createJoin.isPending) return;
     setSelected(peer.ipv4);
     await generate({ id: slugifyPeer(peer.name), name: peer.name, labels: [], advertise: `http://${peer.ipv4}:9797` });
+  };
+
+  const submitExisting = async () => {
+    setExistingTried(true);
+    setExistingMessage(null);
+    if (!existingForm.id.trim() || !existingForm.token.trim() || (existingForm.mode === 'pull' && !existingForm.url.trim())) return;
+    try {
+      await createNode.mutateAsync({
+        id: existingForm.id.trim(),
+        name: existingForm.name.trim() || existingForm.id.trim(),
+        url: existingForm.url.trim(),
+        token: existingForm.token.trim(),
+        mode: existingForm.mode,
+        labels: splitList(existingForm.labels),
+      });
+      setExistingMessage({ kind: 'ok', text: `Node ${existingForm.id} added. The first poll runs within a few seconds.` });
+      setExistingForm(EMPTY_NODE);
+      setExistingTried(false);
+    } catch (caught) {
+      setExistingMessage({ kind: 'error', text: errorText(caught, 'The node could not be added.') });
+    }
   };
 
   const command = issued?.commands[os] ?? (issued ? issued.commands.linux : '');
@@ -194,7 +221,72 @@ function JoinBand() {
   );
 
   const left =
-    mode === 'manual' ? (
+    mode === 'existing' ? (
+      <div className="section">
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitExisting();
+          }}
+        >
+          <VStack gap={4}>
+            <Fields>
+              <TextInput
+                label="ID (short slug)"
+                value={existingForm.id}
+                onChange={(id) => setExistingForm({ ...existingForm, id })}
+                autoCapitalize="none"
+                isRequired
+                status={required(existingForm.id, existingTried)}
+              />
+              <TextInput
+                label="Display name"
+                value={existingForm.name}
+                onChange={(name) => setExistingForm({ ...existingForm, name })}
+              />
+              <Select
+                label="Mode"
+                value={existingForm.mode}
+                options={MODE_OPTIONS}
+                onChange={(next) => setExistingForm({ ...existingForm, mode: next as Mode })}
+              />
+              {existingForm.mode === 'pull' ? (
+                <TextInput
+                  label="Agent URL"
+                  type="url"
+                  value={existingForm.url}
+                  onChange={(url) => setExistingForm({ ...existingForm, url })}
+                  isRequired
+                  status={required(existingForm.url, existingTried)}
+                />
+              ) : (
+                <TextInput label="Agent URL" description="Unused in push mode" value={existingForm.url} onChange={() => undefined} isDisabled />
+              )}
+              <TextInput
+                label="Agent token"
+                type="password"
+                autoComplete="off"
+                value={existingForm.token}
+                onChange={(token) => setExistingForm({ ...existingForm, token })}
+                isRequired
+                status={required(existingForm.token, existingTried)}
+              />
+              <TextInput
+                label="Labels"
+                value={existingForm.labels}
+                onChange={(labels) => setExistingForm({ ...existingForm, labels })}
+                placeholder="homelab, gpu"
+              />
+            </Fields>
+            <Notice message={existingMessage} />
+            <HStack>
+              <Button type="submit" label="Add node" variant="primary" isLoading={createNode.isPending} />
+            </HStack>
+          </VStack>
+        </form>
+      </div>
+    ) : mode === 'manual' ? (
       <div className="section">
         <form
           noValidate
@@ -228,7 +320,7 @@ function JoinBand() {
             </Fields>
             {error ? <Notice message={{ kind: 'error', text: error }} /> : null}
             <HStack>
-              <Button type="submit" label="Generate command" variant="primary" isLoading={create.isPending} />
+              <Button type="submit" label="Generate command" variant="primary" isLoading={createJoin.isPending} />
             </HStack>
           </VStack>
         </form>
@@ -260,31 +352,35 @@ function JoinBand() {
           visible.length === 0 ? (
             <EmptyState title={needle ? 'No peer matches that filter.' : 'No other machine is in this tailnet.'} />
           ) : (
-            <PeerTable peers={visible} selected={selected} busy={create.isPending} onPick={(peer) => void generateForPeer(peer)} />
+            <PeerTable peers={visible} selected={selected} busy={createJoin.isPending} onPick={(peer) => void generateForPeer(peer)} />
           )
         ) : null}
         {error ? <Notice message={{ kind: 'error', text: error }} /> : null}
       </VStack>
     );
 
+  const desc =
+    mode === 'existing'
+      ? 'Register an agent that is already installed with its own token'
+      : issued
+        ? `Code expires ${clock(issued.expires)} UTC`
+        : mode === 'tailnet'
+          ? `${peers.data?.peers.length ?? 0} peers in the tailnet`
+          : 'Generate a one-line install command to join a new machine';
+
   return (
     <Band
-      title="Install on a new machine"
-      desc={
-        issued
-          ? `Code expires ${clock(issued.expires)} UTC`
-          : mode === 'tailnet'
-            ? `${peers.data?.peers.length ?? 0} peers in the tailnet`
-            : 'One command installs the agent and joins it to this hub'
-      }
+      title="Add a node"
+      desc={desc}
       actions={
         <SegmentedControl label="Add-system mode" value={mode} onChange={setMode}>
-          <SegmentedControlItem value="manual" label="Manual" />
+          <SegmentedControlItem value="manual" label="Install" />
           <SegmentedControlItem value="tailnet" label="Tailnet" />
+          <SegmentedControlItem value="existing" label="Existing" />
         </SegmentedControl>
       }
     >
-      {issued ? (
+      {issued && mode !== 'existing' ? (
         <Two>
           {left}
           <VStack gap={3}>
@@ -326,43 +422,18 @@ const EMPTY_NODE = { id: '', name: '', url: 'http://127.0.0.1:9797', token: '', 
 export function NodesSettingsPage() {
   const fleet = useFleet();
   const me = useMe();
-  const create = useCreateNode();
   const update = useUpdateNode();
   const test = useTestNode();
   const remove = useDeleteNode();
-  const [form, setForm] = useState(EMPTY_NODE);
-  const [tried, setTried] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', labels: '', url: '', token: '', mode: 'pull' as Mode });
   const [editTried, setEditTried] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<NodeView | null>(null);
   const [message, setMessage] = useState<Message>(null);
-  const [addMessage, setAddMessage] = useState<Message>(null);
   const admin = Boolean(me.data?.admin);
   const now = Date.now();
   const nodes = fleet.data?.nodes ?? [];
-
-  const submit = async () => {
-    setTried(true);
-    setAddMessage(null);
-    if (!form.id.trim() || !form.token.trim() || (form.mode === 'pull' && !form.url.trim())) return;
-    try {
-      await create.mutateAsync({
-        id: form.id.trim(),
-        name: form.name.trim() || form.id.trim(),
-        url: form.url.trim(),
-        token: form.token.trim(),
-        mode: form.mode,
-        labels: splitList(form.labels),
-      });
-      setAddMessage({ kind: 'ok', text: `Node ${form.id} added. The first poll runs within a few seconds.` });
-      setForm(EMPTY_NODE);
-      setTried(false);
-    } catch (caught) {
-      setAddMessage({ kind: 'error', text: errorText(caught, 'The node could not be added.') });
-    }
-  };
 
   const saveEdit = async () => {
     if (!editing) return;
@@ -483,64 +554,7 @@ export function NodesSettingsPage() {
         )}
       </Band>
 
-      {admin ? <JoinBand /> : null}
-
-      {admin ? (
-        <Band title="Register an existing agent" desc="The agent is installed and has its own token">
-          <div className="section">
-            <form
-              noValidate
-              onSubmit={(event) => {
-                event.preventDefault();
-                void submit();
-              }}
-            >
-              <VStack gap={4}>
-                <Fields>
-                  <TextInput
-                    label="ID (short slug)"
-                    value={form.id}
-                    onChange={(id) => setForm({ ...form, id })}
-                    autoCapitalize="none"
-                    isRequired
-                    status={required(form.id, tried)}
-                  />
-                  <TextInput label="Display name" value={form.name} onChange={(name) => setForm({ ...form, name })} />
-                  <Select label="Mode" value={form.mode} options={MODE_OPTIONS} onChange={(mode) => setForm({ ...form, mode: mode as Mode })} />
-                  {form.mode === 'pull' ? (
-                    <TextInput
-                      label="Agent URL"
-                      type="url"
-                      value={form.url}
-                      onChange={(url) => setForm({ ...form, url })}
-                      isRequired
-                      status={required(form.url, tried)}
-                    />
-                  ) : (
-                    <TextInput label="Agent URL" description="Unused in push mode" value={form.url} onChange={() => undefined} isDisabled />
-                  )}
-                  <TextInput
-                    label="Agent token"
-                    type="password"
-                    autoComplete="off"
-                    value={form.token}
-                    onChange={(token) => setForm({ ...form, token })}
-                    isRequired
-                    status={required(form.token, tried)}
-                  />
-                  <TextInput label="Labels" value={form.labels} onChange={(labels) => setForm({ ...form, labels })} placeholder="homelab, gpu" />
-                </Fields>
-                <Notice message={addMessage} />
-                <HStack>
-                  <Button type="submit" label="Add node" variant="primary" isLoading={create.isPending} />
-                </HStack>
-              </VStack>
-            </form>
-          </div>
-        </Band>
-      ) : (
-        <AdminOnly />
-      )}
+      {admin ? <AddNodeBand /> : <AdminOnly />}
 
       <Dialog
         open={admin && editing !== null}

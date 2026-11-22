@@ -64,7 +64,7 @@ export function LoginPage() {
         <section className="login-intro">
           <span className="login-wordmark">
             <CupolaMark size={22} />
-            cupola
+            Cupola
           </span>
           <h1>Know what the boxes you run are doing.</h1>
           <p>

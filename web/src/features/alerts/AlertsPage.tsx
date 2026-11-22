@@ -203,22 +203,24 @@ export function AlertsPage() {
     },
   ];
 
+  const channelCount = channels.data?.length ?? 0;
+  const overviewSubtitle =
+    firingList.length > 0
+      ? `${firingList.length} of ${ruleList.length} rules over threshold right now`
+      : ruleList.length > 0
+        ? `${enabled} of ${ruleList.length} ${ruleList.length === 1 ? 'rule' : 'rules'} enabled · ${channelCount} ${channelCount === 1 ? 'channel' : 'channels'}`
+        : 'Metric thresholds and event triggers';
+
   return (
     <>
-      <section className="beszel-card" aria-label="Alerts overview">
+      <section className="beszel-card" aria-label="Alerts">
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
             <h1>{firingList.length > 0 ? `${firingList.length} firing` : 'Alerts'}</h1>
-            <p>
-              {firingList.length > 0
-                ? `${firingList.length} of ${ruleList.length} rules over threshold right now`
-                : 'Nothing firing · rules evaluate on every poll and event rules fire immediately'}
-            </p>
+            <p>{overviewSubtitle}</p>
           </div>
           <div className="beszel-card-controls">
             <Badge variant={firingList.length > 0 ? 'error' : 'success'} label={firingList.length > 0 ? `${firingList.length} firing` : 'All clear'} />
-            <Badge variant="neutral" label={`${enabled}/${ruleList.length} rules`} />
-            <Badge variant="neutral" label={`${channels.data?.length ?? 0} channels`} />
             {failedDeliveries > 0 ? <Badge variant="warning" label={`${failedDeliveries} failed`} /> : null}
             <Button label="New rule" variant="primary" href="/alerts/rules/new" />
           </div>
@@ -227,45 +229,37 @@ export function AlertsPage() {
         {firing.isError ? (
           <ErrorPanel what="Couldn't load firing alerts." onRetry={() => void firing.refetch()} />
         ) : firingList.length > 0 ? (
-          <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
-            {firingList.map((alert) => (
-              <section className="section is-alert" key={alert.id}>
-                <HStack gap={2} vAlign="center" hAlign="between" wrap>
-                  <HStack gap={2} vAlign="center">
-                    <StatusDot variant="error" label="Firing" isPulsing />
-                    <Text weight="semibold">{ruleName(alert)}</Text>
+          <>
+            <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
+              {firingList.map((alert) => (
+                <section className="section is-alert" key={alert.id}>
+                  <HStack gap={2} vAlign="center" hAlign="between" wrap>
+                    <HStack gap={2} vAlign="center">
+                      <StatusDot variant="error" label="Firing" isPulsing />
+                      <Text weight="semibold">{ruleName(alert)}</Text>
+                    </HStack>
+                    <Text type="supporting">{relative(alert.ts, now)}</Text>
                   </HStack>
-                  <Text type="supporting">{relative(alert.ts, now)}</Text>
-                </HStack>
-                <VStack gap={1}>
-                  <Text>{alert.message}</Text>
-                  <HStack gap={2} vAlign="center" wrap>
-                    <Link href={`/nodes/${alert.node_id}`} className="role-tag code">
-                      {alert.node_id}
-                    </Link>
-                    <Text type="supporting">value</Text>
-                    <Mono secondary={!alert.value}>{alert.value ? alert.value.toFixed(1) : '—'}</Mono>
-                  </HStack>
-                </VStack>
-                <div>
-                  <Button label="Open rule" size="sm" href={`/alerts/rules/${alert.rule_id}`} />
-                </div>
-              </section>
-            ))}
-          </Grid>
+                  <VStack gap={1}>
+                    <Text>{alert.message}</Text>
+                    <HStack gap={2} vAlign="center" wrap>
+                      <Link href={`/nodes/${alert.node_id}`} className="role-tag code">
+                        {alert.node_id}
+                      </Link>
+                      <Text type="supporting">value</Text>
+                      <Mono secondary={!alert.value}>{alert.value ? alert.value.toFixed(1) : '—'}</Mono>
+                    </HStack>
+                  </VStack>
+                  <div>
+                    <Button label="Open rule" size="sm" href={`/alerts/rules/${alert.rule_id}`} />
+                  </div>
+                </section>
+              ))}
+            </Grid>
+            <hr />
+          </>
         ) : null}
-      </section>
 
-      <section className="beszel-card" aria-label="Rules">
-        <header className="beszel-card-head">
-          <div className="beszel-card-title-group">
-            <h2>Rules</h2>
-            <p>Metric thresholds, event matches and delivery targets</p>
-          </div>
-          <div className="beszel-card-controls">
-            <Badge variant="neutral" label={`${ruleList.length} ${ruleList.length === 1 ? 'rule' : 'rules'}`} />
-          </div>
-        </header>
         {rules.isError ? (
           <ErrorPanel what="Couldn't load rules." onRetry={() => void rules.refetch()} />
         ) : ruleList.length === 0 ? (
@@ -302,16 +296,18 @@ export function AlertsPage() {
           <header className="beszel-card-head">
             <div className="beszel-card-title-group">
               <h2>History</h2>
-              <p>Every alert that fired, newest first</p>
+              <p>Firing and resolved alert transitions</p>
             </div>
-            <div className="beszel-card-controls">
-              <Badge variant="neutral" label={`${history.data?.length ?? 0} alerts`} />
-            </div>
+            {(history.data?.length ?? 0) > 0 ? (
+              <div className="beszel-card-controls">
+                <Badge variant="neutral" label={`${history.data?.length ?? 0}`} />
+              </div>
+            ) : null}
           </header>
           {history.isError ? (
             <ErrorPanel what="Couldn't load alert history." onRetry={() => void history.refetch()} />
           ) : historyList.length === 0 ? (
-            <EmptyState title="No alert has fired yet" description="Firing and resolved alert transitions will appear here." />
+            <EmptyState title="No alert has fired yet" description="Transitions appear here when a rule triggers or resolves." />
           ) : phone ? (
             <Blocks
               items={historyList}
@@ -341,11 +337,13 @@ export function AlertsPage() {
           <header className="beszel-card-head">
             <div className="beszel-card-title-group">
               <h2>Deliveries</h2>
-              <p>Webhook and channel attempts, with their status</p>
+              <p>Webhook and channel attempts</p>
             </div>
-            <div className="beszel-card-controls">
-              <Badge variant="neutral" label={`${deliveries.data?.length ?? 0} attempts`} />
-            </div>
+            {(deliveries.data?.length ?? 0) > 0 ? (
+              <div className="beszel-card-controls">
+                <Badge variant="neutral" label={`${deliveries.data?.length ?? 0}`} />
+              </div>
+            ) : null}
           </header>
           {deliveries.isError ? (
             <ErrorPanel what="Couldn't load deliveries." onRetry={() => void deliveries.refetch()} />

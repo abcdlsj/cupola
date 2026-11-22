@@ -274,12 +274,7 @@ export function AppsPage() {
   const failed = all.filter((action) => action.last_ok === false);
   const nodeCount = new Set(all.map((action) => action.node_id)).size;
   const recorded = runs.data?.length ?? 0;
-  const desc =
-    failed.length > 0
-      ? `${failed.length} of ${all.length} actions failed recently: ${failed
-          .map((action) => `${action.name} (${action.node_name})`)
-          .join('; ')}`
-      : `on ${nodeCount} ${nodeCount === 1 ? 'system' : 'systems'} · ${recorded} runs recorded`;
+  const summary = `${all.length} ${all.length === 1 ? 'action' : 'actions'} across ${nodeCount} ${nodeCount === 1 ? 'system' : 'systems'}`;
 
   return (
     <>
@@ -287,8 +282,13 @@ export function AppsPage() {
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
             <h1>Apps & Actions</h1>
-            <p>{`${all.length} ${all.length === 1 ? 'action' : 'actions'} · ${desc}`}</p>
+            <p>{summary}</p>
           </div>
+          {failed.length > 0 ? (
+            <div className="beszel-card-controls">
+              <Badge variant="error" label={`${failed.length} failed`} />
+            </div>
+          ) : null}
         </header>
         {all.length === 0 ? (
           <EmptyState
@@ -297,13 +297,18 @@ export function AppsPage() {
             actions={<Link href="/settings/nodes">See the nodes</Link>}
           />
         ) : (
-          <ActionRows
-            actions={all}
-            onRun={(action) => {
-              setSelected(action as FleetAction);
-              setOpen(true);
-            }}
-          />
+          <>
+            <ActionRows
+              actions={all}
+              onRun={(action) => {
+                setSelected(action as FleetAction);
+                setOpen(true);
+              }}
+            />
+            <p className="muted small">
+              Configured locally on each agent (0600) · fixed executable or Wake-on-LAN · one run at a time · 60s timeout · 8 KiB output cap.
+            </p>
+          </>
         )}
       </section>
 
@@ -311,8 +316,13 @@ export function AppsPage() {
         <header className="beszel-card-head">
           <div className="beszel-card-title-group">
             <h2>Recent runs</h2>
-            <p>{`Every run is an event; the newest twelve here · ${recorded} recorded`}</p>
+            <p>Latest 12 runs across all systems</p>
           </div>
+          {recorded > 0 ? (
+            <div className="beszel-card-controls">
+              <Badge variant="neutral" label={`${recorded}`} />
+            </div>
+          ) : null}
         </header>
         {runs.isError ? (
           <ErrorPanel what="Could not load runs." onRetry={() => void runs.refetch()} />
@@ -321,7 +331,6 @@ export function AppsPage() {
         )}
       </section>
 
-      <RunLimits />
       <RunActionDialog
         action={selected}
         nodeId={selected?.node_id ?? ''}

@@ -274,35 +274,6 @@ export function EventsList({
     folded > 0 ? ` · ${groups.length} ${groups.length === 1 ? 'row' : 'rows'}` : ''
   }`;
 
-  const chips =
-    kinds.length > 0 ? (
-      <div className="event-chips" role="group" aria-label="Filter by kind">
-        {kinds.map((entry) => {
-          const Icon = kindIcon(entry.kind);
-          const active = kind === entry.kind;
-          return (
-            <button
-              key={entry.kind}
-              type="button"
-              className="event-chip"
-              aria-label={`Filter by ${kindLabel(entry.kind)} (${entry.count})`}
-              aria-pressed={active}
-              onClick={() => {
-                const next = active ? '' : entry.kind;
-                setKind(next);
-                apply(severity, next);
-              }}
-            >
-              <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
-              <Icon size={14} aria-hidden={true} />
-              <span>{kindLabel(entry.kind)}</span>
-              <span className="event-chip-count">{entry.count}</span>
-            </button>
-          );
-        })}
-      </div>
-    ) : null;
-
   const feed = query.isError ? (
     <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
   ) : query.isPending ? (
@@ -318,6 +289,7 @@ export function EventsList({
         const hidden = isFolded(entry);
         const rows = rowsOf(entry.groups, open);
         const Icon = kindIcon(entry.kind);
+        const showCount = kinds.length > 1 || hidden;
         return (
           <div className="event-kind" key={entry.kind}>
             <button type="button" className="event-kind-head" aria-expanded={!hidden} onClick={() => toggleKind(entry)}>
@@ -326,11 +298,10 @@ export function EventsList({
               </span>
               <Icon size={15} aria-hidden={true} />
               <span className="event-kind-name">{kindLabel(entry.kind)}</span>
-              <SeverityPill severity={entry.worst} />
-              <span className="event-kind-count">
-                {entry.groups.length} {entry.groups.length === 1 ? 'row' : 'rows'} · {entry.count}{' '}
-                {entry.count === 1 ? 'event' : 'events'}
-              </span>
+              {entry.worst !== 'info' ? (
+                <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
+              ) : null}
+              {showCount ? <span className="event-kind-count code">{entry.count}</span> : null}
             </button>
             {hidden ? null : phone ? (
               blocks(rows)
@@ -369,7 +340,6 @@ export function EventsList({
         </div>
         {filters ? <div className="beszel-card-controls">{filters}</div> : null}
       </header>
-      {chips}
       {feed}
     </section>
   );

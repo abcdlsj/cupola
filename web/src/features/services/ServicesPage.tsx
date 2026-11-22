@@ -48,7 +48,6 @@ export function FleetServicesPage() {
     return <ErrorPanel what="Could not load services." onRetry={() => services.refetch()} />;
   }
 
-  const failed = units.filter((unit) => unit.active_state === 'failed').length;
   const q = query.trim().toLowerCase();
   const filtered = units
     .filter((unit) => state === 'all' || unit.active_state === state)
@@ -68,10 +67,7 @@ export function FleetServicesPage() {
       <header className="beszel-card-head">
         <div className="beszel-card-title-group">
           <h1>Systemd Services</h1>
-          <p>
-            {units.length} {units.length === 1 ? 'unit' : 'units'} across {nodes}{' '}
-            {nodes === 1 ? 'system' : 'systems'} · {failed} failed · failed pinned first
-          </p>
+          <p>{`Across ${nodes} ${nodes === 1 ? 'system' : 'systems'}`}</p>
         </div>
         <div className="beszel-card-controls">
           <UnitState

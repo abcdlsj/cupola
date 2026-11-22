@@ -140,7 +140,7 @@ export function AlertsSettingsPage() {
 
   return (
     <SettingsPage>
-      <Band title="Channels" desc={channels.data ? `${list.length} configured` : undefined} first>
+      <Band title="Channels" desc={list.length > 0 ? `${list.length} configured` : undefined} first>
         <Notice message={message} />
         {channels.isLoading ? (
           <LoadingRows rows={3} columns={4} />
@@ -353,7 +353,7 @@ export function TokensSettingsPage() {
 
   return (
     <SettingsPage>
-      <Band title="API tokens" desc={tokens.data ? `${list.length} issued` : undefined} first>
+      <Band title="API tokens" desc={list.length > 0 ? `${list.length} issued` : undefined} first>
         <Notice message={message} />
         {tokens.isLoading ? (
           <LoadingRows rows={3} columns={5} />

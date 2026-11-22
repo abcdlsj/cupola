@@ -2136,51 +2136,6 @@ a.role-tag:hover {
   white-space: nowrap;
 }
 
-/* Events */
-.event-chips {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.event-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--card-subtle);
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-  transition: border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
-}
-
-.event-chip:hover {
-  border-color: var(--border-strong);
-  color: var(--text);
-  background: var(--well);
-}
-
-.event-chip[aria-pressed='true'] {
-  border-color: var(--border-strong);
-  background: var(--well);
-  color: var(--text);
-}
-
-.event-chip-count {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  padding: 1px 6px;
-  border-radius: 99px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-
 /* Settings Beszel Sidebar Card */
 .settings-layout {
   display: grid;

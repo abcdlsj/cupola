@@ -10,13 +10,7 @@ import { Button, Link, Text, VStack } from '../../ui/primitives';
 import { EventsList } from './EventsList';
 
 export function EventsPage() {
-  return (
-    <EventsList
-      title="Events"
-      level={1}
-      desc="Units, containers, ports, reboots and alerts"
-    />
-  );
+  return <EventsList title="Events" level={1} />;
 }
 
 const back = <Link href="/events">Events</Link>;
