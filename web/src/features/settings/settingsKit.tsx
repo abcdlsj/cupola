@@ -1,53 +1,76 @@
 // taste-skill-ignore em-dash: the em dash is the missing-value mark.
 /**
- * What every settings section shares: the page head with its section tabs, the
- * two-column body, the read-only notice, the inline result line and a table
- * that turns into stacked blocks on a phone.
+ * Beszel-style Settings card: one spacious card with a left icon sidebar on
+ * desktop (horizontal scrollable nav on phones) and clean content area.
  */
-import { Fragment, type ReactNode } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Fragment, type ComponentType, type ReactNode } from 'react';
+import {
+  Bell,
+  Database,
+  HardDrives,
+  Info,
+  Key,
+  Palette,
+  User,
+} from '@phosphor-icons/react';
+import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { ApiError, useMe } from '../../data/queries';
-import { PageHead, useIsPhone } from '../../ui/kit';
+import { useIsPhone } from '../../ui/kit';
 import { Banner, Grid, HStack, Link, Table, Text, VStack, type TableColumn } from '../../ui/primitives';
-import { Tab, TabList } from '../../ui/controls';
 
-const SECTIONS = [
-  { slug: 'nodes', label: 'Nodes' },
-  { slug: 'alerts', label: 'Alerts' },
-  { slug: 'tokens', label: 'Tokens' },
-  { slug: 'retention', label: 'Retention' },
-  { slug: 'appearance', label: 'Appearance' },
-  { slug: 'account', label: 'Account' },
-  { slug: 'about', label: 'About' },
+const SECTIONS: Array<{
+  slug: string;
+  label: string;
+  Icon: ComponentType<{ size?: number; 'aria-hidden'?: boolean }>;
+}> = [
+  { slug: 'nodes', label: 'Nodes', Icon: HardDrives },
+  { slug: 'alerts', label: 'Alerts', Icon: Bell },
+  { slug: 'tokens', label: 'Tokens', Icon: Key },
+  { slug: 'retention', label: 'Retention', Icon: Database },
+  { slug: 'appearance', label: 'Appearance', Icon: Palette },
+  { slug: 'account', label: 'Account', Icon: User },
+  { slug: 'about', label: 'About', Icon: Info },
 ];
 
-function SettingsTabs() {
+function SettingsNav() {
   const { pathname } = useLocation();
   const section = SECTIONS.find((entry) => pathname.startsWith(`/settings/${entry.slug}`))?.slug ?? 'nodes';
   return (
-    <TabList label="Settings sections">
-      {SECTIONS.map((entry) => (
-        <Tab
-          key={entry.slug}
-          href={`/settings/${entry.slug}`}
-          selected={entry.slug === section}
-          label={entry.label}
-        />
-      ))}
-    </TabList>
+    <nav className="settings-nav" aria-label="Settings sections">
+      {SECTIONS.map((entry) => {
+        const Icon = entry.Icon;
+        return (
+          <RouterLink
+            key={entry.slug}
+            to={`/settings/${entry.slug}`}
+            className="settings-nav-item"
+            aria-current={entry.slug === section ? 'page' : undefined}
+          >
+            <Icon size={16} aria-hidden={true} />
+            <span>{entry.label}</span>
+          </RouterLink>
+        );
+      })}
+    </nav>
   );
 }
 
-/** One settings screen: the head, the section tabs, then the section's bands. */
+/** One Beszel settings card: header, hairline, left sidebar nav and content. */
 export function SettingsPage({ children }: { children: ReactNode }) {
   return (
-    <VStack gap={6}>
-      <VStack gap={2}>
-        <PageHead title="Settings" />
-        <SettingsTabs />
-      </VStack>
-      {children}
-    </VStack>
+    <section className="beszel-card" aria-label="Settings">
+      <header className="beszel-card-head">
+        <div className="beszel-card-title-group">
+          <h1>Settings</h1>
+          <p>Manage nodes, alert channels, API tokens, retention and appearance.</p>
+        </div>
+      </header>
+      <hr />
+      <div className="settings-layout">
+        <SettingsNav />
+        <div className="settings-content">{children}</div>
+      </div>
+    </section>
   );
 }
 
@@ -62,7 +85,7 @@ export function Two({ children }: { children: ReactNode }) {
     );
   }
   return (
-    <Grid columns={2} gap={6} style={{ alignItems: 'start' }}>
+    <Grid columns={2} gap={5} style={{ alignItems: 'start' }}>
       {children}
     </Grid>
   );

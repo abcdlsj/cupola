@@ -63,7 +63,6 @@ function TopProcesses({ view, nodeId }: { view: NodeView; nodeId: string }) {
     {
       key: 'name',
       header: 'Process',
-      width: '100%',
       renderCell: ({ proc }) => <Text maxLines={1}>{name(proc)}</Text>,
     },
     { key: 'pid', header: 'PID', width: '88px', align: 'end', renderCell: ({ proc }) => mono(proc.pid) },

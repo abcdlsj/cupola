@@ -6,8 +6,7 @@ import { UnitState, UnitTable } from '../../components/UnitTable';
 import { useFleetServices } from '../../data/queries';
 import type { FleetService } from '../../data/types';
 import { pageOf, usePageSize } from '../../lib/usePageSize';
-import { Band, PageHead, useIsPhone } from '../../ui/kit';
-import { HStack } from '../../ui/primitives';
+import { useIsPhone } from '../../ui/kit';
 import { SearchInput } from '../../ui/SearchInput';
 
 /** Failed first, then by system, then by unit name. */
@@ -21,9 +20,8 @@ export function sortUnits(list: FleetService[]): FleetService[] {
 }
 
 /**
- * Every systemd unit on every node in one list. The home screen shows the first
- * page; this screen is where an operator filters the whole fleet. Filter, state
- * and page live in the URL (?q= ?state= ?page=).
+ * Every systemd unit on every node in one Beszel card. Filter, state and page
+ * live in the URL (?q= ?state= ?page=).
  */
 export function FleetServicesPage() {
   const services = useFleetServices();
@@ -65,49 +63,47 @@ export function FleetServicesPage() {
   const rows = filtered.slice(pg.index * pageSize, pg.index * pageSize + pageSize);
   const nodes = new Set(units.map((unit) => unit.node_id)).size;
 
-  const controls = (
-    <HStack gap={2} vAlign="center" wrap>
-      <UnitState
-        units={units}
-        value={state}
-        onChange={(next) => update({ state: next === 'all' ? null : next, page: null })}
-      />
-      <SearchInput
-        label="Filter units"
-        placeholder="Filter units…"
-        value={query}
-        width={phone ? '100%' : 240}
-        onChange={(value) => update({ q: value || null, page: null })}
-      />
-    </HStack>
-  );
-
   return (
-    <>
-      <PageHead
-        title={`${units.length} ${units.length === 1 ? 'unit' : 'units'}`}
-        desc={`on ${nodes} ${nodes === 1 ? 'system' : 'systems'} · ${failed} failed · failed first, then by system`}
-        actions={phone ? undefined : controls}
+    <section className="beszel-card" aria-label="Services">
+      <header className="beszel-card-head">
+        <div className="beszel-card-title-group">
+          <h1>Systemd Services</h1>
+          <p>
+            {units.length} {units.length === 1 ? 'unit' : 'units'} across {nodes}{' '}
+            {nodes === 1 ? 'system' : 'systems'} · {failed} failed · failed pinned first
+          </p>
+        </div>
+        <div className="beszel-card-controls">
+          <UnitState
+            units={units}
+            value={state}
+            onChange={(next) => update({ state: next === 'all' ? null : next, page: null })}
+          />
+          <SearchInput
+            label="Filter units"
+            placeholder="Filter units…"
+            value={query}
+            width={phone ? '100%' : 240}
+            onChange={(value) => update({ q: value || null, page: null })}
+          />
+        </div>
+      </header>
+      <UnitTable
+        rows={rows}
+        showSubState
+        footer={
+          pg.pages > 1 ? (
+            <Pager
+              page={pg.index}
+              pages={pg.pages}
+              from={pg.from}
+              to={pg.to}
+              total={filtered.length}
+              onChange={(next) => update({ page: next > 0 ? String(next + 1) : null })}
+            />
+          ) : undefined
+        }
       />
-      <Band first>
-        {phone ? controls : null}
-        <UnitTable
-          rows={rows}
-          showSubState
-          footer={
-            pg.pages > 1 ? (
-              <Pager
-                page={pg.index}
-                pages={pg.pages}
-                from={pg.from}
-                to={pg.to}
-                total={filtered.length}
-                onChange={(next) => update({ page: next > 0 ? String(next + 1) : null })}
-              />
-            ) : undefined
-          }
-        />
-      </Band>
-    </>
+    </section>
   );
 }

@@ -1,5 +1,16 @@
-import { useState } from 'react';
-import { CaretDown, CaretRight } from '@phosphor-icons/react';
+import { useState, type ComponentType } from 'react';
+import {
+  Bell,
+  CaretDown,
+  CaretRight,
+  Cube,
+  Desktop,
+  HardDrive,
+  HardDrives,
+  PlayCircle,
+  TerminalWindow,
+  WifiHigh,
+} from '@phosphor-icons/react';
 import { useSearchParams } from 'react-router-dom';
 import { SeverityPill, severityTone } from '../../components/StatusPill';
 import { ErrorPanel, LoadingRows } from '../../components/States';
@@ -7,15 +18,14 @@ import { useEvents } from '../../data/queries';
 import type { Event, Severity } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
 import { groupEvents, type EventGroup } from '../../lib/events';
-import { Band, PageHead, useIsPhone } from '../../ui/kit';
-import { EmptyState, Link, StatusDot, Text, VStack } from '../../ui/primitives';
+import { useIsPhone } from '../../ui/kit';
+import { EmptyState, Link, StatusDot } from '../../ui/primitives';
 import { Select } from '../../ui/controls';
 
 const ALL = 'all';
 const KINDS = ['node', 'service', 'container', 'system', 'network', 'action', 'disk'];
 const SEVERITIES: Severity[] = ['info', 'warning', 'critical'];
 
-/** One word per kind, so the group header reads as a noun, not a key. */
 const KIND_LABEL: Record<string, string> = {
   node: 'Node',
   service: 'Service',
@@ -25,6 +35,16 @@ const KIND_LABEL: Record<string, string> = {
   action: 'Action',
   disk: 'Disk',
   agent: 'Agent',
+};
+
+const KIND_ICON: Record<string, ComponentType<{ size?: number; 'aria-hidden'?: boolean }>> = {
+  node: HardDrives,
+  service: TerminalWindow,
+  container: Cube,
+  system: Desktop,
+  network: WifiHigh,
+  action: PlayCircle,
+  disk: HardDrive,
 };
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -40,21 +60,16 @@ const SEVERITY_RANK: Record<string, number> = {
 };
 
 const kindLabel = (kind: string) => KIND_LABEL[kind] ?? kind;
+const kindIcon = (kind: string) => KIND_ICON[kind] ?? Bell;
 
 interface KindGroup {
   kind: string;
   groups: EventGroup[];
-  /** Occurrences, not rows: a folded row of twenty counts as twenty. */
   count: number;
   worst: Severity;
   newest: number;
 }
 
-/**
- * Rows grouped by kind, worst first. Time order survives inside a kind; across
- * kinds the question is "which part of the system is talking", not "what
- * happened at 14:02", so the worst kind leads.
- */
 function groupByKind(groups: EventGroup[]): KindGroup[] {
   const buckets = new Map<string, EventGroup[]>();
   for (const group of groups) {
@@ -79,14 +94,9 @@ function groupByKind(groups: EventGroup[]): KindGroup[] {
   return out.sort((a, b) => (SEVERITY_RANK[a.worst] ?? 3) - (SEVERITY_RANK[b.worst] ?? 3) || b.count - a.count);
 }
 
-/**
- * One row. A folded group is its head row plus, when opened, one row per older
- * occurrence, so occurrences keep the columns.
- */
 interface FeedRow {
   id: string;
   event: Event;
-  /** Set on the head row of a folded group. */
   group?: EventGroup;
   occurrence?: boolean;
 }
@@ -108,9 +118,7 @@ function rowsOf(groups: EventGroup[], open: ReadonlySet<number>): FeedRow[] {
 }
 
 function Mono({ children, secondary }: { children: string; secondary?: boolean }) {
-  return (
-    <span className={secondary ? 'code muted nowrap' : 'code nowrap'}>{children}</span>
-  );
+  return <span className={secondary ? 'code muted nowrap' : 'code nowrap'}>{children}</span>;
 }
 
 export function EventsList({
@@ -131,8 +139,6 @@ export function EventsList({
   const [severity, setSeverity] = useState(params.get('severity') ?? '');
   const [kind, setKind] = useState(params.get('kind') ?? '');
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
-  // null means "nothing has been toggled": only a critical group opens on its
-  // own, everything else starts folded so the list is a summary, not a scroll.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string> | null>(null);
   const query = useEvents({
     node: nodeId,
@@ -157,8 +163,6 @@ export function EventsList({
   const kinds = groupByKind(groups);
   const folded = events.length - groups.length;
 
-  // Critical opens by itself; with nothing critical the worst kind opens, so a
-  // quiet fleet is one readable group rather than a stack of closed lids.
   const defaultFolded = (): ReadonlySet<string> => {
     const critical = kinds.filter((entry) => entry.worst === 'critical');
     const opened = critical.length > 0 ? critical : kinds.slice(0, 1);
@@ -169,8 +173,6 @@ export function EventsList({
 
   const toggleKind = (entry: KindGroup) => {
     setCollapsed((current) => {
-      // the first toggle materialises the default, so one click opens exactly
-      // the group that was clicked
       const next = new Set(current ?? defaultFolded());
       if (next.has(entry.kind)) next.delete(entry.kind);
       else next.add(entry.kind);
@@ -211,12 +213,11 @@ export function EventsList({
         <Link href={`/events/${event.id}`} tooltip={event.message}>
           {event.message}
         </Link>
-        {group ? <span className="code muted nowrap">{` ×${group.count}`}</span> : null}
+        {group ? <span className="role-tag code">{`×${group.count}`}</span> : null}
       </span>
     );
   };
 
-  /** Below 900 px a row is a block: the message, then where and when. */
   const blocks = (rows: FeedRow[]) => (
     <div className="event-blocks">
       {rows.map((row) => (
@@ -228,7 +229,7 @@ export function EventsList({
           <div className="event-block-meta" style={row.occurrence ? { paddingLeft: 26 } : undefined}>
             {row.occurrence ? null : <SeverityPill severity={row.event.severity} />}
             {row.occurrence ? null : (
-              <Link href={`/nodes/${row.event.node_id}/events`} type="code">
+              <Link href={`/nodes/${row.event.node_id}/events`} className="role-tag code">
                 {row.event.node_id}
               </Link>
             )}
@@ -245,7 +246,7 @@ export function EventsList({
       <Select
         label="Severity"
         isLabelHidden
-        width={160}
+        width={150}
         value={severity || ALL}
         options={[{ value: ALL, label: 'All severities' }, ...SEVERITIES.map((value) => ({ value, label: SEVERITY_LABEL[value] }))]}
         onChange={(value) => {
@@ -257,7 +258,7 @@ export function EventsList({
       <Select
         label="Kind"
         isLabelHidden
-        width={160}
+        width={150}
         value={kind || ALL}
         options={[{ value: ALL, label: 'All kinds' }, ...KINDS.map((value) => ({ value, label: kindLabel(value) }))]}
         onChange={(value) => {
@@ -273,6 +274,35 @@ export function EventsList({
     folded > 0 ? ` · ${groups.length} ${groups.length === 1 ? 'row' : 'rows'}` : ''
   }`;
 
+  const chips =
+    kinds.length > 0 ? (
+      <div className="event-chips" role="group" aria-label="Filter by kind">
+        {kinds.map((entry) => {
+          const Icon = kindIcon(entry.kind);
+          const active = kind === entry.kind;
+          return (
+            <button
+              key={entry.kind}
+              type="button"
+              className="event-chip"
+              aria-label={`Filter by ${kindLabel(entry.kind)} (${entry.count})`}
+              aria-pressed={active}
+              onClick={() => {
+                const next = active ? '' : entry.kind;
+                setKind(next);
+                apply(severity, next);
+              }}
+            >
+              <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
+              <Icon size={14} aria-hidden={true} />
+              <span>{kindLabel(entry.kind)}</span>
+              <span className="event-chip-count">{entry.count}</span>
+            </button>
+          );
+        })}
+      </div>
+    ) : null;
+
   const feed = query.isError ? (
     <ErrorPanel what="Couldn't load events." onRetry={() => void query.refetch()} />
   ) : query.isPending ? (
@@ -287,12 +317,14 @@ export function EventsList({
       {kinds.map((entry) => {
         const hidden = isFolded(entry);
         const rows = rowsOf(entry.groups, open);
+        const Icon = kindIcon(entry.kind);
         return (
           <div className="event-kind" key={entry.kind}>
             <button type="button" className="event-kind-head" aria-expanded={!hidden} onClick={() => toggleKind(entry)}>
               <span className="event-chevron" aria-hidden="true">
                 {hidden ? <CaretRight size={14} /> : <CaretDown size={14} />}
               </span>
+              <Icon size={15} aria-hidden={true} />
               <span className="event-kind-name">{kindLabel(entry.kind)}</span>
               <SeverityPill severity={entry.worst} />
               <span className="event-kind-count">
@@ -307,15 +339,15 @@ export function EventsList({
                 {rows.map((row) => (
                   <div className={row.occurrence ? 'event-row is-occurrence' : 'event-row'} key={row.id} role="listitem">
                     {fold(row)}
+                    <span className="event-clock">{eventTime(row.event.ts, now)}</span>
                     <span>{row.occurrence ? null : <SeverityPill severity={row.event.severity} />}</span>
-                    {message(row)}
                     <span>
-                      <Link href={`/nodes/${row.event.node_id}/events`} type="code">
+                      <Link href={`/nodes/${row.event.node_id}/events`} className="role-tag code">
                         {row.event.node_id}
                       </Link>
                     </span>
+                    {message(row)}
                     <span className="event-when">
-                      <Mono>{eventTime(row.event.ts, now)}</Mono>
                       <span className="muted small">{relative(row.event.ts, now)}</span>
                     </span>
                   </div>
@@ -328,56 +360,17 @@ export function EventsList({
     </div>
   );
 
-  if (level === 2) {
-    return (
-      <Band
-        title={title}
-        desc={desc}
-        first
-        actions={
-          <>
-            {filters}
-            <Text type="supporting">{summary}</Text>
-          </>
-        }
-      >
-        {feed}
-      </Band>
-    );
-  }
-
   return (
-    <>
-      <PageHead
-        title={level === 1 ? `${events.length} ${events.length === 1 ? 'event' : 'events'}` : title}
-        desc={desc}
-        actions={filters}
-      />
-      {kinds.length > 0 ? (
-        <Band title="By kind" desc="Occurrences per kind in the loaded window, worst first" first>
-          <div className="event-summary-grid">
-            {kinds.map((entry) => (
-              <div className="event-summary-card" key={entry.kind}>
-                <StatusDot variant={severityTone(entry.worst)} label={`${kindLabel(entry.kind)}: ${entry.worst}`} />
-                <VStack gap={0} style={{ minWidth: 0 }}>
-                  <Text weight="medium">{kindLabel(entry.kind)}</Text>
-                  <Text type="supporting">
-                    {entry.count} · {relative(entry.newest, now)}
-                  </Text>
-                </VStack>
-              </div>
-            ))}
-          </div>
-        </Band>
-      ) : null}
-      <Band
-        title="Timeline"
-        desc="Repeats on one node within an hour fold into one row"
-        first={kinds.length === 0}
-        actions={<Text type="supporting">{summary}</Text>}
-      >
-        {feed}
-      </Band>
-    </>
+    <section className="beszel-card" aria-label={title}>
+      <header className="beszel-card-head">
+        <div className="beszel-card-title-group">
+          {level === 1 ? <h1>{title}</h1> : <h2>{title}</h2>}
+          <p>{[summary, desc].filter(Boolean).join(' · ')}</p>
+        </div>
+        {filters ? <div className="beszel-card-controls">{filters}</div> : null}
+      </header>
+      {chips}
+      {feed}
+    </section>
   );
 }

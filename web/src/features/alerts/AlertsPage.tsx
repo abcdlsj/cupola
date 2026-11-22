@@ -3,7 +3,7 @@ import { ErrorPanel, LoadingPage } from '../../components/States';
 import { useAlerts, useChannels, useDeliveries, useRules } from '../../data/queries';
 import type { Alert, AlertRule, Delivery } from '../../data/types';
 import { eventTime, relative } from '../../lib/format';
-import { Band, KpiCell, KpiStrip, PageHead, useIsPhone } from '../../ui/kit';
+import { useIsPhone } from '../../ui/kit';
 import {
   Badge,
   Button,
@@ -100,7 +100,6 @@ export function AlertsPage() {
     {
       key: 'condition',
       header: 'Condition',
-      width: '100%',
       renderCell: ({ rule }) => <Mono>{condition(rule)}</Mono>,
     },
     {
@@ -139,7 +138,6 @@ export function AlertsPage() {
     {
       key: 'alert',
       header: 'Alert',
-      width: '100%',
       renderCell: ({ alert }) => (
         <VStack gap={0}>
           <Text>{ruleName(alert)}</Text>
@@ -196,7 +194,6 @@ export function AlertsPage() {
     {
       key: 'status',
       header: 'Status',
-      width: '100%',
       renderCell: ({ delivery }) => (
         <HStack gap={2} vAlign="center">
           <Badge variant={delivery.ok ? 'success' : 'error'} label={delivery.ok ? 'Delivered' : delivery.status} />
@@ -208,36 +205,28 @@ export function AlertsPage() {
 
   return (
     <>
-      <PageHead
-        title={firingList.length > 0 ? `${firingList.length} firing` : 'Nothing firing'}
-        actions={<Button label="New rule" variant="primary" href="/alerts/rules/new" />}
-      />
+      <section className="beszel-card" aria-label="Alerts overview">
+        <header className="beszel-card-head">
+          <div className="beszel-card-title-group">
+            <h1>{firingList.length > 0 ? `${firingList.length} firing` : 'Alerts'}</h1>
+            <p>
+              {firingList.length > 0
+                ? `${firingList.length} of ${ruleList.length} rules over threshold right now`
+                : 'Nothing firing · rules evaluate on every poll and event rules fire immediately'}
+            </p>
+          </div>
+          <div className="beszel-card-controls">
+            <Badge variant={firingList.length > 0 ? 'error' : 'success'} label={firingList.length > 0 ? `${firingList.length} firing` : 'All clear'} />
+            <Badge variant="neutral" label={`${enabled}/${ruleList.length} rules`} />
+            <Badge variant="neutral" label={`${channels.data?.length ?? 0} channels`} />
+            {failedDeliveries > 0 ? <Badge variant="warning" label={`${failedDeliveries} failed`} /> : null}
+            <Button label="New rule" variant="primary" href="/alerts/rules/new" />
+          </div>
+        </header>
 
-      <KpiStrip>
-        <KpiCell label="Rules" value={ruleList.length} note={`${enabled} enabled`} />
-        <KpiCell label="Channels" value={channels.data?.length} note="delivery targets" />
-        <KpiCell
-          label="Deliveries"
-          value={deliveries.data?.length}
-          state={failedDeliveries > 0 ? 'warning' : undefined}
-          note={failedDeliveries > 0 ? `${failedDeliveries} failed` : 'recent attempts'}
-        />
-      </KpiStrip>
-
-      <Band
-        title={firingList.length > 0 ? 'Firing' : undefined}
-        desc={firingList.length > 0 ? 'Rules that are over their threshold right now' : undefined}
-        actions={
-          firingList.length > 0 ? (
-            <Text type="supporting">{`${firingList.length} of ${ruleList.length} rules`}</Text>
-          ) : undefined
-        }
-      >
         {firing.isError ? (
           <ErrorPanel what="Couldn't load firing alerts." onRetry={() => void firing.refetch()} />
-        ) : firingList.length === 0 ? (
-          <p className="muted small">Rules evaluate on every poll; an event rule fires as soon as its event arrives.</p>
-        ) : (
+        ) : firingList.length > 0 ? (
           <Grid columns={{ minWidth: phone ? 260 : 360, repeat: 'fit' }}>
             {firingList.map((alert) => (
               <section className="section is-alert" key={alert.id}>
@@ -251,7 +240,7 @@ export function AlertsPage() {
                 <VStack gap={1}>
                   <Text>{alert.message}</Text>
                   <HStack gap={2} vAlign="center" wrap>
-                    <Link href={`/nodes/${alert.node_id}`} type="code">
+                    <Link href={`/nodes/${alert.node_id}`} className="role-tag code">
                       {alert.node_id}
                     </Link>
                     <Text type="supporting">value</Text>
@@ -259,26 +248,31 @@ export function AlertsPage() {
                   </HStack>
                 </VStack>
                 <div>
-                  <Button label="Open rule" href={`/alerts/rules/${alert.rule_id}`} />
+                  <Button label="Open rule" size="sm" href={`/alerts/rules/${alert.rule_id}`} />
                 </div>
               </section>
             ))}
           </Grid>
-        )}
-      </Band>
+        ) : null}
+      </section>
 
-      <Band
-        title="Rules"
-        desc="Metric thresholds, event matches and delivery targets"
-        actions={<Text type="supporting">{`${ruleList.length} rules`}</Text>}
-      >
+      <section className="beszel-card" aria-label="Rules">
+        <header className="beszel-card-head">
+          <div className="beszel-card-title-group">
+            <h2>Rules</h2>
+            <p>Metric thresholds, event matches and delivery targets</p>
+          </div>
+          <div className="beszel-card-controls">
+            <Text type="supporting">{`${ruleList.length} rules`}</Text>
+          </div>
+        </header>
         {rules.isError ? (
           <ErrorPanel what="Couldn't load rules." onRetry={() => void rules.refetch()} />
         ) : ruleList.length === 0 ? (
           <EmptyState
             title="No rule yet"
             description="Create the first rule, or add one from an event with “Alert me about this”."
-            actions={<Link href="/alerts/rules/new">Create the first rule</Link>}
+            actions={<Button label="Create the first rule" href="/alerts/rules/new" size="sm" />}
           />
         ) : phone ? (
           <Blocks
@@ -301,82 +295,90 @@ export function AlertsPage() {
         ) : (
           <Table data={ruleList.map((rule) => ({ rule }))} columns={ruleColumns} idKey={(row) => row.rule.id} label="Rules" hasHover />
         )}
-      </Band>
+      </section>
 
-      <Band
-        title="History"
-        desc="Every alert that fired, newest first"
-        actions={<Text type="supporting">{`${history.data?.length ?? 0} alerts`}</Text>}
-      >
-        {history.isError ? (
-          <ErrorPanel what="Couldn't load alert history." onRetry={() => void history.refetch()} />
-        ) : historyList.length === 0 ? (
-          <EmptyState title="No alert has fired yet" />
-        ) : phone ? (
-          <Blocks
-            items={historyList}
-            id={(alert) => alert.id}
-            render={(alert) => (
-              <>
-                <Line>
-                  <Badge variant={alert.state === 'firing' ? 'error' : 'success'} label={alert.state} />
-                  <Text>{ruleName(alert)}</Text>
-                </Line>
-                <Text type="supporting">{alert.message}</Text>
-                <Line>
-                  <Link href={`/nodes/${alert.node_id}`} type="code">
-                    {alert.node_id}
-                  </Link>
-                  <Mono secondary>{eventTime(alert.ts, now)}</Mono>
-                </Line>
-              </>
-            )}
-          />
-        ) : (
-          <Table data={historyList.map((alert) => ({ alert }))} columns={historyColumns} idKey={(row) => String(row.alert.id)} label="Alert history" />
-        )}
-      </Band>
+      <div className="chart-grid">
+        <section className="beszel-card" aria-label="History">
+          <header className="beszel-card-head">
+            <div className="beszel-card-title-group">
+              <h2>History</h2>
+              <p>Every alert that fired, newest first</p>
+            </div>
+            <Text type="supporting">{`${history.data?.length ?? 0} alerts`}</Text>
+          </header>
+          {history.isError ? (
+            <ErrorPanel what="Couldn't load alert history." onRetry={() => void history.refetch()} />
+          ) : historyList.length === 0 ? (
+            <EmptyState title="No alert has fired yet" description="Firing and resolved alert transitions will appear here." />
+          ) : phone ? (
+            <Blocks
+              items={historyList}
+              id={(alert) => alert.id}
+              render={(alert) => (
+                <>
+                  <Line>
+                    <Badge variant={alert.state === 'firing' ? 'error' : 'success'} label={alert.state} />
+                    <Text>{ruleName(alert)}</Text>
+                  </Line>
+                  <Text type="supporting">{alert.message}</Text>
+                  <Line>
+                    <Link href={`/nodes/${alert.node_id}`} className="role-tag code">
+                      {alert.node_id}
+                    </Link>
+                    <Mono secondary>{eventTime(alert.ts, now)}</Mono>
+                  </Line>
+                </>
+              )}
+            />
+          ) : (
+            <Table data={historyList.map((alert) => ({ alert }))} columns={historyColumns} idKey={(row) => String(row.alert.id)} label="Alert history" />
+          )}
+        </section>
 
-      <Band
-        title="Deliveries"
-        desc="Webhook and channel attempts, with their status"
-        actions={<Text type="supporting">{`${deliveries.data?.length ?? 0} attempts`}</Text>}
-      >
-        {deliveries.isError ? (
-          <ErrorPanel what="Couldn't load deliveries." onRetry={() => void deliveries.refetch()} />
-        ) : deliveryList.length === 0 ? (
-          <EmptyState
-            title="No delivery yet"
-            description="Test a channel in Settings → Alerts."
-            actions={<Link href="/settings/alerts">Open alert settings</Link>}
-          />
-        ) : phone ? (
-          <Blocks
-            items={deliveryList}
-            id={(delivery) => delivery.id}
-            render={(delivery) => (
-              <>
-                <Line>
-                  <Badge variant={delivery.ok ? 'success' : 'error'} label={delivery.ok ? 'Delivered' : delivery.status} />
-                  <Text>{channelName(delivery.channel_id)}</Text>
-                </Line>
-                <Line>
-                  <Mono secondary>{eventTime(delivery.ts, now)}</Mono>
-                  <Text type="supporting">{`${delivery.attempts} ${delivery.attempts === 1 ? 'attempt' : 'attempts'}`}</Text>
-                </Line>
-                {delivery.error ? <Text type="supporting">{delivery.error}</Text> : null}
-              </>
-            )}
-          />
-        ) : (
-          <Table
-            data={deliveryList.map((delivery) => ({ delivery }))}
-            columns={deliveryColumns}
-            idKey={(row) => String(row.delivery.id)}
-            label="Deliveries"
-          />
-        )}
-      </Band>
+        <section className="beszel-card" aria-label="Deliveries">
+          <header className="beszel-card-head">
+            <div className="beszel-card-title-group">
+              <h2>Deliveries</h2>
+              <p>Webhook and channel attempts, with their status</p>
+            </div>
+            <Text type="supporting">{`${deliveries.data?.length ?? 0} attempts`}</Text>
+          </header>
+          {deliveries.isError ? (
+            <ErrorPanel what="Couldn't load deliveries." onRetry={() => void deliveries.refetch()} />
+          ) : deliveryList.length === 0 ? (
+            <EmptyState
+              title="No delivery yet"
+              description="Test a channel in Settings → Alerts."
+              actions={<Button label="Open alert settings" href="/settings/alerts" size="sm" />}
+            />
+          ) : phone ? (
+            <Blocks
+              items={deliveryList}
+              id={(delivery) => delivery.id}
+              render={(delivery) => (
+                <>
+                  <Line>
+                    <Badge variant={delivery.ok ? 'success' : 'error'} label={delivery.ok ? 'Delivered' : delivery.status} />
+                    <Text>{channelName(delivery.channel_id)}</Text>
+                  </Line>
+                  <Line>
+                    <Mono secondary>{eventTime(delivery.ts, now)}</Mono>
+                    <Text type="supporting">{`${delivery.attempts} ${delivery.attempts === 1 ? 'attempt' : 'attempts'}`}</Text>
+                  </Line>
+                  {delivery.error ? <Text type="supporting">{delivery.error}</Text> : null}
+                </>
+              )}
+            />
+          ) : (
+            <Table
+              data={deliveryList.map((delivery) => ({ delivery }))}
+              columns={deliveryColumns}
+              idKey={(row) => String(row.delivery.id)}
+              label="Deliveries"
+            />
+          )}
+        </section>
+      </div>
     </>
   );
 }

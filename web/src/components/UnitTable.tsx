@@ -233,10 +233,10 @@ export function UnitTable({
     columns.push({
       key: 'node',
       header: 'System',
-      width: '150px',
+      width: '130px',
       renderCell: (row) =>
         row.nodeName && row.nodeId ? (
-          <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} className="nowrap">
+          <Link href={`/nodes/${encodeURIComponent(row.nodeId)}/services`} className="role-tag nowrap">
             {row.nodeName}
           </Link>
         ) : (
@@ -249,29 +249,22 @@ export function UnitTable({
   columns.push({
     key: 'state',
     header: 'State',
-    width: '120px',
+    width: '140px',
     renderCell: (row) => {
       const tone = unitTone(row.unit.active_state);
+      const word = stateWord(row.unit.active_state);
+      const sub =
+        showSubState && row.unit.sub_state && row.unit.sub_state !== word && row.unit.sub_state !== row.unit.active_state
+          ? row.unit.sub_state
+          : null;
       return (
-        <Badge
-          variant={tone === 'fail' ? 'error' : tone === 'ok' ? 'success' : 'neutral'}
-          label={stateWord(row.unit.active_state)}
-        />
+        <HStack gap={1.5} vAlign="center">
+          <Badge variant={tone === 'fail' ? 'error' : tone === 'ok' ? 'success' : 'neutral'} label={word} />
+          {sub ? <span className="muted small nowrap">{sub}</span> : null}
+        </HStack>
       );
     },
   });
-  if (showSubState) {
-    columns.push({
-      key: 'sub',
-      header: 'Sub state',
-      width: '120px',
-      renderCell: (row) => (
-        <Text type="supporting" textWrap="nowrap">
-          {row.unit.sub_state || '—'}
-        </Text>
-      ),
-    });
-  }
   columns.push(
     {
       key: 'restarts',

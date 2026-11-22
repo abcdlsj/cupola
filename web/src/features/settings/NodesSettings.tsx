@@ -389,7 +389,6 @@ export function NodesSettingsPage() {
     {
       key: 'node',
       header: 'Node',
-      width: '100%',
       renderCell: ({ view }) => (
         <VStack gap={0}>
           <Link href={`/nodes/${view.node.id}`}>{view.node.name}</Link>

@@ -402,10 +402,7 @@ export function OverviewPage() {
           <div className="beszel-card-title-group">
             <h1>All Systems</h1>
             <p>
-              Updated in real time. Click on a system to view more information.{' '}
-              <span className="faint">
-                · {nodes.length} {nodes.length === 1 ? 'system' : 'systems'} ({onlineCount} up)
-              </span>
+              {nodes.length} {nodes.length === 1 ? 'system' : 'systems'} · {onlineCount} online
             </p>
           </div>
           <div className="beszel-card-controls">
@@ -465,14 +462,16 @@ export function OverviewPage() {
         ) : effectiveMode === 'cards' ? (
           <SystemCards rows={shown} />
         ) : (
-          <Table
-            data={shown}
-            columns={columns}
-            idKey="id"
-            label="Systems"
-            hasHover
-            onRowClick={(row) => navigate(nodeHref(row.view.node.id))}
-          />
+          <div className="table-systems">
+            <Table
+              data={shown}
+              columns={columns}
+              idKey="id"
+              label="Systems"
+              hasHover
+              onRowClick={(row) => navigate(nodeHref(row.view.node.id))}
+            />
+          </div>
         )}
       </section>
 

@@ -156,7 +156,7 @@ export function ProcessesPage() {
       width: '180px',
       renderCell: ({ proc }) => (
         <VStack gap={0}>
-          <Link href={href(proc)} maxLines={1} tooltip={proc.name}>
+          <Link href={href(proc)} className="nowrap" tooltip={proc.name}>
             {proc.name}
           </Link>
           <Text type="supporting" maxLines={1}>
@@ -168,7 +168,6 @@ export function ProcessesPage() {
     {
       key: 'command',
       header: 'Command line',
-      width: '100%',
       renderCell: ({ proc }) => (
         <Text type="code" size="sm" color="secondary" maxLines={1} title={proc.command || proc.name}>
           {proc.command || proc.name}
@@ -227,12 +226,14 @@ export function ProcessesPage() {
   ];
 
   return (
-    <Band
-      title="Processes"
-      desc={`${procs.length} of ${snap.cpu.procs || snap.processes.length} by CPU · the agent samples the busiest · arguments redacted`}
-      actions={filter}
-      first
-    >
+    <section className="beszel-card" aria-label="Processes">
+      <header className="beszel-card-head">
+        <div className="beszel-card-title-group">
+          <h2>Processes</h2>
+          <p>{`${procs.length} of ${snap.cpu.procs || snap.processes.length} by CPU · the agent samples the busiest · arguments redacted`}</p>
+        </div>
+        <div className="beszel-card-controls">{filter}</div>
+      </header>
       {procs.length === 0 ? (
         <EmptyState
           title={query ? `No process matches “${query}”` : 'No process sampled'}
@@ -254,7 +255,7 @@ export function ProcessesPage() {
       ) : (
         <Table data={procs.map((proc) => ({ pid: proc.pid, proc }))} columns={columns} idKey="pid" label="Processes" hasHover />
       )}
-    </Band>
+    </section>
   );
 }
 
@@ -365,12 +366,14 @@ export function ServicesPage() {
     setParams(search, { replace: true });
   };
   return (
-    <Band
-      title="Services"
-      desc={`${services.length} of ${all.length} systemd units · ${failed} failed`}
-      actions={all.length > 0 ? <UnitState units={all} value={state} onChange={setState} /> : undefined}
-      first
-    >
+    <section className="beszel-card" aria-label="Services">
+      <header className="beszel-card-head">
+        <div className="beszel-card-title-group">
+          <h2>Services</h2>
+          <p>{`${services.length} of ${all.length} systemd units · ${failed} failed`}</p>
+        </div>
+        {all.length > 0 ? <div className="beszel-card-controls"><UnitState units={all} value={state} onChange={setState} /></div> : null}
+      </header>
       {all.length === 0 ? (
         <EmptyState
           title="No systemd service reported"
@@ -379,7 +382,7 @@ export function ServicesPage() {
       ) : (
         <UnitTable rows={services} nodeId={nodeId} showNode={false} showSubState />
       )}
-    </Band>
+    </section>
   );
 }
 
@@ -555,11 +558,10 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'name',
       header: 'Container',
-      width: '100%',
       renderCell: ({ box }) => (
         <HStack gap={2} vAlign="center">
           <StatusDot variant={containerTone(box.state)} label={box.state} />
-          <Link href={href(box)} maxLines={1} tooltip={box.name}>
+          <Link href={href(box)} className="nowrap" tooltip={box.name}>
             {box.name}
           </Link>
         </HStack>
@@ -568,7 +570,6 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'image',
       header: 'Image',
-      width: '220px',
       renderCell: ({ box }) => (
         <Text type="code" size="sm" color="secondary" maxLines={1} title={box.image}>
           {box.image}
@@ -578,11 +579,12 @@ function ContainersTable({ nodeId, containers, cores }: { nodeId: string; contai
     {
       key: 'state',
       header: 'State',
-      width: '110px',
+      width: '120px',
       renderCell: ({ box }) => (
-        <Text type="supporting" textWrap="nowrap">
-          {box.state}
-        </Text>
+        <Badge
+          variant={box.state === 'running' ? 'success' : box.state === 'restarting' ? 'warning' : 'neutral'}
+          label={box.state}
+        />
       ),
     },
     {

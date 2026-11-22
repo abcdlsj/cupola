@@ -151,7 +151,6 @@ export function MemoryPage() {
     {
       key: 'name',
       header: 'Process',
-      width: '100%',
       renderCell: ({ proc }) => (
         <VStack gap={0}>
           <Text maxLines={1}>{procLink(proc)}</Text>

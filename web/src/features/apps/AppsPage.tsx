@@ -6,7 +6,7 @@ import { useFleetActions, useRuns } from '../../data/queries';
 import type { Action, ActionRun, FleetAction } from '../../data/types';
 import { clock, relative } from '../../lib/format';
 import { actionMark } from '../../lib/actionIcon';
-import { Band, PageHead, useIsPhone } from '../../ui/kit';
+import { PageHead, useIsPhone } from '../../ui/kit';
 import {
   Badge,
   Button,
@@ -108,10 +108,13 @@ export function ActionRows({
               </div>
             </div>
             <div className="action-side">
-              <LastRun action={action} />
-              <span className="action-when">{last ? `${last} · ${actionKind(action)}` : actionKind(action)}</span>
+              <div className="action-side-meta">
+                <LastRun action={action} />
+                <span className="action-when">{last ? `${last} · ${actionKind(action)}` : actionKind(action)}</span>
+              </div>
               <Button
                 label={action.type === 'wol' ? 'Wake' : 'Run'}
+                size="sm"
                 onClick={() => onRun(action)}
               />
             </div>
@@ -191,7 +194,6 @@ export function RunsTable({
     columns.push({
       key: 'action',
       header: 'Action',
-      width: '100%',
       renderCell: ({ run: entry }) => (
         <Link href={actionHref(entry.node_id, entry.action_id)} maxLines={1}>
           {title(entry)}
@@ -281,8 +283,13 @@ export function AppsPage() {
 
   return (
     <>
-      <PageHead title={`${all.length} ${all.length === 1 ? 'action' : 'actions'}`} desc={desc} />
-      <Band first>
+      <section className="beszel-card" aria-label="Apps">
+        <header className="beszel-card-head">
+          <div className="beszel-card-title-group">
+            <h1>Apps & Actions</h1>
+            <p>{`${all.length} ${all.length === 1 ? 'action' : 'actions'} · ${desc}`}</p>
+          </div>
+        </header>
         {all.length === 0 ? (
           <EmptyState
             title="No action is configured"
@@ -298,14 +305,22 @@ export function AppsPage() {
             }}
           />
         )}
-      </Band>
-      <Band title="Recent runs" desc={`Every run is an event; the newest twelve here · ${recorded} recorded`}>
+      </section>
+
+      <section className="beszel-card" aria-label="Recent runs">
+        <header className="beszel-card-head">
+          <div className="beszel-card-title-group">
+            <h2>Recent runs</h2>
+            <p>{`Every run is an event; the newest twelve here · ${recorded} recorded`}</p>
+          </div>
+        </header>
         {runs.isError ? (
           <ErrorPanel what="Could not load runs." onRetry={() => void runs.refetch()} />
         ) : (
           <RunsTable runs={(runs.data ?? []).slice(0, 12)} showNode />
         )}
-      </Band>
+      </section>
+
       <RunLimits />
       <RunActionDialog
         action={selected}

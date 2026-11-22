@@ -94,7 +94,6 @@ export function AlertsSettingsPage() {
     {
       key: 'target',
       header: 'Target',
-      width: '100%',
       renderCell: ({ channel }) => (
         <Text type="code" color={channel.target ? undefined : 'secondary'}>
           {channel.target || '—'}
@@ -330,7 +329,6 @@ export function TokensSettingsPage() {
     {
       key: 'allowlist',
       header: 'Allowlist',
-      width: '100%',
       renderCell: ({ token }) => <Text type="supporting">{allowlist(token)}</Text>,
     },
     {

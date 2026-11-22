@@ -14,7 +14,7 @@ export function EventsPage() {
     <EventsList
       title="Events"
       level={1}
-      desc="Changes the hub derived from the snapshots: units, containers, reboots, ports and alert transitions."
+      desc="Units, containers, ports, reboots and alerts"
     />
   );
 }
